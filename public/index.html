@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es" data-tema="oscuro" data-densidad="comoda">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="description" content="iciia2.0 · CRM multiempresa omnicanal">
+<title>iciia2.0 · CRM</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23FF7A00'/><text y='68' x='50' text-anchor='middle' font-size='52' font-family='sans-serif' font-weight='bold' fill='white'>i2</text></svg>">
+</head>
+<body>
+<div id="aurora"><i></i><i></i><i></i></div>
+
+<div id="login">
+  <form class="login-card" id="form-login">
+    <div class="logo"><div class="logo-mark">i2</div><h1>iciia<span style="color:var(--brand)">2.0</span></h1></div>
+    <p class="sub">Plataforma CRM multiempresa · omnicanal</p>
+    <div class="field"><label for="l-emp">Empresa</label>
+      <input id="l-emp" placeholder="Código de empresa" autocomplete="organization" required></div>
+    <div class="field"><label for="l-usr">Usuario</label>
+      <input id="l-usr" placeholder="usuario" autocomplete="username" required></div>
+    <div class="field"><label for="l-pwd">Contraseña</label>
+      <input id="l-pwd" type="password" placeholder="••••••••" autocomplete="current-password" required></div>
+    <div class="err" id="l-err" role="alert"></div>
+    <button class="btn block" type="submit" id="l-btn">Ingresar</button>
+    <div class="hint">
+      Para entrar al panel de administración usá el código de empresa <b>admin</b>.<br>
+      Si no recordás tus credenciales, pedíselas al administrador del sistema.
+    </div>
+  </form>
+</div>
+
+<div id="app" class="hidden">
+  <aside>
+    <div class="brand"><img id="b-logo" alt="" hidden><div><b id="b-name">—</b><span id="b-emp">—</span></div></div>
+    <nav id="nav"></nav>
+    <div class="me">
+      <div class="avatar" id="me-av"></div>
+      <div style="flex:1;min-width:0"><b id="me-name">—</b><span id="me-rol"></span></div>
+      <button class="x" title="Cerrar sesión" id="btn-salir">⏻</button>
+    </div>
+  </aside>
+  <main>
+    <header class="top">
+      <button class="burger" id="btn-burger" aria-label="Menú">☰</button>
+      <h2 id="v-title">Negociaciones</h2>
+      <span class="pill wx" id="wx" hidden></span>
+      <button class="pill" id="disp-pill"><span class="dot live" id="disp-dot"></span><span id="disp-txt">—</span></button>
+      <button class="pill" id="noti-btn" aria-label="Notificaciones">🔔 <span id="noti-n"></span></button>
+      <button class="pill" id="btn-tema" title="Cambiar tema">🌙</button>
+      <button class="pill hide-m" id="btn-densidad" title="Densidad">▤</button>
+      <span class="pill hide-m" id="clock">—</span>
+    </header>
+    <div id="view" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
+  </main>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<div id="modals"></div>
+<div id="confeti" class="hidden"></div>
+
+<script src="/js/app.js" type="module"></script>
+</body>
+</html>
