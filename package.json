@@ -1,0 +1,26 @@
+{
+  "name": "iciia-crm",
+  "version": "2.1.0",
+  "description": "iciia2.0 — CRM multiempresa omnicanal: WhatsApp QR, WhatsApp Cloud API, Messenger e Instagram",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "dev": "node --watch src/server.mjs",
+    "check": "node scripts/verificar.mjs"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1",
+    "qrcode": "^1.5.4"
+  }
+}
