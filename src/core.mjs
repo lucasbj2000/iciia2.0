@@ -104,10 +104,20 @@ export async function negActivaPorTel(empresa, tel, excluir = null) {
 /* ================= CONTACTOS ================= */
 export async function buscarContacto(empresa, { tel, externoTipo, externoId }) {
   if (externoTipo && externoId) {
+    const externo = String(externoId);
     const { rows } = await q(
       `SELECT * FROM contactos WHERE empresa_id=$1 AND externos->>$2 = $3 LIMIT 1`,
-      [empresa.id, externoTipo, String(externoId)]);
+      [empresa.id, externoTipo, externo]);
     if (rows[0]) return rows[0];
+
+    // Compatibilidad con contactos creados antes de preservar el sufijo @lid.
+    if (externoTipo === 'whatsapp' && externo.endsWith('@lid')) {
+      const legado = externo.split('@')[0];
+      const { rows: antiguos } = await q(
+        `SELECT * FROM contactos WHERE empresa_id=$1 AND externos->>'whatsapp'=$2 LIMIT 1`,
+        [empresa.id, legado]);
+      if (antiguos[0]) return antiguos[0];
+    }
   }
   const t = telNorm(tel);
   if (t) {
@@ -143,24 +153,27 @@ export async function ingresarMensaje(empresa, {
     if (rows.length) return { duplicado: true };
   }
   const cuando = ts ? new Date(ts) : new Date();
+  const telefonoWhatsApp = origen === 'whatsapp' && !String(remitente || '').includes('@')
+    ? String(remitente)
+    : null;
 
   /* --- contacto --- */
   let contacto = await buscarContacto(empresa, {
-    tel: origen === 'whatsapp' ? remitente : null,
+    tel: telefonoWhatsApp,
     externoTipo: externoTipo || origen, externoId: remitente
   });
   const reingreso = !!contacto;
   if (!contacto) {
     contacto = await crearContacto(empresa, {
       nombre: nombre || etiquetaAnonima(origen, remitente),
-      tel: origen === 'whatsapp' ? remitente : '',
+      tel: telefonoWhatsApp || '',
       sucursal: canalSucursal || null, linea: canalLinea || null,
       externos: { [externoTipo || origen]: String(remitente) }
     });
   } else {
     const ext = contacto.externos || {};
     const key = externoTipo || origen;
-    if (!ext[key]) {
+    if (!ext[key] || (origen === 'whatsapp' && String(remitente).includes('@') && ext[key] !== String(remitente))) {
       ext[key] = String(remitente);
       await q('UPDATE contactos SET externos=$2 WHERE id=$1', [contacto.id, JSON.stringify(ext)]);
     }
