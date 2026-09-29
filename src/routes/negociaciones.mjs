@@ -255,6 +255,11 @@ async function encolarSalida(req, n, texto, adjunto) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [req.empresaId, canal.id, n.id, destino, texto, adjunto?.id || null,
        adjunto?.url || null, adjunto?.tipo || null, adjunto?.nombre || null]);
+
+    // Intentar el envío inmediatamente. El worker periódico conserva la garantía de reintento.
+    import('../worker.mjs')
+      .then(({ drenarOutbox }) => drenarOutbox())
+      .catch(e => console.error('[outbox inmediato]', e.message));
   }
 }
 
