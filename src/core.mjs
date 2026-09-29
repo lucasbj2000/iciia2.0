@@ -69,7 +69,6 @@ export function horasLaborales(desde, hasta, r) {
  * usuarios.activo es la fuente de verdad para participar o no.
  */
 export async function asignarEquitativo(empresa, { sucursal, linea } = {}) {
-  if (!empresa.flags?.asignacionEquitativa) return null;
   const activas = etapasActivas(empresa);
 
   const buscar = async (suc, lin) => {
@@ -106,20 +105,21 @@ export async function asignarEquitativo(empresa, { sucursal, linea } = {}) {
  */
 export async function responsableUltimoCierre(empresa, contactoId) {
   const { rows } = await q(
-    `SELECT n.agente_id
+    `SELECT n.agente_id, u.activo, u.oculto
        FROM negociaciones n
-       JOIN usuarios u ON u.id=n.agente_id
+       LEFT JOIN usuarios u
+         ON u.id=n.agente_id AND u.empresa_id=n.empresa_id
       WHERE n.empresa_id=$1
         AND n.contacto_id=$2
         AND n.etapa = ANY($3)
-        AND u.empresa_id=$1
-        AND u.rol='agente'
-        AND u.activo
-        AND NOT u.oculto
       ORDER BY n.actualizado DESC, n.creado DESC
       LIMIT 1`,
     [empresa.id, contactoId, ['cerrado', 'ganado']]);
-  return rows[0]?.agente_id || null;
+
+  const ultimo = rows[0];
+  return ultimo?.agente_id && ultimo.activo && !ultimo.oculto
+    ? ultimo.agente_id
+    : null;
 }
 
 /* ================= ANTI DUPLICADO ================= */
