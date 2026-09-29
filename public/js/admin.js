@@ -753,7 +753,8 @@ async function aEtapas() {
   const e = S.empresa;
   AB().innerHTML = `<div class="grid g2">
    <div class="card-box"><h3>Etapas del pipeline</h3>
-    <p class="sub" style="margin-top:-6px">Las etapas <b>activas</b> aplican la regla anti duplicado.</p>
+    <p class="sub" style="margin-top:-6px">Las etapas <b>activas</b> aplican la regla anti duplicado.
+      <b>Cerrado</b> y <b>Cerrado Ganado</b> son terminales y nunca cuentan como abiertas.</p>
     <table><thead><tr><th>Etapa</th><th>Activa</th><th></th></tr></thead>
     <tbody>${(e.etapas || []).map((x, i) => `<tr><td><span class="dot" style="background:${x.color}"></span>
       <input value="${esc(x.nombre)}" data-etn="${i}" style="background:transparent;border:0;width:65%">
@@ -773,7 +774,10 @@ async function aEtapas() {
       <td style="text-align:right"><button class="btn danger sm" data-motdel="${i}">✕</button></td></tr>`).join('')}</tbody></table>
     <div class="row" style="margin-top:12px"><input id="mo-n" placeholder="Nuevo motivo">
       <button class="btn sm" style="flex:none" id="mo-add">Agregar</button></div></div></div>`;
-  const guardarEtapas = async etapas => { await patch('/admin/etapas', { etapas }); S.empresa.etapas = etapas; };
+  const guardarEtapas = async etapas => {
+    const r = await patch('/admin/etapas', { etapas });
+    S.empresa.etapas = r.etapas || etapas;
+  };
   $$('[data-etn]').forEach(el => el.onchange = () => {
     const et = [...S.empresa.etapas]; et[el.dataset.etn].nombre = el.value; guardarEtapas(et);
   });
