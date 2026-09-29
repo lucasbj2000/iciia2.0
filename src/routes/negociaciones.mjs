@@ -3,7 +3,7 @@ import { q, telNorm } from '../db.mjs';
 import { requiere, alcanceSQL } from '../auth.mjs';
 import {
   notificar, auditar, historial, etapaActiva, nombreEtapa,
-  asignarEquitativo, negActivaDeContacto, negActivaPorTel, crearContacto, buscarContacto
+  asignarEquitativo, responsableUltimoCierre, negActivaDeContacto, negActivaPorTel, crearContacto, buscarContacto
 } from '../core.mjs';
 import { emitir } from '../realtime.mjs';
 import { obtener as obtenerArchivo } from '../archivos.mjs';
@@ -20,7 +20,15 @@ const SELECT_BASE = `
     FROM negociaciones n
     JOIN contactos c ON c.id = n.contacto_id
     LEFT JOIN usuarios u ON u.id = n.agente_id
-    LEFT JOIN canales ca ON ca.id = n.canal_id`;
+    LEFT JOIN canales ca ON ca.id = n.canal_id
+
+async function obtenerNegociacionVisible(req, id) {
+  const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 3);
+  const { rows } = await q(
+    `${SELECT_BASE} WHERE n.id=$1 AND n.empresa_id=$2 ${where}`,
+    [id, req.empresaId, ...params]);
+  return rows[0] || null;
+}`;
 
 r.get('/', requiere(), async (req, res) => {
   const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 2);
@@ -43,8 +51,7 @@ r.get('/util/duplicados', requiere('admin'), async (req, res) => {
 });
 
 r.get('/:id', requiere(), async (req, res) => {
-  const { rows } = await q(`${SELECT_BASE} WHERE n.id=$1 AND n.empresa_id=$2`, [req.params.id, req.empresaId]);
-  const n = rows[0];
+  const n = await obtenerNegociacionVisible(req, req.params.id);
   if (!n) return res.status(404).json({ error: 'no encontrada' });
   const [msgs, hist, trans, ubis] = await Promise.all([
     q(`SELECT m.*, a.archivo, a.mime, a.tipo AS archivo_tipo, a.nombre AS archivo_nombre,
@@ -63,10 +70,7 @@ r.get('/:id', requiere(), async (req, res) => {
 r.patch('/:id/etapa', requiere(), async (req, res) => {
   const emp = req.empresa;
   const { etapa, monto, motivo } = req.body || {};
-  const { rows } = await q(
-    `SELECT n.*, c.nombre AS cliente FROM negociaciones n JOIN contactos c ON c.id=n.contacto_id
-      WHERE n.id=$1 AND n.empresa_id=$2`, [req.params.id, req.empresaId]);
-  const n = rows[0];
+  const n = await obtenerNegociacionVisible(req, req.params.id);
   if (!n) return res.status(404).json({ error: 'no encontrada' });
   if (n.etapa === etapa) return res.json({ ok: true, sinCambios: true });
 
@@ -110,8 +114,7 @@ r.patch('/:id/etapa', requiere(), async (req, res) => {
 
 r.patch('/:id', requiere(), async (req, res) => {
   const { titulo, valor, origen } = req.body || {};
-  const { rows } = await q('SELECT * FROM negociaciones WHERE id=$1 AND empresa_id=$2', [req.params.id, req.empresaId]);
-  const n = rows[0];
+  const n = await obtenerNegociacionVisible(req, req.params.id);
   if (!n) return res.status(404).json({ error: 'no encontrada' });
   const v = Number(valor || 0);
   if (n.etapa === 'ganado' && req.empresa.flags?.montoObligatorio && v <= 0)
@@ -128,12 +131,9 @@ r.patch('/:id', requiere(), async (req, res) => {
 r.post('/:id/transferir', requiere(), async (req, res) => {
   const { destinoId, nota } = req.body || {};
   const emp = req.empresa;
-  const { rows } = await q(
-    `SELECT n.*, c.nombre AS cliente FROM negociaciones n JOIN contactos c ON c.id=n.contacto_id
-      WHERE n.id=$1 AND n.empresa_id=$2`, [req.params.id, req.empresaId]);
-  const n = rows[0];
+  const n = await obtenerNegociacionVisible(req, req.params.id);
   if (!n) return res.status(404).json({ error: 'no encontrada' });
-  const { rows: us } = await q('SELECT * FROM usuarios WHERE id=$1 AND empresa_id=$2', [destinoId, req.empresaId]);
+  const { rows: us } = await q('SELECT * FROM usuarios WHERE id=$1 AND empresa_id=$2 AND activo', [destinoId, req.empresaId]);
   const dest = us[0];
   if (!dest) return res.status(404).json({ error: 'usuario destino inválido' });
 
@@ -157,8 +157,10 @@ r.post('/:id/transferir', requiere(), async (req, res) => {
 });
 
 r.patch('/:id/bot', requiere(), async (req, res) => {
+  const n = await obtenerNegociacionVisible(req, req.params.id);
+  if (!n) return res.status(404).json({ error: 'no encontrada' });
   const activo = !!req.body?.activo;
-  await q('UPDATE negociaciones SET bot_activo=$2 WHERE id=$1 AND empresa_id=$3', [req.params.id, activo, req.empresaId]);
+  await q('UPDATE negociaciones SET bot_activo=$2 WHERE id=$1 AND empresa_id=$3', [n.id, activo, req.empresaId]);
   await historial(req.empresaId, req.params.id, `Bot ${activo ? 'reactivado' : 'desactivado'} manualmente`, req.user.nombre);
   emitir(req.empresaId, 'neg:patch', { id: req.params.id });
   res.json({ ok: true });
@@ -176,8 +178,7 @@ r.post('/:id/mensajes', requiere(), async (req, res) => {
     adjunto = await obtenerArchivo(archivoId, req.empresaId);
     if (!adjunto) return res.status(404).json({ error: 'El archivo adjunto no existe.' });
   }
-  const { rows } = await q('SELECT * FROM negociaciones WHERE id=$1 AND empresa_id=$2', [req.params.id, req.empresaId]);
-  const n = rows[0];
+  const n = await obtenerNegociacionVisible(req, req.params.id);
   if (!n) return res.status(404).json({ error: 'no encontrada' });
 
   if (emp.flags?.botAutoOff && n.bot_activo) {
@@ -201,8 +202,7 @@ r.post('/:id/regestionar', requiere(), async (req, res) => {
   if (!texto && !archivoId) return res.status(422).json({ error: 'Escribí un mensaje o adjuntá un archivo.' });
   const adjunto = archivoId ? await obtenerArchivo(archivoId, req.empresaId) : null;
 
-  const { rows } = await q('SELECT * FROM negociaciones WHERE id=$1 AND empresa_id=$2', [req.params.id, req.empresaId]);
-  const o = rows[0];
+  const o = await obtenerNegociacionVisible(req, req.params.id);
   if (!o) return res.status(404).json({ error: 'no encontrada' });
   if (emp.flags?.antiDuplicado) {
     const dup = await negActivaDeContacto(emp, o.contacto_id);
@@ -216,7 +216,10 @@ r.post('/:id/regestionar', requiere(), async (req, res) => {
     `INSERT INTO negociaciones (empresa_id,contacto_id,titulo,etapa,origen,canal_id,agente_id,sucursal,linea,marcadores,bot_activo)
      VALUES ($1,$2,$3,'contactado',$4,$5,$6,$7,$8,$9,FALSE) RETURNING *`,
     [req.empresaId, o.contacto_id, `Re gestión · ${o.titulo || ''}`, o.origen, o.canal_id,
-     req.user.rol === 'agente' ? req.user.id : (o.agente_id || await asignarEquitativo(emp, { sucursal: o.sucursal })),
+     req.user.rol === 'agente'
+       ? req.user.id
+       : ((await responsableUltimoCierre(emp, o.contacto_id))
+          || await asignarEquitativo(emp, { sucursal: o.sucursal, linea: o.linea })),
      o.sucursal, o.linea, JSON.stringify(marcadores)]);
   const n = ns[0];
   await q('UPDATE contactos SET frecuente=TRUE WHERE id=$1 AND empresa_id=$2', [o.contacto_id, req.empresaId]);
@@ -265,15 +268,21 @@ async function encolarSalida(req, n, texto, adjunto) {
 
 /* ---------- UBICACIONES ---------- */
 r.get('/:id/ubicaciones', requiere(), async (req, res) => {
+  const n = await obtenerNegociacionVisible(req, req.params.id);
+  if (!n) return res.status(404).json({ error: 'no encontrada' });
   const { rows } = await q(
     'SELECT * FROM ubicaciones WHERE negociacion_id=$1 AND empresa_id=$2 ORDER BY ts DESC',
-    [req.params.id, req.empresaId]);
+    [n.id, req.empresaId]);
   res.json(rows.map(u => ({ ...u, mapa: ubi.linkMapa(u.lat, u.lon, u.direccion || u.texto) })));
 });
 
 r.post('/:id/ubicaciones/confirmar', requiere(), async (req, res) => {
+  const n = await obtenerNegociacionVisible(req, req.params.id);
+  if (!n) return res.status(404).json({ error: 'no encontrada' });
   const { ubicacionId } = req.body || {};
-  const { rows } = await q('SELECT * FROM ubicaciones WHERE id=$1 AND empresa_id=$2', [ubicacionId, req.empresaId]);
+  const { rows } = await q(
+    'SELECT * FROM ubicaciones WHERE id=$1 AND empresa_id=$2 AND negociacion_id=$3',
+    [ubicacionId, req.empresaId, n.id]);
   const u = rows[0];
   if (!u) return res.status(404).json({ error: 'no encontrada' });
   await q('UPDATE ubicaciones SET confirmada=TRUE WHERE id=$1 AND empresa_id=$2', [u.id, req.empresaId]);
@@ -289,10 +298,9 @@ r.post('/:id/detectar-ubicacion', requiere(), async (req, res) => {
   const texto = String(req.body?.texto || '');
   const det = ubi.detectar(texto);
   if (!det) return res.json({ encontrada: false });
-  const { rows } = await q('SELECT contacto_id FROM negociaciones WHERE id=$1 AND empresa_id=$2',
-    [req.params.id, req.empresaId]);
-  if (!rows[0]) return res.status(404).json({ error: 'no encontrada' });
-  const u = await ubi.registrar(req.empresa, { contactoId: rows[0].contacto_id, negociacionId: req.params.id, det });
+  const n = await obtenerNegociacionVisible(req, req.params.id);
+  if (!n) return res.status(404).json({ error: 'no encontrada' });
+  const u = await ubi.registrar(req.empresa, { contactoId: n.contacto_id, negociacionId: n.id, det });
   res.json({ encontrada: true, ubicacion: { ...u, mapa: ubi.linkMapa(u.lat, u.lon, u.direccion || u.texto) } });
 });
 
@@ -311,7 +319,9 @@ r.post('/manual', requiere('admin'), async (req, res) => {
   }
   let c = await buscarContacto(emp, { tel: b.tel });
   const reingreso = !!c;
-  const agente = b.agenteId || await asignarEquitativo(emp, { sucursal: b.sucursal });
+  const agente = b.agenteId
+    || (c ? await responsableUltimoCierre(emp, c.id) : null)
+    || await asignarEquitativo(emp, { sucursal: b.sucursal, linea: b.linea });
   const cuando = b.fecha ? new Date(b.fecha) : new Date();
   if (!c) {
     c = await crearContacto(emp, { nombre: b.nombre, tel: b.tel, email: b.email, doc: b.doc,

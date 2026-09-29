@@ -60,27 +60,66 @@ export function horasLaborales(desde, hasta, r) {
 }
 
 /* ================= ASIGNACIÓN ================= */
-const RECIBEN = ['disponible', 'ocupado'];
-
-/** Reparte por menor carga. Si el canal tiene sucursal, prioriza a esa sucursal. */
+/**
+ * Reparte nuevas negociaciones sólo entre agentes activos y visibles.
+ * Se prioriza la menor cantidad de negociaciones abiertas; si hay empate,
+ * recibe la siguiente quien lleva más tiempo sin una asignación.
+ *
+ * La disponibilidad operativa no interviene en este reparto: el campo
+ * usuarios.activo es la fuente de verdad para participar o no.
+ */
 export async function asignarEquitativo(empresa, { sucursal, linea } = {}) {
   if (!empresa.flags?.asignacionEquitativa) return null;
   const activas = etapasActivas(empresa);
+
   const buscar = async (suc, lin) => {
-    const cond = ['u.empresa_id=$1', "u.rol='agente'", 'u.activo', 'u.disponibilidad = ANY($3)'];
-    const params = [empresa.id, activas, RECIBEN];
+    const cond = ['u.empresa_id=$1', "u.rol='agente'", 'u.activo', 'NOT u.oculto'];
+    const params = [empresa.id, activas];
     if (suc) { params.push(suc); cond.push(`u.sucursal = $${params.length}`); }
     if (lin) { params.push(lin); cond.push(`u.linea = $${params.length}`); }
+
     const { rows } = await q(
-      `SELECT u.id, (SELECT COUNT(*) FROM negociaciones n WHERE n.agente_id=u.id AND n.etapa = ANY($2)) AS carga
-         FROM usuarios u WHERE ${cond.join(' AND ')}
-        ORDER BY carga ASC, u.nombre ASC LIMIT 1`, params);
+      `SELECT u.id,
+              COUNT(n.id) FILTER (WHERE n.etapa = ANY($2))::int AS carga,
+              MAX(n.creado) AS ultima_asignacion
+         FROM usuarios u
+         LEFT JOIN negociaciones n
+           ON n.empresa_id=u.empresa_id AND n.agente_id=u.id
+        WHERE ${cond.join(' AND ')}
+        GROUP BY u.id, u.nombre
+        ORDER BY carga ASC, ultima_asignacion ASC NULLS FIRST, u.nombre ASC
+        LIMIT 1`, params);
     return rows[0]?.id || null;
   };
+
   if (empresa.flags?.asignarPorSucursal && sucursal) {
-    return (await buscar(sucursal, linea)) || (await buscar(sucursal, null)) || (await buscar(null, null));
+    return (await buscar(sucursal, linea))
+      || (await buscar(sucursal, null))
+      || (await buscar(null, null));
   }
   return buscar(null, null);
+}
+
+/**
+ * Un cliente que vuelve luego de una negociación cerrada o ganada conserva
+ * al último responsable, siempre que ese agente siga activo.
+ */
+export async function responsableUltimoCierre(empresa, contactoId) {
+  const { rows } = await q(
+    `SELECT n.agente_id
+       FROM negociaciones n
+       JOIN usuarios u ON u.id=n.agente_id
+      WHERE n.empresa_id=$1
+        AND n.contacto_id=$2
+        AND n.etapa = ANY($3)
+        AND u.empresa_id=$1
+        AND u.rol='agente'
+        AND u.activo
+        AND NOT u.oculto
+      ORDER BY n.actualizado DESC, n.creado DESC
+      LIMIT 1`,
+    [empresa.id, contactoId, ['cerrado', 'ganado']]);
+  return rows[0]?.agente_id || null;
 }
 
 /* ================= ANTI DUPLICADO ================= */
@@ -216,7 +255,18 @@ export async function ingresarMensaje(empresa, {
   }
 
   /* --- negociación nueva --- */
-  const agente = await asignarEquitativo(empresa, { sucursal: canalSucursal, linea: canalLinea });
+  const responsableAnterior = reingreso
+    ? await responsableUltimoCierre(empresa, contacto.id)
+    : null;
+  const agente = responsableAnterior
+    || await asignarEquitativo(empresa, { sucursal: canalSucursal, linea: canalLinea });
+
+  if (agente && contacto.responsable_id !== agente) {
+    await q('UPDATE contactos SET responsable_id=$2 WHERE id=$1 AND empresa_id=$3',
+      [contacto.id, agente, empresa.id]);
+    contacto.responsable_id = agente;
+  }
+
   const marcadores = [];
   if (reingreso && empresa.flags?.marcadorFrecuente) {
     marcadores.push('frecuente');
@@ -242,7 +292,11 @@ export async function ingresarMensaje(empresa, {
       [empresa.id, neg.id, String(empresa.bot.instrucciones || '').slice(0, 300)]);
   }
   await historial(empresa.id, neg.id,
-    `Ingreso automático por ${origen}` + (agente ? ' · asignado por reparto equitativo' : ' · sin agentes disponibles'), 'Bot');
+    `Ingreso automático por ${origen}`
+      + (responsableAnterior
+        ? ' · conserva responsable de la última negociación cerrada'
+        : (agente ? ' · asignado por reparto equitativo entre agentes activos' : ' · sin agentes activos disponibles')),
+    'Bot');
   await notificar(empresa, 'nuevo', { cliente: contacto.nombre, origen }, [agente], neg.id);
   if (det) await guardarUbicacion(empresa, contacto, neg, det);
   emitir(empresa.id, 'neg:nueva', { id: neg.id });

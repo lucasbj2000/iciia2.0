@@ -208,6 +208,7 @@ r.get('/reportes', requiere(), async (req, res) => {
   const emp = req.empresa;
   const activas = (emp.etapas || []).filter(e => e.activa).map(e => e.id);
   const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 3);
+  const { where: whereSolo, params: paramsSolo } = await alcanceSQL(req.user, req.empresaId, 'n', 2);
 
   const { rows: negs } = await q(
     `SELECT n.*, c.nombre AS cliente, c.tel, c.frecuente, u.nombre AS agente_nombre,
@@ -220,8 +221,9 @@ r.get('/reportes', requiere(), async (req, res) => {
     `SELECT AVG(EXTRACT(EPOCH FROM (m.primera - n.creado))/60) AS minutos FROM negociaciones n
        JOIN LATERAL (SELECT MIN(ts) AS primera FROM mensajes
                       WHERE negociacion_id=n.id AND dir='out' AND NOT bot) m ON TRUE
-      WHERE n.empresa_id=$1 AND n.creado >= now() - ($2 || ' days')::interval AND m.primera IS NOT NULL`,
-    [req.empresaId, String(dias)]);
+      WHERE n.empresa_id=$1 AND n.creado >= now() - ($2 || ' days')::interval
+        AND m.primera IS NOT NULL ${where}`,
+    [req.empresaId, String(dias), ...params]);
 
   const universo = req.user.rol === 'agente'
     ? [{ id: req.user.id, nombre: req.user.nombre, rol: req.user.rol, sucursal: req.user.sucursal, disponibilidad: req.user.disponibilidad }]
@@ -233,15 +235,16 @@ r.get('/reportes', requiere(), async (req, res) => {
   const { rows: espera } = await q(
     `SELECT n.id, n.entrada_etapa, c.nombre AS cliente, c.frecuente, u.nombre AS agente
        FROM negociaciones n JOIN contactos c ON c.id=n.contacto_id LEFT JOIN usuarios u ON u.id=n.agente_id
-      WHERE n.empresa_id=$1 AND n.etapa='espera' ORDER BY n.entrada_etapa ASC LIMIT 15`, [req.empresaId]);
+      WHERE n.empresa_id=$1 AND n.etapa='espera' ${whereSolo}
+      ORDER BY n.entrada_etapa ASC LIMIT 15`, [req.empresaId, ...paramsSolo]);
 
   const { rows: porCanal } = await q(
     `SELECT COALESCE(ca.nombre,'Sin canal') AS canal, COALESCE(ca.tipo,'otro') AS tipo,
             COALESCE(s.nombre,'—') AS sucursal, COUNT(*) AS total,
             COUNT(*) FILTER (WHERE n.etapa='ganado') AS ganadas
        FROM negociaciones n LEFT JOIN canales ca ON ca.id=n.canal_id LEFT JOIN sucursales s ON s.id=ca.sucursal_id
-      WHERE n.empresa_id=$1 AND n.creado >= now() - ($2 || ' days')::interval
-      GROUP BY 1,2,3 ORDER BY total DESC`, [req.empresaId, String(dias)]);
+      WHERE n.empresa_id=$1 AND n.creado >= now() - ($2 || ' days')::interval ${where}
+      GROUP BY 1,2,3 ORDER BY total DESC`, [req.empresaId, String(dias), ...params]);
 
   const r2 = emp.reglas || {};
   res.json({

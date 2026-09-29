@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { q, telNorm } from '../db.mjs';
-import { requiere } from '../auth.mjs';
+import { requiere, alcanceSQL } from '../auth.mjs';
 import { notificar, auditar, historial, nombreEtapa, negActivaPorTel, crearContacto } from '../core.mjs';
 import { emitir } from '../realtime.mjs';
 import * as ubi from '../ubicaciones.mjs';
@@ -10,9 +10,13 @@ const r = Router();
 r.get('/', requiere(), async (req, res) => {
   const busca = String(req.query.q || '').trim().toLowerCase();
   const cond = ['c.empresa_id = $1'], params = [req.empresaId];
+  let agenteParam = null;
   if (req.user.rol === 'agente') {
     params.push(req.user.id);
-    cond.push(`(c.responsable_id = $${params.length} OR c.responsable_id IS NULL)`);
+    agenteParam = params.length;
+    cond.push(`(c.responsable_id = ${agenteParam}
+      OR EXISTS (SELECT 1 FROM negociaciones nx
+                  WHERE nx.contacto_id=c.id AND nx.empresa_id=c.empresa_id AND nx.agente_id=${agenteParam}))`);
   } else if (req.user.rol === 'jefe') {
     const { rows } = await q('SELECT id FROM usuarios WHERE empresa_id=$1 AND (equipo=$2 OR id=$3)',
       [req.empresaId, req.user.usuario, req.user.id]);
@@ -29,9 +33,14 @@ r.get('/', requiere(), async (req, res) => {
   const i = params.length;
   const { rows } = await q(
     `SELECT c.*, u.nombre AS responsable,
-            (SELECT COUNT(*) FROM negociaciones n WHERE n.contacto_id=c.id) AS n_negociaciones,
-            (SELECT n.etapa FROM negociaciones n WHERE n.contacto_id=c.id AND n.etapa = ANY($${i}) ORDER BY n.creado ASC LIMIT 1) AS etapa_abierta,
-            (SELECT n.id FROM negociaciones n WHERE n.contacto_id=c.id AND n.etapa = ANY($${i}) ORDER BY n.creado ASC LIMIT 1) AS neg_abierta_id
+            (SELECT COUNT(*) FROM negociaciones n
+              WHERE n.contacto_id=c.id${agenteParam ? ` AND n.agente_id=${agenteParam}` : ''}) AS n_negociaciones,
+            (SELECT n.etapa FROM negociaciones n
+              WHERE n.contacto_id=c.id AND n.etapa = ANY(${i})${agenteParam ? ` AND n.agente_id=${agenteParam}` : ''}
+              ORDER BY n.creado ASC LIMIT 1) AS etapa_abierta,
+            (SELECT n.id FROM negociaciones n
+              WHERE n.contacto_id=c.id AND n.etapa = ANY(${i})${agenteParam ? ` AND n.agente_id=${agenteParam}` : ''}
+              ORDER BY n.creado ASC LIMIT 1) AS neg_abierta_id
        FROM contactos c LEFT JOIN usuarios u ON u.id=c.responsable_id
       WHERE ${cond.join(' AND ')} ORDER BY c.creado DESC LIMIT 500`, params);
   res.json(rows);
@@ -41,10 +50,14 @@ r.get('/chequeo', requiere(), async (req, res) => {
   if (!req.empresa.flags?.antiDuplicado) return res.json({ duplicado: false });
   const dup = await negActivaPorTel(req.empresa, req.query.tel);
   if (!dup) return res.json({ duplicado: false });
+  const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 3);
   const { rows } = await q(
     `SELECT n.id, n.etapa, c.nombre, u.nombre AS agente FROM negociaciones n
        JOIN contactos c ON c.id=n.contacto_id LEFT JOIN usuarios u ON u.id=n.agente_id
-      WHERE n.id=$1 AND n.empresa_id=$2`, [dup.id, req.empresaId]);
+      WHERE n.id=$1 AND n.empresa_id=$2 ${where}`, [dup.id, req.empresaId, ...params]);
+  if (!rows[0] && req.user.rol === 'agente') {
+    return res.json({ duplicado: true, mensaje: 'Ese cliente ya tiene una negociación abierta.' });
+  }
   res.json({ duplicado: true, ...rows[0], etapaNombre: nombreEtapa(req.empresa, rows[0].etapa) });
 });
 
@@ -75,11 +88,20 @@ r.get('/:id', requiere(), async (req, res) => {
       WHERE c.id=$1 AND c.empresa_id=$2`, [req.params.id, req.empresaId]);
   const c = rows[0];
   if (!c) return res.status(404).json({ error: 'no encontrado' });
+  const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 3);
   const [negs, ubis] = await Promise.all([
     q(`SELECT n.*, u.nombre AS agente_nombre FROM negociaciones n LEFT JOIN usuarios u ON u.id=n.agente_id
-        WHERE n.contacto_id=$1 AND n.empresa_id=$2 ORDER BY n.creado DESC`, [c.id, req.empresaId]),
-    q('SELECT * FROM ubicaciones WHERE contacto_id=$1 AND empresa_id=$2 ORDER BY ts DESC LIMIT 20', [c.id, req.empresaId])
+        WHERE n.contacto_id=$1 AND n.empresa_id=$2 ${where} ORDER BY n.creado DESC`,
+      [c.id, req.empresaId, ...params]),
+    q(`SELECT ub.* FROM ubicaciones ub
+          JOIN negociaciones n ON n.id=ub.negociacion_id
+         WHERE ub.contacto_id=$1 AND ub.empresa_id=$2 ${where}
+         ORDER BY ub.ts DESC LIMIT 20`,
+      [c.id, req.empresaId, ...params])
   ]);
+  if (req.user.rol === 'agente' && !negs.rows.length) {
+    return res.status(404).json({ error: 'no encontrado' });
+  }
   const ganadas = negs.rows.filter(n => n.etapa === 'ganado');
   res.json({
     ...c, negociaciones: negs.rows,
