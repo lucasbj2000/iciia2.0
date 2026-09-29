@@ -61,6 +61,11 @@ async function guardarInbox(canal, tipo, extId, remitente, nombre, txt, extra = 
      extra.mediaUrl || null, extra.mediaTipo || null, extra.mediaNombre || null,
      extra.ubicacion ? JSON.stringify(extra.ubicacion) : null, JSON.stringify(extra.payload || {})]);
   await q('UPDATE canales SET ultimo_mensaje=now() WHERE id=$1', [canal.id]);
+
+  // Procesar el mensaje apenas se confirma en inbox; el polling queda de respaldo.
+  import('../worker.mjs')
+    .then(({ drenarInbox }) => drenarInbox())
+    .catch(e => console.error('[inbox meta inmediato]', e.message));
 }
 
 /* ---------- WhatsApp Cloud API ---------- */
