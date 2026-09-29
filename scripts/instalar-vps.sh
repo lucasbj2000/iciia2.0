@@ -48,6 +48,7 @@ verde "Base ${DB_NAME} lista"
 azul "Instalando dependencias de la aplicación"
 cd "$APP_DIR"
 npm ci --omit=dev 2>/dev/null || npm install --omit=dev
+node scripts/patch-baileys-lid.mjs
 mkdir -p auth logs media
 
 CREADO=0
