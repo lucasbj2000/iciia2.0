@@ -122,6 +122,23 @@ async function recibir(mod, m, canal, id) {
   const jid = m.key.remoteJid || '';
   if (jid.endsWith('@g.us') || jid === 'status@broadcast' || jid.endsWith('@newsletter')) return;
 
+  /*
+   * WhatsApp moderno puede entregar DMs con un JID @lid. Si Baileys trae
+   * también el PN alternativo, usamos el teléfono para conservar la identidad
+   * existente. Si no existe PN, preservamos el @lid completo para poder
+   * responder al mismo chat sin inventar un @s.whatsapp.net inválido.
+   */
+  const alternos = [
+    m.key.remoteJidAlt,
+    m.key.senderPn,
+    m.key.participantPn,
+    m.key.participantAlt
+  ].filter(Boolean);
+  const pnJid = jid.endsWith('@s.whatsapp.net')
+    ? jid
+    : alternos.find(x => String(x).endsWith('@s.whatsapp.net'));
+  const remitente = pnJid ? String(pnJid).split('@')[0] : jid;
+
   const texto = m.message?.conversation ||
     m.message?.extendedTextMessage?.text ||
     m.message?.imageMessage?.caption ||
@@ -146,11 +163,16 @@ async function recibir(mod, m, canal, id) {
     `INSERT INTO inbox (empresa_id,canal_id,tipo,ext_id,remitente,nombre,txt,media_url,media_tipo,media_nombre,ubicacion,payload)
      VALUES ($1,$2,'whatsapp_qr',$3,$4,$5,$6,$7,$8,$9,$10,$11)
      ON CONFLICT (canal_id, ext_id) DO NOTHING`,
-    [canal.empresa_id, id, m.key.id, jid.split('@')[0], m.pushName || '', etiqueta,
+    [canal.empresa_id, id, m.key.id, remitente, m.pushName || '', etiqueta,
      media?.url || null, media?.tipo || null, media?.nombre || null,
      ubicacion ? JSON.stringify(ubicacion) : null,
      JSON.stringify({ ts: Number(m.messageTimestamp) * 1000, archivoId: media?.id || null })]);
   await q('UPDATE canales SET ultimo_mensaje=now() WHERE id=$1', [id]);
+
+  // Despierta el worker inmediatamente; el polling periódico queda como respaldo.
+  import('../worker.mjs')
+    .then(({ drenarInbox }) => drenarInbox())
+    .catch(e => console.error('[inbox inmediato]', e.message));
 }
 
 function especial(m) {
@@ -189,9 +211,17 @@ export async function enviar(canal, destino, texto, adjunto) {
   const S = sesiones.get(canal.id);
   if (!S || S.estado !== 'conectado') throw new Error('sesión de WhatsApp no conectada');
   const prefijo = canal.config?.prefijoPais || process.env.PREFIJO_PAIS || '595';
-  let num = String(destino).replace(/\D/g, '');
-  if (num.length <= 10 && !num.startsWith(prefijo)) num = prefijo + num.replace(/^0/, '');
-  const jid = `${num}@s.whatsapp.net`;
+  const bruto = String(destino || '').trim();
+  let jid;
+  if (bruto.includes('@')) {
+    // Un @lid válido debe conservarse tal cual; no convertirlo a un teléfono falso.
+    jid = bruto;
+  } else {
+    let num = bruto.replace(/\D/g, '');
+    if (num.length <= 10 && !num.startsWith(prefijo)) num = prefijo + num.replace(/^0/, '');
+    if (!num) throw new Error('destinatario de WhatsApp vacío');
+    jid = `${num}@s.whatsapp.net`;
+  }
 
   if (adjunto) {
     const bin = readFileSync(join(MEDIA_DIR, String(canal.empresa_id), adjunto.archivo));
