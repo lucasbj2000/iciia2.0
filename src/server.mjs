@@ -6,6 +6,7 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 import { q, migrar, seed } from './db.mjs';
 import { login, requiere } from './auth.mjs';
@@ -25,6 +26,16 @@ import rVarios from './routes/varios.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
+const BUILD_SHA = (() => {
+  try {
+    return execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], {
+      cwd: join(__dirname, '..'),
+      encoding: 'utf8'
+    }).trim();
+  } catch {
+    return process.env.BUILD_SHA || 'desconocido';
+  }
+})();
 
 for (const v of ['DATABASE_URL', 'JWT_SECRET']) {
   if (!process.env[v]) { console.error(`\n✖ Falta la variable ${v} en el archivo .env\n`); process.exit(1); }
@@ -117,8 +128,13 @@ app.use('/api/archivos', rArchivos);
 app.use('/api', rVarios);
 
 app.get('/api/health', async (_req, res) => {
-  try { await q('SELECT 1'); res.json({ ok: true, ts: Date.now(), version: '2.1.0' }); }
-  catch (e) { res.status(503).json({ ok: false, error: 'base de datos no disponible' }); }
+  try {
+    await q('SELECT 1');
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true, ts: Date.now(), version: '2.1.0', build: BUILD_SHA });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: 'base de datos no disponible', build: BUILD_SHA });
+  }
 });
 
 /* ---------- Archivos subidos ----------
@@ -132,10 +148,29 @@ app.use('/media', express.static(MEDIA_DIR, {
   }
 }));
 
-/* ---------- Front ---------- */
-app.use(express.static(join(__dirname, '..', 'public'), { maxAge: '1h', index: 'index.html' }));
-app.get(/^(?!\/api|\/webhook|\/media).*/, (_req, res) =>
-  res.sendFile(join(__dirname, '..', 'public', 'index.html')));
+/* ---------- Front ----------
+   El CRM cambia con frecuencia. HTML/JS/CSS deben revalidarse siempre para
+   evitar que móviles y navegadores sigan ejecutando una revisión anterior.
+   Los adjuntos /media conservan su caché larga por separado. */
+app.use(express.static(join(__dirname, '..', 'public'), {
+  maxAge: 0,
+  etag: true,
+  lastModified: true,
+  index: 'index.html',
+  setHeaders: (res, path) => {
+    if (/\.(?:html|js|css)$/i.test(path)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    res.setHeader('X-ICIIA-Build', BUILD_SHA);
+  }
+}));
+app.get(/^(?!\/api|\/webhook|\/media).*/, (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('X-ICIIA-Build', BUILD_SHA);
+  res.sendFile(join(__dirname, '..', 'public', 'index.html'));
+});
 
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);
