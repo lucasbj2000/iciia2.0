@@ -10,10 +10,11 @@ const r = Router();
 r.get('/', requiere(), async (req, res) => {
   const busca = String(req.query.q || '').trim().toLowerCase();
   const cond = ['c.empresa_id = $1'], params = [req.empresaId];
-  let agenteParam = null;
+  let agenteParam = '';
+
   if (req.user.rol === 'agente') {
     params.push(req.user.id);
-    agenteParam = params.length;
+    agenteParam = `$${params.length}`;
     cond.push(`(c.responsable_id = ${agenteParam}
       OR EXISTS (SELECT 1 FROM negociaciones nx
                   WHERE nx.contacto_id=c.id AND nx.empresa_id=c.empresa_id AND nx.agente_id=${agenteParam}))`);
@@ -23,23 +24,27 @@ r.get('/', requiere(), async (req, res) => {
     params.push(rows.map(x => x.id));
     cond.push(`(c.responsable_id = ANY($${params.length}::uuid[]) OR c.responsable_id IS NULL)`);
   }
+
   if (busca) {
     params.push(`%${busca}%`);
     cond.push(`(lower(c.nombre) LIKE $${params.length} OR c.tel LIKE $${params.length}
       OR lower(c.email) LIKE $${params.length} OR lower(c.direccion) LIKE $${params.length})`);
   }
+
   const activas = (req.empresa.etapas || []).filter(e => e.activa).map(e => e.id);
   params.push(activas);
-  const i = params.length;
+  const activasParam = `$${params.length}`;
+  const filtroAgente = agenteParam ? ` AND n.agente_id=${agenteParam}` : '';
+
   const { rows } = await q(
     `SELECT c.*, u.nombre AS responsable,
             (SELECT COUNT(*) FROM negociaciones n
-              WHERE n.contacto_id=c.id${agenteParam ? ` AND n.agente_id=${agenteParam}` : ''}) AS n_negociaciones,
+              WHERE n.contacto_id=c.id${filtroAgente}) AS n_negociaciones,
             (SELECT n.etapa FROM negociaciones n
-              WHERE n.contacto_id=c.id AND n.etapa = ANY(${i})${agenteParam ? ` AND n.agente_id=${agenteParam}` : ''}
+              WHERE n.contacto_id=c.id AND n.etapa = ANY(${activasParam})${filtroAgente}
               ORDER BY n.creado ASC LIMIT 1) AS etapa_abierta,
             (SELECT n.id FROM negociaciones n
-              WHERE n.contacto_id=c.id AND n.etapa = ANY(${i})${agenteParam ? ` AND n.agente_id=${agenteParam}` : ''}
+              WHERE n.contacto_id=c.id AND n.etapa = ANY(${activasParam})${filtroAgente}
               ORDER BY n.creado ASC LIMIT 1) AS neg_abierta_id
        FROM contactos c LEFT JOIN usuarios u ON u.id=c.responsable_id
       WHERE ${cond.join(' AND ')} ORDER BY c.creado DESC LIMIT 500`, params);
