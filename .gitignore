@@ -3,6 +3,7 @@ node_modules/
 .env.*
 !.env.example
 auth/
+auth-backups/
 data/
 media/
 !media/.gitkeep
