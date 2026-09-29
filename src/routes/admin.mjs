@@ -89,9 +89,15 @@ r.put('/botones', requiere('admin'), async (req, res) => {
 });
 
 r.patch('/etapas', requiere('admin'), async (req, res) => {
-  await q('UPDATE empresas SET etapas=$2 WHERE id=$1', [req.empresaId, JSON.stringify(req.body?.etapas || [])]);
+  const terminales = new Set(['ganado', 'cerrado']);
+  const etapas = (Array.isArray(req.body?.etapas) ? req.body.etapas : []).map(e =>
+    terminales.has(e.id)
+      ? { ...e, sistema: true, activa: false }
+      : e
+  );
+  await q('UPDATE empresas SET etapas=$2 WHERE id=$1', [req.empresaId, JSON.stringify(etapas)]);
   emitir(req.empresaId, 'config', {});
-  res.json({ ok: true });
+  res.json({ ok: true, etapas });
 });
 
 r.patch('/motivos', requiere('admin'), async (req, res) => {
