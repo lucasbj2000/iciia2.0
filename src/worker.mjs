@@ -9,11 +9,12 @@ const MAX_ENVIOS = 8;
 const ORIGEN = { whatsapp_qr: 'whatsapp', whatsapp_api: 'whatsapp', messenger: 'facebook', instagram: 'instagram' };
 const EXTERNO = { whatsapp_qr: 'whatsapp', whatsapp_api: 'whatsapp', messenger: 'messenger', instagram: 'instagram' };
 
-let corriendo = false;
+let corriendoInbox = false;
+let corriendoOutbox = false;
 
 export async function drenarInbox() {
-  if (corriendo) return;
-  corriendo = true;
+  if (corriendoInbox) return;
+  corriendoInbox = true;
   try {
     const { rows } = await q(
       `SELECT i.*, c.sucursal_id, c.linea AS canal_linea, s.nombre AS canal_sucursal
@@ -47,10 +48,13 @@ export async function drenarInbox() {
         }
       }
     }
-  } finally { corriendo = false; }
+  } finally { corriendoInbox = false; }
 }
 
 export async function drenarOutbox() {
+  if (corriendoOutbox) return;
+  corriendoOutbox = true;
+  try {
   const { rows } = await q(
     `SELECT o.*, c.tipo, c.config, c.nombre AS canal_nombre, c.empresa_id AS c_emp,
             a.archivo, a.mime, a.tipo AS a_tipo, a.nombre AS a_nombre
@@ -77,12 +81,16 @@ export async function drenarOutbox() {
       await q(`UPDATE outbox SET estado='enviado', enviado=now(), error=NULL WHERE id=$1`, [o.id]);
       if (o.negociacion_id) await marcar(o, 'ok');
     } catch (e) {
+      console.error(`[outbox] ${o.id} · ${o.tipo || 'sin-canal'}:`, e.message);
       const intentos = o.intentos + 1;
       const agotado = intentos >= MAX_ENVIOS;
       await q(`UPDATE outbox SET intentos=$2, error=$3, estado=$4 WHERE id=$1`,
         [o.id, intentos, e.message, agotado ? 'error' : 'pendiente']);
       if (agotado && o.negociacion_id) await marcar(o, 'error');
     }
+  }
+  } finally {
+    corriendoOutbox = false;
   }
 }
 
