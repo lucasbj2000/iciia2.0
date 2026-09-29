@@ -20,7 +20,7 @@ const SELECT_BASE = `
     FROM negociaciones n
     JOIN contactos c ON c.id = n.contacto_id
     LEFT JOIN usuarios u ON u.id = n.agente_id
-    LEFT JOIN canales ca ON ca.id = n.canal_id
+    LEFT JOIN canales ca ON ca.id = n.canal_id`;
 
 async function obtenerNegociacionVisible(req, id) {
   const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 3);
@@ -28,7 +28,7 @@ async function obtenerNegociacionVisible(req, id) {
     `${SELECT_BASE} WHERE n.id=$1 AND n.empresa_id=$2 ${where}`,
     [id, req.empresaId, ...params]);
   return rows[0] || null;
-}`;
+}
 
 r.get('/', requiere(), async (req, res) => {
   const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 2);
