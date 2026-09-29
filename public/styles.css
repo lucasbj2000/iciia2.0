@@ -494,7 +494,7 @@ tbody tr:hover td{background:var(--surface2)}
     transition:opacity .22s var(--ease),visibility 0s linear .22s}
   body.nav-open #nav-backdrop{opacity:1;visibility:visible;pointer-events:none!important;
     transition:opacity .22s var(--ease)}
-  body.nav-open{overflow:hidden;touch-action:none}
+  body.nav-open{overflow:hidden}
   body.nav-open aside{touch-action:pan-y}
   .burger{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;
     background:var(--surface2);border:1px solid var(--line);transition:.2s}
