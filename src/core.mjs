@@ -45,8 +45,18 @@ export const historial = (empresaId, negId, txt, por) =>
     [empresaId, negId, txt, por || 'Sistema']);
 
 /* ================= ETAPAS / SLA ================= */
-export const etapasActivas = emp => (emp.etapas || []).filter(e => e.activa).map(e => e.id);
-export function etapaActiva(emp, id) { const e = (emp.etapas || []).find(x => x.id === id); return e ? !!e.activa : false; }
+export const ETAPAS_TERMINALES = new Set(['ganado', 'cerrado']);
+export const esEtapaTerminal = id => ETAPAS_TERMINALES.has(String(id || ''));
+
+export const etapasActivas = emp => (emp.etapas || [])
+  .filter(e => e.activa && !esEtapaTerminal(e.id))
+  .map(e => e.id);
+
+export function etapaActiva(emp, id) {
+  if (esEtapaTerminal(id)) return false;
+  const e = (emp.etapas || []).find(x => x.id === id);
+  return e ? !!e.activa : false;
+}
 export function nombreEtapa(emp, id) { const e = (emp.etapas || []).find(x => x.id === id); return e ? e.nombre : id; }
 
 export function horasLaborales(desde, hasta, r) {
