@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { q, telNorm } from '../db.mjs';
 import { requiere, alcanceSQL } from '../auth.mjs';
 import {
-  notificar, auditar, historial, etapaActiva, nombreEtapa,
+  notificar, auditar, historial, etapaActiva, etapasActivas, nombreEtapa,
   asignarEquitativo, responsableUltimoCierre, negActivaDeContacto, negActivaPorTel, crearContacto, buscarContacto
 } from '../core.mjs';
 import { emitir } from '../realtime.mjs';
@@ -38,7 +38,7 @@ r.get('/', requiere(), async (req, res) => {
 });
 
 r.get('/util/duplicados', requiere('admin'), async (req, res) => {
-  const activas = (req.empresa.etapas || []).filter(e => e.activa).map(e => e.id);
+  const activas = etapasActivas(req.empresa);
   const { rows } = await q(
     `SELECT n.id, n.etapa, n.creado, c.nombre, u.nombre AS agente
        FROM negociaciones n JOIN contactos c ON c.id=n.contacto_id
@@ -205,8 +205,12 @@ r.post('/:id/regestionar', requiere(), async (req, res) => {
   const o = await obtenerNegociacionVisible(req, req.params.id);
   if (!o) return res.status(404).json({ error: 'no encontrada' });
   if (emp.flags?.antiDuplicado) {
-    const dup = await negActivaDeContacto(emp, o.contacto_id);
-    if (dup) return res.status(409).json({ error: 'duplicado', negociacionId: dup.id });
+    const dup = await negActivaDeContacto(emp, o.contacto_id, o.id);
+    if (dup) return res.status(409).json({
+      error: 'duplicado',
+      negociacionId: dup.id,
+      mensaje: 'El cliente ya tiene otra negociación abierta.'
+    });
   }
   const marcadores = [];
   if (emp.flags?.marcadorRegestion) marcadores.push('regestionado');
