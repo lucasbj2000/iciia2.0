@@ -28,7 +28,7 @@ DECLARE
   nueva uuid;
 BEGIN
   FOR r IN
-    SELECT n.*, x.desde
+    SELECT DISTINCT ON (n.empresa_id, n.contacto_id) n.*, x.desde
       FROM negociaciones n
       JOIN LATERAL (
         SELECT MIN(m.ts) AS desde
