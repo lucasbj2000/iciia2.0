@@ -281,7 +281,16 @@ $('#btn-burger').onclick = () => {
   document.body.classList.toggle('nav-open');
   vibrar(10);
 };
-$('#nav-backdrop').onclick = () => document.body.classList.remove('nav-open');
+// El backdrop es únicamente visual. En móviles cerramos el drawer detectando
+// un toque fuera del menú para que ninguna capa transparente bloquee opciones.
+document.addEventListener('pointerdown', e => {
+  if (!document.body.classList.contains('nav-open')) return;
+  const aside = document.querySelector('#app > aside');
+  const burger = $('#btn-burger');
+  if (aside?.contains(e.target) || burger?.contains(e.target)) return;
+  document.body.classList.remove('nav-open');
+}, { passive: true });
+
 $('#disp-pill').onclick = modalDisponibilidad;
 $('#btn-tema').onclick = () => {
   S.tema = S.tema === 'oscuro' ? 'claro' : 'oscuro';
