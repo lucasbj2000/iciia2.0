@@ -130,6 +130,7 @@ body.fx-off *{animation:none !important;transition:none !important}
 
 /* ===================== SHELL ===================== */
 #app{position:relative;z-index:1;display:grid;grid-template-columns:240px 1fr;height:100vh}
+#nav-backdrop{display:none}
 aside{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:auto}
 .brand{display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid var(--line)}
 .brand img{width:34px;height:34px;border-radius:10px;object-fit:cover}
@@ -477,9 +478,15 @@ tbody tr:hover td{background:var(--surface2)}
 /* ===================== MÓVIL ===================== */
 @media(max-width:900px){
   #app{grid-template-columns:1fr}
-  aside{position:fixed;inset:0 auto 0 0;width:262px;z-index:90;transform:translateX(-100%);transition:.32s var(--ease)}
-  body.nav-open aside{transform:none;box-shadow:var(--shadow)}
-  body.nav-open:after{content:"";position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:80;animation:fadein .25s}
+  aside{position:fixed;inset:0 auto 0 0;width:min(82vw,300px);z-index:100;transform:translateX(-100%);
+    transition:.32s var(--ease);visibility:hidden;pointer-events:none}
+  body.nav-open aside{transform:none;box-shadow:var(--shadow);visibility:visible;pointer-events:auto}
+  #nav-backdrop{display:block;position:fixed;inset:0;z-index:90;border:0;border-radius:0;margin:0;padding:0;
+    background:rgba(0,0,0,.55);opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .25s var(--ease),visibility 0s linear .25s}
+  body.nav-open #nav-backdrop{opacity:1;visibility:visible;pointer-events:auto;
+    transition:opacity .25s var(--ease)}
+  body.nav-open{overflow:hidden}
   .burger{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;
     background:var(--surface2);border:1px solid var(--line);transition:.2s}
   .burger:active{transform:scale(.92)}
