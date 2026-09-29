@@ -273,8 +273,15 @@ function reloj() {
   f(); clearInterval(window._reloj); window._reloj = setInterval(f, 30000);
 }
 
-$('#btn-salir').onclick = salir;
-$('#btn-burger').onclick = () => { document.body.classList.toggle('nav-open'); vibrar(10); };
+$('#btn-salir').onclick = () => {
+  document.body.classList.remove('nav-open');
+  salir();
+};
+$('#btn-burger').onclick = () => {
+  document.body.classList.toggle('nav-open');
+  vibrar(10);
+};
+$('#nav-backdrop').onclick = () => document.body.classList.remove('nav-open');
 $('#disp-pill').onclick = modalDisponibilidad;
 $('#btn-tema').onclick = () => {
   S.tema = S.tema === 'oscuro' ? 'claro' : 'oscuro';
@@ -287,6 +294,9 @@ $('#btn-densidad').onclick = () => {
 };
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && S.token) cargarNotificaciones();
+});
+window.addEventListener('resize', () => {
+  if (!window.matchMedia('(max-width:900px)').matches) document.body.classList.remove('nav-open');
 });
 
 /* ================= INICIO ================= */
