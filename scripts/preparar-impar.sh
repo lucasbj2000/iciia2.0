@@ -12,8 +12,25 @@ node --input-type=module <<'JS'
 import 'dotenv/config';
 import {execFileSync} from 'node:child_process';
 import {mkdirSync,copyFileSync,existsSync,chmodSync,writeFileSync} from 'node:fs';
+if (!process.env.DATABASE_URL) throw new Error('Falta DATABASE_URL en .env; respaldo cancelado, sin borrar datos.');
+const db = new URL(process.env.DATABASE_URL);
+if (!['postgres:', 'postgresql:'].includes(db.protocol) || !db.hostname || !db.username || db.pathname.length < 2)
+  throw new Error('DATABASE_URL inválida; respaldo cancelado, sin borrar datos.');
+// libpq no interpreta una URI almacenada en PGDATABASE como conexión completa.
+// Variables separadas evitan usar root y no exponen la contraseña en argumentos.
+const pgEnv = { ...process.env,
+  PGHOST: db.hostname, PGPORT: db.port || '5432',
+  PGUSER: decodeURIComponent(db.username), PGPASSWORD: decodeURIComponent(db.password),
+  PGDATABASE: decodeURIComponent(db.pathname.slice(1))
+};
+for (const [key, value] of db.searchParams) {
+  const names = { sslmode:'PGSSLMODE', sslcert:'PGSSLCERT', sslkey:'PGSSLKEY',
+    sslrootcert:'PGSSLROOTCERT', connect_timeout:'PGCONNECT_TIMEOUT',
+    application_name:'PGAPPNAME', options:'PGOPTIONS' };
+  if (names[key]) pgEnv[names[key]] = value;
+}
 const dir='backups/impar-reset-'+Date.now();mkdirSync(dir,{recursive:true,mode:0o700});
-execFileSync('pg_dump',['--format=custom','--file='+dir+'/database.dump'],{env:{...process.env,PGDATABASE:process.env.DATABASE_URL},stdio:['ignore','inherit','inherit']});
+execFileSync('pg_dump',['--format=custom','--file='+dir+'/database.dump'],{env:pgEnv,stdio:['ignore','inherit','inherit']});
 copyFileSync('.env',dir+'/environment.env');chmodSync(dir+'/environment.env',0o600);
 for (const [i,p] of [process.env.WA_AUTH_DIR||'auth',process.env.MEDIA_DIR||'media'].entries()) if(existsSync(p)) execFileSync('tar',['czf',dir+'/files-'+i+'.tar.gz',p]);
 writeFileSync(dir+'/revision.txt',execFileSync('git',['rev-parse','HEAD']));
