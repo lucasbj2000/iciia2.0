@@ -8,7 +8,7 @@ import { modalCargaManual } from './negociaciones.js';
 let TADM = 'canales', defs = null, timerQR = null, sucursalesCache = [];
 
 const TABS = [
-  ['canales', '📡 Canales'], ['empresas', 'Empresas'], ['diseno', 'Diseño'], ['sucursales', 'Sucursales'],
+  ['canales', '📡 Canales'], ['diseno', 'Diseño'], ['sucursales', 'Sucursales'],
   ['botones', '⚡ Botones'], ['flags', 'Funciones ON/OFF'], ['noti', 'Notificaciones'],
   ['rapidas', 'Respuestas rápidas'], ['usuarios', 'Usuarios'], ['etapas', 'Etapas'], ['reglas', 'Reglas'],
   ['ubicaciones', '📍 Direcciones'], ['stock', 'Stock'], ['bot', 'Bot'],
@@ -27,7 +27,7 @@ export async function vistaAdmin() {
     <div class="tabs">${TABS.map(([k, t]) => `<button class="tab ${TADM === k ? 'active' : ''}" data-adm="${k}">${t}</button>`).join('')}</div>
     <div id="adm-body" class="fx-vista">${skeleton(4)}</div></div>`;
   $$('[data-adm]').forEach(b => b.onclick = () => { clearInterval(timerQR); TADM = b.dataset.adm; vistaAdmin(); });
-  const fn = { canales: aCanales, empresas: aEmpresas, diseno: aDiseno, sucursales: aSucursales,
+  const fn = { canales: aCanales, diseno: aDiseno, sucursales: aSucursales,
     botones: aBotones, flags: aFlags, noti: aNoti, rapidas: aRapidas, usuarios: aUsuarios, etapas: aEtapas,
     reglas: aReglas, ubicaciones: aUbicaciones, stock: aStock, bot: aBot, mensajeria: aMensajeria,
     limpieza: aLimpieza, audit: aAudit }[TADM];
@@ -434,66 +434,12 @@ function conectarBotones() {
 }
 
 /* ================= EMPRESAS ================= */
-async function aEmpresas() {
-  const es = await get('/admin/empresas');
-  AB().innerHTML = `<div class="card-box" style="border-color:#2b5a7a">
-   <b style="font-size:var(--fs-sm)">🔒 Aislamiento total entre empresas</b>
-   <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:6px;line-height:1.7">
-     Cada tabla filtra por <span class="mono">empresa_id</span> en la propia consulta SQL y el token de sesión
-     ata al usuario a su empresa. Un usuario de una empresa no puede ver ni recibir datos de otra
-     aunque manipule el navegador. Solo el administrador global alterna entre ellas.</div></div>
-  <div class="card-box"><h3>Empresas</h3>
-   <table><thead><tr><th>Empresa</th><th>Código</th><th>Suc.</th><th>Canales</th><th>Usuarios</th>
-     <th>Contactos</th><th>Negoc.</th><th>Estado</th><th></th></tr></thead>
-   <tbody>${es.map(e => `<tr><td><span class="dot" style="background:${e.color}"></span> <b>${esc(e.nombre)}</b></td>
-     <td class="mono">${esc(e.codigo)}</td><td>${e.n_sucursales}</td><td>${e.n_canales}</td><td>${e.n_usuarios}</td>
-     <td>${e.n_contactos}</td><td>${e.n_negociaciones}</td>
-     <td>${e.activa ? '<span style="color:var(--ok)">Activa</span>' : '<span style="color:var(--bad)">Inactiva</span>'}</td>
-     <td style="text-align:right"><button class="btn ghost sm" data-gest="${e.id}">Gestionar</button>
-       <button class="btn ghost sm" data-toggle="${e.id}" data-v="${e.activa ? 0 : 1}">${e.activa ? 'Desactivar' : 'Activar'}</button></td></tr>`).join('')}
-   </tbody></table>
-   <hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><h3>Alta de empresa</h3>
-   <div class="row"><div class="field"><label>Nombre</label><input id="e-nom"></div>
-     <div class="field"><label>Código de acceso</label><input id="e-cod" placeholder="ej: gamma"></div>
-     <div class="field"><label>Ciudad base</label><input id="e-ciu" value="Asunción"></div>
-     <div class="field"><label>Color</label><input id="e-col" type="color" value="#FF7A00"></div></div>
-   <button class="btn sm" id="e-crear">Crear empresa</button></div>`;
-
-  $$('[data-gest]').forEach(b => b.onclick = async () => {
-    S.empresa = { ...S.empresa, id: b.dataset.gest };
-    await recargarCtx();
-    TADM = 'diseno'; vistaAdmin();
-    import('./app.js').then(m => { m.aplicarMarca(); m.pintarNav(); });
-  });
-  $$('[data-toggle]').forEach(b => b.onclick = async () => {
-    await patch(`/admin/empresas/${b.dataset.toggle}/activa`, { activa: b.dataset.v === '1' });
-    aEmpresas();
-  });
-  $('#e-crear').onclick = async () => {
-    try {
-      await post('/admin/empresas', { nombre: $('#e-nom').value.trim(), codigo: $('#e-cod').value.trim(),
-        ciudad: $('#e-ciu').value.trim(), color: $('#e-col').value });
-      toast('Empresa creada con datos totalmente aislados', 'ok'); aEmpresas();
-      const ctx = await get('/contexto'); S.empresas = ctx.empresas;
-      import('./app.js').then(m => m.pintarNav());
-    } catch (e) { toast(e.data?.error || e.message, 'bad'); }
-  };
-}
-
-/* ================= DISEÑO ================= */
 async function aDiseno() {
   const e = S.empresa;
   AB().innerHTML = `<div class="card-box"><h3>Marca de ${esc(e.nombre)}</h3>
-   <div class="row"><div class="field"><label>Nombre visible</label><input id="d-nom" value="${esc(e.nombre)}"></div>
-    <div class="field"><label>Código de acceso</label><input id="d-cod" value="${esc(e.codigo)}"></div>
-    <div class="field"><label>Ciudad base</label><input id="d-ciu" value="${esc(e.ciudad || '')}"></div>
-    <div class="field"><label>Color principal</label><input id="d-col" type="color" value="${e.color}"></div></div>
-   <div class="row"><div class="field"><label>Logo</label><input type="file" accept="image/*" id="d-logo"></div>
-    <div class="field"><label>Vista previa</label>
-      <div style="display:flex;align-items:center;gap:10px;padding:9px;background:var(--surface2);border-radius:10px">
-      ${e.logo ? `<img src="${esc(e.logo)}" style="width:34px;height:34px;border-radius:9px;object-fit:cover" alt="">`
-        : '<span style="color:var(--muted);font-size:var(--fs-sm)">Sin logo</span>'}
-      <b>${esc(e.nombre)}</b></div></div></div>
+   <div class="impar-lockup" style="max-width:240px"><img src="/assets/impar-logo.jpg" alt="IMPAR"></div>
+   <p class="sub">Identidad corporativa IMPAR · Expertos en papel.</p>
+   <div class="field"><label>Ciudad base</label><input id="d-ciu" value="${esc(e.ciudad || '')}"></div>
    <div class="field"><label>Módulos habilitados</label><div class="row">
      ${['negociaciones','contactos','comunicacion','calendario','reportes','configuracion'].map(m =>
        `<label style="flex:none;font-size:var(--fs-sm)"><input type="checkbox" data-mod="${m}"
@@ -501,18 +447,10 @@ async function aDiseno() {
    <div class="field"><label>Líneas de negocio (separadas por coma)</label>
      <input id="d-lin" value="${esc((e.lineas || []).join(', '))}"></div>
    <button class="btn sm" id="d-ok">Guardar</button></div>`;
-  $('#d-logo').onchange = ev => {
-    const f = ev.target.files[0]; if (!f) return;
-    if (f.size > 500000) return toast('El logo no puede superar 500 KB', 'warn');
-    const rd = new FileReader();
-    rd.onload = async () => { await patch('/admin/empresa', { logo: rd.result }); await recargarCtx(); aDiseno();
-      import('./app.js').then(m => m.aplicarMarca()); };
-    rd.readAsDataURL(f);
-  };
   $('#d-ok').onclick = async () => {
     await patch('/admin/empresa', {
-      nombre: $('#d-nom').value.trim(), codigo: $('#d-cod').value.trim(), ciudad: $('#d-ciu').value.trim(),
-      color: $('#d-col').value, modulos: $$('[data-mod]').filter(c => c.checked).map(c => c.dataset.mod),
+      ciudad: $('#d-ciu').value.trim(),
+      modulos: $$('[data-mod]').filter(c => c.checked).map(c => c.dataset.mod),
       lineas: $('#d-lin').value.split(',').map(s => s.trim()).filter(Boolean)
     });
     await recargarCtx(); toast('Configuración guardada', 'ok');

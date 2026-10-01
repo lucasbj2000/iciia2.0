@@ -126,31 +126,18 @@ export async function migrar() {
 
 /* ================= SEMILLA ================= */
 export async function seed() {
-  const { rows } = await q("SELECT 1 FROM usuarios WHERE rol='admin' AND empresa_id IS NULL LIMIT 1");
-  if (rows.length) return;
-  const user = process.env.ADMIN_USER || 'admin';
-  const pass = process.env.ADMIN_PASS;
-  if (!pass) { console.error('\n✖ Falta ADMIN_PASS en .env — no se puede crear el administrador.\n'); process.exit(1); }
-  await q(
-    `INSERT INTO usuarios (empresa_id,nombre,usuario,pass_hash,rol,sucursal,linea,email,oculto,disponibilidad)
-     VALUES (NULL,'Administrador iciia',$1,$2,'admin','—','—','admin@iciia.local',TRUE,'disponible')`,
-    [user, await bcrypt.hash(pass, 12)]);
-  console.log(`✔ Administrador global creado (usuario: ${user})`);
-  if (String(process.env.SEED_DEMO || 'false') === 'true') await seedDemo();
-}
-
-async function seedDemo() {
-  const e = await crearEmpresa({ codigo: 'demo', nombre: 'Empresa Demo', color: '#FF7A00', ciudad: 'Asunción' });
-  const hash = await bcrypt.hash('1234', 12);
-  const mk = (nombre, usuario, rol, equipo, nac) => q(
-    `INSERT INTO usuarios (empresa_id,nombre,usuario,pass_hash,rol,sucursal,linea,equipo,email,nacimiento,disponibilidad)
-     VALUES ($1,$2,$3,$4,$5,'Central','Ventas',$6,$7,$8,'disponible')`,
-    [e.id, nombre, usuario, hash, rol, equipo, `${usuario}@demo.local`, nac]);
-  await mk('Gerencia Demo', 'gerente', 'gerente', null, '1985-04-12');
-  await mk('Jefatura Demo', 'jefe', 'jefe', null, '1990-07-22');
-  await mk('Agente Uno', 'agente1', 'agente', 'jefe', '1995-03-11');
-  await mk('Agente Dos', 'agente2', 'agente', 'jefe', '1992-11-30');
-  console.log('✔ Empresa demo creada (código: demo · claves: 1234)');
+  const { rows } = await q("SELECT * FROM empresas WHERE codigo='impar'");
+  const { rows: total } = await q('SELECT count(*)::int AS n FROM empresas');
+  if (total[0].n > (rows.length ? 1 : 0)) throw new Error('Ejecutá scripts/preparar-impar.sh para convertir esta instancia a IMPAR.');
+  const empresa = rows[0] || await crearEmpresa({ codigo: 'impar', nombre: 'IMPAR', color: '#75b936', ciudad: 'Asunción' });
+  await q("UPDATE empresas SET nombre='IMPAR',color='#75b936',logo='/assets/impar-logo.jpg',activa=TRUE WHERE id=$1", [empresa.id]);
+  const { rows: admins } = await q("SELECT id FROM usuarios WHERE empresa_id=$1 AND rol='admin'", [empresa.id]);
+  if (!admins.length) {
+    if (!process.env.ADMIN_PASS) throw new Error('Falta ADMIN_PASS en .env.');
+    await q(`INSERT INTO usuarios (empresa_id,nombre,usuario,pass_hash,rol,sucursal,linea,disponibilidad)
+      VALUES ($1,'Administrador IMPAR','admin',$2,'admin','Central','Línea 1','disponible')`,
+      [empresa.id, await bcrypt.hash(process.env.ADMIN_PASS, 12)]);
+  }
 }
 
 export async function crearEmpresa({ codigo, nombre, color, ciudad }) {
@@ -161,7 +148,7 @@ export async function crearEmpresa({ codigo, nombre, color, ciudad }) {
       [codigo, nombre, color || '#FF7A00', ciudad || 'Asunción',
        JSON.stringify(ETAPAS_DEF), JSON.stringify(MOTIVOS_DEF), JSON.stringify(MODULOS_DEF),
        JSON.stringify(['Línea 1']), JSON.stringify(flagsDefault()), JSON.stringify(NOTI_DEF),
-       JSON.stringify(REGLAS_DEF), JSON.stringify({ link: '', nota: '' }), JSON.stringify(BOT_DEF)]);
+       JSON.stringify(REGLAS_DEF), JSON.stringify({ link: 'https://www.impar-papeles.com.py', nota: 'Papeles e Insumos Gráficos · IMPAR' }), JSON.stringify(BOT_DEF)]);
     const emp = rows[0];
     await c.query(`INSERT INTO sucursales (empresa_id,nombre,ciudad) VALUES ($1,'Central',$2)`, [emp.id, ciudad || 'Asunción']);
     await c.query(

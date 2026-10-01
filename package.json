@@ -1,7 +1,7 @@
 {
   "name": "iciia-crm",
-  "version": "2.1.0",
-  "description": "iciia2.0 — CRM multiempresa omnicanal: WhatsApp QR, WhatsApp Cloud API, Messenger e Instagram",
+  "version": "3.0.0",
+  "description": "iciia2.0 — CRM exclusivo de IMPAR: WhatsApp QR, WhatsApp Cloud API, Messenger e Instagram",
   "type": "module",
   "private": true,
   "engines": { "node": ">=20" },

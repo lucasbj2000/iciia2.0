@@ -110,7 +110,7 @@ app.get('/api/contexto', requiere(), async (req, res) => {
     ? await q('SELECT * FROM sucursales WHERE empresa_id=$1 AND activa ORDER BY nombre', [req.empresaId])
     : { rows: [] };
   const { rows: empresas } = req.esAdmin
-    ? await q('SELECT id,codigo,nombre,color FROM empresas WHERE activa ORDER BY nombre')
+    ? await q("SELECT id,codigo,nombre,color FROM empresas WHERE activa AND codigo='impar'")
     : { rows: [] };
   res.json({
     empresa: req.empresa ? publica(req.empresa) : null,
@@ -131,7 +131,7 @@ app.get('/api/health', async (_req, res) => {
   try {
     await q('SELECT 1');
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ ok: true, ts: Date.now(), version: '2.1.0', build: BUILD_SHA });
+    res.json({ ok: true, ts: Date.now(), version: '3.0.0-impar', build: BUILD_SHA });
   } catch (e) {
     res.status(503).json({ ok: false, error: 'base de datos no disponible', build: BUILD_SHA });
   }

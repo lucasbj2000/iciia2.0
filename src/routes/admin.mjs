@@ -9,44 +9,14 @@ import { obtener as obtenerArchivo } from '../archivos.mjs';
 const r = Router();
 
 /* ================= EMPRESAS ================= */
-r.get('/empresas', requiere('admin'), async (req, res) => {
-  const { rows } = await q(
-    `SELECT e.*,
-       (SELECT COUNT(*) FROM usuarios u WHERE u.empresa_id=e.id) AS n_usuarios,
-       (SELECT COUNT(*) FROM contactos c WHERE c.empresa_id=e.id) AS n_contactos,
-       (SELECT COUNT(*) FROM negociaciones n WHERE n.empresa_id=e.id) AS n_negociaciones,
-       (SELECT COUNT(*) FROM sucursales s WHERE s.empresa_id=e.id) AS n_sucursales,
-       (SELECT COUNT(*) FROM canales ca WHERE ca.empresa_id=e.id) AS n_canales
-     FROM empresas e ORDER BY e.creado`);
-  res.json(rows);
-});
-
-r.post('/empresas', requiere('admin'), async (req, res) => {
-  const { codigo, nombre, color, ciudad } = req.body || {};
-  if (!codigo || !nombre) return res.status(422).json({ error: 'Código y nombre son obligatorios.' });
-  if (!/^[a-z0-9-]{2,24}$/i.test(codigo)) return res.status(422).json({ error: 'El código solo admite letras, números y guiones.' });
-  const { rows } = await q('SELECT 1 FROM empresas WHERE lower(codigo)=lower($1)', [codigo]);
-  if (rows.length) return res.status(409).json({ error: 'Ese código ya existe.' });
-  const e = await crearEmpresa({ codigo: codigo.toLowerCase(), nombre, color, ciudad });
-  await auditar(e.id, req.user.nombre, 'Empresa', `Alta ${nombre}`, req.ip);
-  res.json({ ok: true, empresa: e });
-});
-
+r.get('/empresas', requiere('admin'), (req, res) => res.json([req.empresa]));
+r.post('/empresas', requiere('admin'), (_req, res) => res.status(403).json({ error: 'Este CRM es exclusivo de IMPAR.' }));
+r.patch('/empresas/:id/activa', requiere('admin'), (_req, res) => res.status(403).json({ error: 'IMPAR es la única empresa del sistema.' }));
 r.patch('/empresa', requiere('admin'), async (req, res) => {
   const b = req.body || {};
-  await q(
-    `UPDATE empresas SET nombre=COALESCE($2,nombre), codigo=COALESCE($3,codigo), color=COALESCE($4,color),
-       ciudad=COALESCE($5,ciudad), logo=COALESCE($6,logo), modulos=COALESCE($7,modulos),
-       lineas=COALESCE($8,lineas), activa=COALESCE($9,activa) WHERE id=$1`,
-    [req.empresaId, b.nombre, b.codigo?.toLowerCase(), b.color, b.ciudad, b.logo,
-     b.modulos ? JSON.stringify(b.modulos) : null, b.lineas ? JSON.stringify(b.lineas) : null,
-     typeof b.activa === 'boolean' ? b.activa : null]);
+  await q(`UPDATE empresas SET ciudad=COALESCE($2,ciudad),modulos=COALESCE($3,modulos),lineas=COALESCE($4,lineas) WHERE id=$1`,
+    [req.empresaId, b.ciudad, b.modulos ? JSON.stringify(b.modulos) : null, b.lineas ? JSON.stringify(b.lineas) : null]);
   emitir(req.empresaId, 'config', {});
-  res.json({ ok: true });
-});
-
-r.patch('/empresas/:id/activa', requiere('admin'), async (req, res) => {
-  await q('UPDATE empresas SET activa=$2 WHERE id=$1', [req.params.id, !!req.body?.activa]);
   res.json({ ok: true });
 });
 

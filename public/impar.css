@@ -1,0 +1,23 @@
+:root { --brand:#75b936; --brand2:#9bce64; --r:16px; }
+[data-tema="claro"] { --bg:#f5f7f2; --surface:#fff; --surface2:#eef3e9; --line:#dee7d6; --txt:#222820; --muted:#596451; --shadow:0 8px 30px rgba(40,64,27,.08); }
+.login-card { width:min(460px,100%); border-top:4px solid var(--brand); padding:34px; position:relative; overflow:hidden; }
+.login-card::after { content:''; position:absolute; right:0; top:0; width:32px; height:32px; background:linear-gradient(225deg,var(--bg) 50%,#dceacb 51%); pointer-events:none; }
+.impar-lockup { background:#fff; border-radius:12px; margin-bottom:24px; }
+.impar-lockup img { display:block; width:100%; height:auto; }
+.impar-label { font-size:10px; font-weight:700; letter-spacing:2px; color:var(--muted); }
+.impar-title { font-size:26px; line-height:1.2; letter-spacing:-.7px; margin:10px 0; }
+.login-card .hint a { display:block; margin-top:14px; }
+.btn:not(.ghost):not(.bad) { box-shadow:0 3px 9px rgba(77,118,33,.12); }
+.btn:not(.ghost):not(.bad):hover { transform:translateY(-1px); }
+.brand { align-items:center; }
+.brand img { width:88px !important; height:46px !important; object-fit:contain !important; background:#fff; border-radius:6px; }
+.brand span { font-size:10px; }
+#aurora i { filter:none !important; border:1px solid rgba(117,185,54,.18); border-radius:8px 8px 26px 8px !important; background:linear-gradient(135deg,rgba(117,185,54,.06),rgba(117,185,54,.01)) !important; width:150px !important; height:200px !important; opacity:.6; animation:impar-paper 18s ease-in-out infinite !important; }
+#aurora i:nth-child(2) { left:70%; top:10%; animation-delay:-6s !important; }
+#aurora i:nth-child(3) { left:45%; top:70%; animation-delay:-12s !important; }
+@keyframes impar-paper { 0%,100% { transform:translateY(0) rotate(-12deg); } 50% { transform:translateY(-18px) rotate(-6deg); } }
+.card-box { transition:border-color .18s,box-shadow .18s; }
+.card-box:hover { border-color:color-mix(in srgb,var(--brand) 35%,var(--line)); }
+@media(max-width:600px) { .login-card { padding:24px; } .impar-title { font-size:23px; } #aurora i { width:90px !important; height:120px !important; } }
+@media(prefers-reduced-motion:reduce) { #aurora i { animation:none !important; } }
+body.fx-off #aurora i { animation:none !important; }

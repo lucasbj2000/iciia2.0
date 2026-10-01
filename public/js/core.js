@@ -8,7 +8,7 @@ export const S = {
   token: localStorage.getItem('iciia_token') || '',
   usuario: null, empresa: null, empresas: [], sucursales: [],
   vista: 'neg', negociaciones: [], notificaciones: [], clima: null,
-  tema: localStorage.getItem('iciia_tema') || 'oscuro',
+  tema: localStorage.getItem('iciia_tema') || 'claro',
   densidad: localStorage.getItem('iciia_densidad') || 'comoda',
   etapaMovil: null
 };

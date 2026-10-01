@@ -1,23 +1,24 @@
 <!DOCTYPE html>
-<html lang="es" data-tema="oscuro" data-densidad="comoda">
+<html lang="es" data-tema="claro" data-densidad="comoda">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f1115">
-<meta name="description" content="iciia2.0 · CRM multiempresa omnicanal">
-<title>iciia2.0 · CRM</title>
+<meta name="theme-color" content="#75b936">
+<meta name="description" content="IMPAR · CRM de atención y ventas">
+<title>IMPAR · CRM</title>
 <link rel="stylesheet" href="/styles.css?v=menu-mobile-3">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23FF7A00'/><text y='68' x='50' text-anchor='middle' font-size='52' font-family='sans-serif' font-weight='bold' fill='white'>i2</text></svg>">
+<link rel="icon" href="/assets/impar-favicon.svg">
+<link rel="stylesheet" href="/impar.css?v=3">
 </head>
 <body>
-<div id="aurora"><i></i><i></i><i></i></div>
+<div id="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
 
 <div id="login">
   <form class="login-card" id="form-login">
-    <div class="logo"><div class="logo-mark">i2</div><h1>iciia<span style="color:var(--brand)">2.0</span></h1></div>
-    <p class="sub">Plataforma CRM multiempresa · omnicanal</p>
-    <div class="field"><label for="l-emp">Empresa</label>
-      <input id="l-emp" placeholder="Código de empresa" autocomplete="organization" required></div>
+    <div class="impar-lockup"><img src="/assets/impar-logo.jpg" alt="IMPAR — Expertos en papel, Papeles e Insumos Gráficos"></div>
+    <span class="impar-label">ATENCIÓN Y VENTAS</span>
+    <h1 class="impar-title">Cada contacto, una nueva oportunidad.</h1>
+    <p class="sub">Tu espacio de trabajo IMPAR.</p>
     <div class="field"><label for="l-usr">Usuario</label>
       <input id="l-usr" placeholder="usuario" autocomplete="username" required></div>
     <div class="field"><label for="l-pwd">Contraseña</label>
@@ -25,8 +26,8 @@
     <div class="err" id="l-err" role="alert"></div>
     <button class="btn block" type="submit" id="l-btn">Ingresar</button>
     <div class="hint">
-      Para entrar al panel de administración usá el código de empresa <b>admin</b>.<br>
-      Si no recordás tus credenciales, pedíselas al administrador del sistema.
+      ¿Necesitás ayuda para ingresar? Contactá al administrador.
+      <a href="https://www.impar-papeles.com.py" target="_blank" rel="noopener">Conocé IMPAR ↗</a>
     </div>
   </form>
 </div>

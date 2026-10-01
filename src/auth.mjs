@@ -10,26 +10,14 @@ export const firmar = u => jwt.sign(
 
 export async function login({ empresa, usuario, password }) {
   const us = String(usuario || '').trim().toLowerCase();
-  const emp = String(empresa || '').trim().toLowerCase();
-  let user = null, empRow = null;
-
-  if (emp === 'admin') {
-    const { rows } = await q(
-      `SELECT * FROM usuarios WHERE rol='admin' AND empresa_id IS NULL AND lower(usuario)=$1 AND activo`, [us]);
-    user = rows[0];
-    if (!user) return { error: 'Credenciales de administrador inválidas.' };
-    const { rows: es } = await q('SELECT * FROM empresas WHERE activa ORDER BY creado LIMIT 1');
-    empRow = es[0] || null;
-  } else {
-    const { rows: es } = await q('SELECT * FROM empresas WHERE lower(codigo)=$1 AND activa', [emp]);
-    empRow = es[0];
-    if (!empRow) return { error: 'Empresa no encontrada o inactiva.' };
-    const { rows } = await q('SELECT * FROM usuarios WHERE empresa_id=$1 AND lower(usuario)=$2 AND activo', [empRow.id, us]);
-    user = rows[0];
-    if (!user) return { error: 'Usuario o contraseña incorrectos.' };
-  }
+  const { rows: es } = await q("SELECT * FROM empresas WHERE codigo='impar' AND activa");
+  const empRow = es[0];
+  if (!empRow) return { error: 'IMPAR todavía no está configurado.' };
+  const { rows } = await q('SELECT * FROM usuarios WHERE empresa_id=$1 AND lower(usuario)=$2 AND activo', [empRow.id, us]);
+  const user = rows[0];
+  if (!user) return { error: 'Usuario o contraseña incorrectos.' };
   const ok = await bcrypt.compare(String(password || ''), user.pass_hash);
-  if (!ok) return { error: emp === 'admin' ? 'Credenciales de administrador inválidas.' : 'Usuario o contraseña incorrectos.' };
+  if (!ok) return { error: 'Usuario o contraseña incorrectos.' };
   await q('UPDATE usuarios SET ultimo_login=now() WHERE id=$1', [user.id]);
   return { token: firmar(user), user, empresa: empRow };
 }
@@ -45,18 +33,9 @@ export function requiere(...roles) {
       const user = rows[0];
       if (!user) return res.status(401).json({ error: 'usuario inactivo' });
 
-      let empresaId = user.empresa_id;
-      if (user.rol === 'admin' && !user.empresa_id) {
-        empresaId = req.headers['x-empresa'] || req.query.empresa || null;
-      }
-      if (!empresaId && user.rol !== 'admin') return res.status(403).json({ error: 'sin empresa' });
-
-      let empresa = null;
-      if (empresaId) {
-        const { rows: es } = await q('SELECT * FROM empresas WHERE id=$1', [empresaId]);
-        empresa = es[0] || null;
-        if (!empresa) return res.status(404).json({ error: 'empresa no encontrada' });
-      }
+      const { rows: es } = await q("SELECT * FROM empresas WHERE codigo='impar' AND activa");
+      const empresa = es[0];
+      if (!empresa || user.empresa_id !== empresa.id) return res.status(403).json({ error: 'Acceso exclusivo a IMPAR.' });
       if (roles.length && !roles.includes(user.rol)) return res.status(403).json({ error: 'sin permiso' });
 
       req.user = user; req.empresa = empresa;

@@ -31,7 +31,7 @@ $('#form-login').onsubmit = async e => {
   btn.innerHTML = '<span class="spin"></span> Ingresando…';
   try {
     const r = await api('/login', { method: 'POST', body: {
-      empresa: $('#l-emp').value.trim(), usuario: $('#l-usr').value.trim(), password: $('#l-pwd').value } });
+      usuario: $('#l-usr').value.trim(), password: $('#l-pwd').value } });
     S.token = r.token; localStorage.setItem('iciia_token', r.token);
     S.usuario = r.usuario; S.empresa = r.empresa;
     await arrancar(true);
@@ -72,9 +72,9 @@ async function arrancar(fresco) {
 
 export function aplicarMarca() {
   const e = S.empresa;
-  document.documentElement.style.setProperty('--brand', e?.color || '#FF7A00');
+  document.documentElement.style.setProperty('--brand', '#75b936');
   $('#b-name').textContent = e?.nombre || 'iciia2.0';
-  $('#b-emp').textContent = S.usuario.esAdminGlobal ? 'Admin global · iciia2.0' : `iciia2.0 · ${S.usuario.sucursal || ''}`;
+  $('#b-emp').textContent = `Expertos en papel · ${S.usuario.sucursal || 'IMPAR'}`;
   const img = $('#b-logo');
   if (e?.logo) { img.src = e.logo; img.hidden = false; } else img.hidden = true;
   $('#me-name').textContent = S.usuario.nombre;
@@ -96,18 +96,10 @@ export function pintarNav() {
     .filter(n => n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
     .map(n => `<button class="nav-i ${S.vista === n.id ? 'active' : ''}" data-nav="${n.id}">
       <span class="ic">${n.ic}</span>${n.t}${n.id === 'com' ? '<span class="bdg" style="display:none"></span>' : ''}</button>`).join('')
-    + (esAdmin() && S.empresas.length ? `<div style="padding:10px 12px;margin-top:8px;border-top:1px solid var(--line)">
-        <label style="font-size:var(--fs-xs);color:var(--muted)">Empresa activa</label>
-        <select id="sel-emp" style="width:100%;margin-top:6px;padding:9px;background:var(--surface2);border:1px solid var(--line);border-radius:9px">
-        ${S.empresas.map(e => `<option value="${e.id}" ${S.empresa?.id === e.id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select></div>` : '');
+    ;
 
   $$('[data-nav]').forEach(b => b.onclick = () => ir(b.dataset.nav));
-  if ($('#sel-emp')) $('#sel-emp').onchange = async e => {
-    S.empresa = { ...S.empresa, id: e.target.value };
-    const ctx = await get('/contexto');
-    S.empresa = ctx.empresa; S.sucursales = ctx.sucursales;
-    aplicarMarca(); aplicarFX(); cargarClima(); conectarRealtime(); render();
-  };
+
 }
 
 export async function ir(v) {
