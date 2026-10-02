@@ -5,6 +5,7 @@ import {
   DISPONIBILIDAD, ORIGENES, TIPOS_EV, aplicarTema, aplicarFX
 } from './core.js';
 import { fichaNeg, modalRapidas } from './ficha.js';
+import { conectarEmojis } from './emojis.js';
 
 /* ================= COMUNICACIÓN ================= */
 let CHAT = null, resumenCom = { grupos: [], usuarios: [] };
@@ -71,6 +72,7 @@ async function pintarChat() {
    <div class="ci-f"><input id="ci-msg" placeholder="Escribir mensaje…">
      <button class="btn" id="ci-enviar">Enviar</button></div>`;
   const body = $('#ci-body'); if (body) body.scrollTop = body.scrollHeight;
+  conectarEmojis('#ci-msg');
   const enviar = async () => {
     const txt = $('#ci-msg').value.trim(); if (!txt) return;
     $('#ci-msg').value = '';

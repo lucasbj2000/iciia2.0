@@ -5,6 +5,7 @@ import {
 } from './core.js';
 import { mover, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { conectarAdjuntos, mediaHTML, activarVisor, subir, elegirArchivo, ICONOS } from './adjuntos.js';
+import { conectarEmojis } from './emojis.js';
 
 let actual = null, usuarios = [], rapidas = { equipo: [], personales: [] }, adj = null;
 
@@ -174,6 +175,8 @@ function rapidasHTML(campo) {
 }
 
 function conectar(n) {
+  conectarEmojis('#msg');
+  conectarEmojis('#remsg');
   $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
   $$('.tab').forEach(t => t.onclick = () => {
     $$('.tab').forEach(x => x.classList.remove('active')); t.classList.add('active');

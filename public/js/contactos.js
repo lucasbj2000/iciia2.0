@@ -6,6 +6,7 @@ import {
 import { fichaNeg } from './ficha.js';
 import { chequearDuplicado } from './negociaciones.js';
 import { activarVisor } from './adjuntos.js';
+import { conectarEmojis } from './emojis.js';
 
 let QC = '';
 
@@ -107,6 +108,7 @@ async function abrirConversacion(id) {
         <button type="submit" class="btn" id="c-chat-send" ${c.canales.length ? '' : 'disabled'}>Enviar e iniciar negociación</button></div></form>`);
   $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
   let enviando = false;
+  conectarEmojis('#c-chat-texto');
   $('#c-chat-form').onsubmit = async e => {
     e.preventDefault(); if (enviando) return;
     const texto = $('#c-chat-texto').value.trim(), canalId = $('#c-chat-canal').value;
