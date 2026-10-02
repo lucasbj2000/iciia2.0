@@ -3,6 +3,7 @@ import { q } from './db.mjs';
 import { ingresarMensaje, notificar } from './core.mjs';
 import * as baileys from './channels/baileys.mjs';
 import * as meta from './channels/meta.mjs';
+import { emitir } from './realtime.mjs';
 
 const MAX_INTENTOS = 3;
 const MAX_ENVIOS = 8;
@@ -94,10 +95,13 @@ export async function drenarOutbox() {
   }
 }
 
-const marcar = (o, estado) => q(
+const marcar = async (o, estado) => {
+  await q(
   `UPDATE mensajes SET estado=$4 WHERE negociacion_id=$1 AND estado='pendiente'
      AND COALESCE(txt,'')=COALESCE($2,'') AND COALESCE(archivo_id::text,'')=COALESCE($3,'')`,
   [o.negociacion_id, o.txt, o.archivo_id || '', estado]);
+  emitir(o.empresa_id, 'neg:patch', { id: o.negociacion_id });
+};
 
 export async function reprocesarCuarentena(empresaId) {
   const { rowCount } = await q(

@@ -6,6 +6,7 @@ import {
 } from './core.js';
 import { fichaNeg, modalRapidas } from './ficha.js';
 import { conectarEmojis } from './emojis.js';
+import { actualizarMensajes } from './chat-mensajes.js';
 
 /* ================= COMUNICACIÓN ================= */
 let CHAT = null, resumenCom = { grupos: [], usuarios: [] };
@@ -19,7 +20,7 @@ export async function vistaComunicacion() {
   const { grupos, usuarios } = resumenCom;
   if (!CHAT) CHAT = grupos.length ? { tipo: 'grupo', id: grupos[0].id } : (usuarios[0] ? { tipo: 'dm', id: usuarios[0].id } : null);
 
-  $('#view').innerHTML = `<div class="section fx-vista"><div class="ci">
+  $('#view').innerHTML = `<div class="section fx-vista com-section"><div class="ci">
    <div class="ci-side">
      <div style="padding:11px 13px;border-bottom:1px solid var(--line);display:flex;gap:7px;align-items:center">
        <b style="flex:1;font-size:var(--fs-xs);color:var(--muted);letter-spacing:.4px">GRUPOS</b>
@@ -43,14 +44,23 @@ export async function vistaComunicacion() {
 
   $$('[data-chat]').forEach(el => el.onclick = () => { CHAT = { tipo: el.dataset.chat, id: el.dataset.id }; vistaComunicacion(); });
   if ($('#g-nuevo')) $('#g-nuevo').onclick = () => modalGrupo();
-  pintarChat();
+  await pintarChat();
 }
 
-async function pintarChat() {
+async function pintarChat(suave = false, seguir = false) {
   const box = $('#ci-main'); if (!box) return;
   if (!CHAT) { box.innerHTML = vacio('✉', 'Elegí una conversación', ''); return; }
-  box.innerHTML = `<div style="margin:auto"><span class="spin lg"></span></div>`;
-  const msgs = await get(`/com/mensajes?tipo=${CHAT.tipo}&id=${CHAT.id}`);
+  const chat = { ...CHAT }, clave = `${chat.tipo}:${chat.id}`;
+  const actualizar = suave && box.dataset.chatKey === clave && $('#ci-body');
+  if (!actualizar) box.innerHTML = `<div style="margin:auto"><span class="spin lg"></span></div>`;
+  const revision = box._revision = (box._revision || 0) + 1;
+  const msgs = await get(`/com/mensajes?tipo=${chat.tipo}&id=${chat.id}`);
+  if ($('#ci-main') !== box || `${CHAT?.tipo}:${CHAT?.id}` !== clave || box._revision !== revision) return;
+  const render = m => `<div class="msg ${m.de_id === S.usuario.id ? 'out' : 'in'}">
+    ${chat.tipo === 'grupo' && m.de_id !== S.usuario.id ? `<b style="font-size:var(--fs-xs);color:var(--brand);display:block">${esc(m.autor)}</b>` : ''}
+    <div class="message-text">${esc(m.txt)}</div><small>${fdate(m.ts)}</small></div>`;
+  if (actualizar) { actualizarMensajes($('#ci-body'), msgs, render, seguir); return; }
+  box.dataset.chatKey = clave;
   const esGrupo = CHAT.tipo === 'grupo';
   let titulo, sub;
   if (esGrupo) {
@@ -65,26 +75,33 @@ async function pintarChat() {
      <div style="flex:1"><b style="font-size:var(--fs-md)">${esc(titulo)}</b>
        <div style="color:var(--muted);font-size:var(--fs-xs)">${esc(sub)}</div></div>
      ${esGrupo && esAdmin() ? `<button class="btn ghost sm" id="g-editar">Editar grupo</button>` : ''}</div>
-   <div class="ci-body" id="ci-body">${msgs.map(m =>
-     `<div class="msg ${m.de_id === S.usuario.id ? 'out' : 'in'}">
-       ${esGrupo && m.de_id !== S.usuario.id ? `<b style="font-size:var(--fs-xs);color:var(--brand);display:block">${esc(m.autor)}</b>` : ''}
-       ${esc(m.txt)}<small>${fdate(m.ts)}</small></div>`).join('') || vacio('💬', 'Iniciá la conversación', '')}</div>
-   <div class="ci-f"><input id="ci-msg" placeholder="Escribir mensaje…">
+   <div class="ci-body" id="ci-body"></div>
+   <div class="ci-f"><textarea id="ci-msg" rows="3" enterkeyhint="enter" aria-label="Mensaje interno" placeholder="Escribir mensaje…"></textarea>
      <button class="btn" id="ci-enviar">Enviar</button></div>`;
-  const body = $('#ci-body'); if (body) body.scrollTop = body.scrollHeight;
+  actualizarMensajes($('#ci-body'), msgs, render, true);
   conectarEmojis('#ci-msg');
+  let enviando = false;
+  const input = $('#ci-msg'), boton = $('#ci-enviar');
+  boton.onpointerdown = e => { if (document.activeElement === input) e.preventDefault(); };
   const enviar = async () => {
-    const txt = $('#ci-msg').value.trim(); if (!txt) return;
-    $('#ci-msg').value = '';
-    await post('/com/mensajes', { tipo: CHAT.tipo, id: CHAT.id, texto: txt });
-    pintarChat();
+    if (enviando) return;
+    const borrador = input.value, txt = borrador.trim(); if (!txt) return;
+    enviando = true; boton.disabled = true; input.value = '';
+    try { await post('/com/mensajes', { tipo: chat.tipo, id: chat.id, texto: txt }); }
+    catch (e) { input.value = input.value ? borrador + '\n' + input.value : borrador; toast(e.message, 'bad'); return; }
+    finally { enviando = false; boton.disabled = false; }
+    if ($('#ci-main') === box && box.dataset.chatKey === clave) {
+      try { await pintarChat(true, true); } catch { toast('Mensaje guardado. No se pudo actualizar la conversación.', 'warn'); }
+    }
   };
   $('#ci-enviar').onclick = enviar;
-  $('#ci-msg').onkeydown = e => { if (e.key === 'Enter') enviar(); };
   actualizarBadgeCom();
 }
 
-export function refrescarChat() { if (S.vista === 'com') pintarChat(); }
+export function refrescarChat(evento) {
+  if (S.vista === 'com' && (!evento || (evento.tipo === CHAT?.tipo && evento.id === CHAT?.id)))
+    pintarChat(true).catch(e => toast(e.message, 'bad'));
+}
 
 function actualizarBadgeCom() {
   const total = resumenCom.grupos.reduce((a, g) => a + Number(g.no_leidos || 0), 0)

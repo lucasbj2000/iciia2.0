@@ -137,17 +137,19 @@ export function animarContador(el) {
 
 /* ---------- Modales ---------- */
 export function modal(html, ancho) {
+  document.body.classList.add('modal-open');
   $('#modals').innerHTML = `<div class="mask"><div class="modal ${ancho ? 'wide' : ''}">${html}</div></div>`;
   const mask = $('.mask');
   mask.addEventListener('click', e => { if (e.target === mask) cerrar(); });
   document.addEventListener('keydown', escCerrar);
   if (!esMovil()) {
     const f = $('.modal input:not([type=hidden]):not([disabled]), .modal textarea');
-    if (f) setTimeout(() => f.focus(), 140);
+    if (f) setTimeout(() => { if (f.isConnected) f.focus({ preventScroll: true }); }, 140);
   }
 }
 function escCerrar(e) { if (e.key === 'Escape') cerrar(); }
 export function cerrar() {
+  document.body.classList.remove('modal-open');
   $('#modals').innerHTML = '';
   document.removeEventListener('keydown', escCerrar);
 }

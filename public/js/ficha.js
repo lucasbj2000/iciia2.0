@@ -1,11 +1,12 @@
 /* ============ Ficha de negociación · adjuntos · botones · ubicaciones ============ */
 import {
   $, $$, esc, S, get, post, patch, put, del, gs, fdate, fd, ago, toast, modal, cerrar,
-  confirmar, fx, esAdmin, esMando, etapa, ORIGENES, vacio, vibrar
+  confirmar, fx, esAdmin, esMando, etapa, ORIGENES, vacio, vibrar, esMovil
 } from './core.js';
 import { mover, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { conectarAdjuntos, mediaHTML, activarVisor, subir, elegirArchivo, ICONOS } from './adjuntos.js';
 import { conectarEmojis } from './emojis.js';
+import { actualizarMensajes } from './chat-mensajes.js';
 
 let actual = null, usuarios = [], rapidas = { equipo: [], personales: [] }, adj = null;
 
@@ -40,10 +41,11 @@ function pintar() {
   if (marc.includes('manual')) chips.push('<span class="tag t-man">✎ Carga manual</span>');
   const ubis = n.ubicaciones || [];
 
-  modal(`<div class="modal-h"><h3>${esc(n.cliente)} · <span style="color:${etapa(n.etapa).color}">${esc(etapa(n.etapa).nombre)}</span></h3>
+  modal(`<div class="modal-h"><h3>${esc(n.cliente)} · <span id="f-etapa" style="color:${etapa(n.etapa).color}">${esc(etapa(n.etapa).nombre)}</span></h3>
    ${esAdmin() && fx('eliminarNegociaciones') ? `<button class="btn danger sm" id="f-borrar">🗑</button>` : ''}
    <button class="x" data-cerrar>✕</button></div>
   <div class="modal-b">
+   <details class="ficha-contexto" ${esMovil() ? '' : 'open'}><summary>Datos de la negociación</summary>
    <div class="row" style="margin-bottom:12px">
      ${fx('fechaCreacion') ? `<span class="pill" style="flex:none">📅 Creada ${fdate(n.creado)}</span>` : ''}
      <span class="pill" style="flex:none">🔄 ${ago(n.actualizado)} atrás</span>
@@ -70,40 +72,30 @@ function pintar() {
      <ul class="tl">${n.transferencias.map(t => `<li>${esc(t.de_nombre || 'Sin asignar')} → <b>${esc(t.a_nombre)}</b>${t.nota ? ' · ' + esc(t.nota) : ''}
        <small>${fdate(t.ts)} · por ${esc(t.por || '')}</small></li>`).join('')}</ul></div>` : ''}
 
+   </details>
    <div class="tabs"><button class="tab active" data-tab="t-chat">Conversación</button>
      <button class="tab" data-tab="t-det">Detalle</button>
      <button class="tab" data-tab="t-his">Historial</button></div>
 
    <div id="t-chat">
-     <div class="chat" id="chatbox">${(n.mensajes || []).map(m => {
-       const media = mediaHTML(m);
-       const u = m.ubicacion;
-       const mapaUbi = u?.lat != null
-         ? `<a class="ubi" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener">
-              <span class="pin">📍</span><div style="min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.nombre || 'Ubicación compartida')}</b>
-              <small style="color:var(--muted)">${esc(u.direccion || `${u.lat}, ${u.lon}`)}</small></div></a>` : '';
-       return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
-          ${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${esc(m.txt)}</div>` : ''}${mapaUbi}
-          <small>${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}
-          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}</small></div>`;
-     }).join('') || vacio('💬', 'Sin mensajes', 'Escribí o adjuntá el primero abajo')}</div>
+     <div class="chat" id="chatbox"></div>
 
-     ${cerrada ? `<div class="card-box" style="margin:12px 0 0;border-color:var(--warn)">
+     ${cerrada ? `<div class="card-box chat-compose" style="margin:12px 0 0;border-color:var(--warn)">
        <b style="font-size:var(--fs-sm)">Negociación ${n.etapa === 'ganado' ? 'cerrada ganada' : 'cerrada'}</b>
        <div style="color:var(--muted);font-size:var(--fs-sm);margin:6px 0 10px">Al enviar un mensaje se genera una
          <b>nueva negociación en Contactado</b> con marcador «Re gestionado».</div>
-       ${botonesHTML('remsg')}${rapidasHTML('remsg')}
+       ${herramientasHTML('remsg')}
        <div id="adj-re" hidden></div>
-       <div class="row" style="align-items:center;position:relative">
+       <div class="row chat-input-row" style="align-items:center;position:relative">
          ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj-re" type="button" title="Adjuntar">📎</button>` : ''}
-         <input id="remsg" placeholder="Escribir mensaje al cliente…">
+         <textarea id="remsg" rows="3" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje al cliente…"></textarea>
          <button class="btn" style="flex:none" id="f-rege">Enviar y re gestionar</button></div></div>`
-     : `${botonesHTML('msg')}${rapidasHTML('msg')}
+     : `<div class="chat-compose">${herramientasHTML('msg')}
         <div id="adj-barra" hidden></div>
-        <div class="row" style="margin-top:8px;align-items:center;position:relative">
+        <div class="row chat-input-row" style="margin-top:8px;align-items:center;position:relative">
         ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj" type="button" title="Adjuntar archivo (o pegá con Ctrl+V)">📎</button>` : ''}
-        <input id="msg" placeholder="Escribir mensaje, pegar o arrastrar un archivo…">
-        <button class="btn" style="flex:none" id="f-enviar">Enviar</button></div>`}
+        <textarea id="msg" rows="3" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje, pegar o arrastrar un archivo…"></textarea>
+        <button class="btn" style="flex:none" id="f-enviar">Enviar</button></div></div>`}
    </div>
 
    <div id="t-det" class="hidden">
@@ -141,8 +133,45 @@ function pintar() {
      `<li>${esc(h.txt)}<small>${fdate(h.ts)} · ${esc(h.por)}</small></li>`).join('')}</ul></div>
   </div>`, true);
 
-  const cb = $('#chatbox'); if (cb) { cb.scrollTop = cb.scrollHeight; activarVisor(cb); }
+  $('.modal').classList.add('conversation-modal');
+  $('.mask')?.classList.add('conversation-mask');
+  $('.modal').dataset.negociacionId = n.id;
+  const cb = $('#chatbox'); if (cb) { cb.innerHTML = ''; actualizarMensajes(cb, n.mensajes || [], mensajeHTML, true); activarVisor(cb); }
   conectar(n);
+}
+
+function mensajeHTML(m) {
+       const media = mediaHTML(m);
+       const u = m.ubicacion;
+       const mapaUbi = u?.lat != null
+         ? `<a class="ubi" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener">
+              <span class="pin">📍</span><div style="min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.nombre || 'Ubicación compartida')}</b>
+              <small style="color:var(--muted)">${esc(u.direccion || `${u.lat}, ${u.lon}`)}</small></div></a>` : '';
+       return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
+          ${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${esc(m.txt)}</div>` : ''}${mapaUbi}
+          <small>${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}
+          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}</small></div>`;
+}
+
+export async function refrescarFicha(id, seguir = false) {
+  const caja = $('#chatbox'), ficha = $('.conversation-modal');
+  if (!caja || ficha?.dataset.negociacionId !== id) return;
+  const revision = caja._revision = (caja._revision || 0) + 1;
+  const n = await get(`/negociaciones/${id}`);
+  if ($('#chatbox') !== caja || $('.conversation-modal') !== ficha || caja._revision !== revision) return;
+  actual = n;
+  actualizarMensajes(caja, n.mensajes || [], mensajeHTML, seguir);
+  activarVisor(caja);
+  const titulo = $('#f-etapa');
+  if (titulo) { titulo.textContent = etapa(n.etapa).nombre; titulo.style.color = etapa(n.etapa).color; }
+  if ($('#f-bot')) $('#f-bot').checked = n.bot_activo !== false;
+  const historial = $('#t-his .tl');
+  if (historial) historial.innerHTML = (n.historial || []).map(h => `<li>${esc(h.txt)}<small>${fdate(h.ts)} · ${esc(h.por)}</small></li>`).join('');
+}
+
+function herramientasHTML(campo) {
+  const html = botonesHTML(campo) + rapidasHTML(campo);
+  return html ? `<details class="chat-tools" ${esMovil() ? '' : 'open'}><summary>Respuestas y acciones</summary>${html}</details>` : '';
 }
 
 /* ---------- Botones personalizados ---------- */
@@ -237,21 +266,30 @@ function conectar(n) {
   };
 
   /* envío */
+  adj = null;
   if ($('#f-enviar')) {
     if (fx('adjuntos')) adj = conectarAdjuntos({ inputSel: '#msg', barraSel: '#adj-barra', botonSel: '#f-adj', zonaSel: '#t-chat' });
+    let enviando = false;
+    const input = $('#msg'), boton = $('#f-enviar'), adjuntos = adj;
+    boton.onpointerdown = e => { if (document.activeElement === input) e.preventDefault(); };
     const enviar = async () => {
-      const txt = $('#msg').value.trim();
-      const archivoId = adj?.archivo?.id || null;
+      if (enviando) return;
+      const borrador = input.value, txt = borrador.trim();
+      const archivoId = adjuntos?.archivo?.id || null;
       if (!txt && !archivoId) return;
-      $('#msg').value = ''; $('#f-enviar').disabled = true;
+      enviando = true; input.value = ''; boton.disabled = true;
       try {
         await post(`/negociaciones/${n.id}/mensajes`, { texto: txt, archivoId });
-        adj?.limpiar(); vibrar(12); await fichaNeg(n.id); patchTarjeta(n.id);
-      } catch (e) { toast(e.message, 'bad'); }
-      finally { const b = $('#f-enviar'); if (b) b.disabled = false; }
+      } catch (e) {
+        input.value = input.value ? borrador + '\n' + input.value : borrador;
+        toast(e.message, 'bad'); return;
+      } finally { enviando = false; boton.disabled = false; }
+      if (adjuntos?.archivo?.id === archivoId) adjuntos?.limpiar();
+      vibrar(12); patchTarjeta(n.id);
+      try { await refrescarFicha(n.id, true); }
+      catch { toast('Mensaje guardado. La conversación se actualizará al recuperar la conexión.', 'warn'); }
     };
     $('#f-enviar').onclick = enviar;
-    $('#msg').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } };
   }
   if ($('#f-rege')) {
     if (fx('adjuntos')) adj = conectarAdjuntos({ inputSel: '#remsg', barraSel: '#adj-re', botonSel: '#f-adj-re', zonaSel: '#t-chat' });
@@ -259,14 +297,17 @@ function conectar(n) {
       const txt = $('#remsg').value.trim();
       const archivoId = adj?.archivo?.id || null;
       if (!txt && !archivoId) return toast('Escribí un mensaje o adjuntá un archivo', 'warn');
+      const boton = $('#f-rege'); if (boton.disabled) return; boton.disabled = true;
       try {
         const r = await post(`/negociaciones/${n.id}/regestionar`, { texto: txt, archivoId });
-        cerrar(); toast('Nueva negociación en Contactado', 'ok', 'Re gestionado');
+        toast('Nueva negociación en Contactado', 'ok', 'Re gestionado');
         patchTarjeta(r.id, { nueva: true });
+        const nueva = await get(`/negociaciones/${r.id}`);
+        if ($('.conversation-modal')?.dataset.negociacionId === n.id) { actual = nueva; pintar(); }
       } catch (e) {
         if (e.data?.negociacionId) { toast('Ya existe una negociación abierta', 'warn'); fichaNeg(e.data.negociacionId); }
         else toast(e.message, 'bad');
-      }
+      } finally { boton.disabled = false; }
     };
   }
 }

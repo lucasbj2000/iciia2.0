@@ -21,6 +21,57 @@
 @media(max-width:600px) { .login-card { padding:24px; } .impar-title { font-size:23px; } #aurora i { width:90px !important; height:120px !important; } }
 @media(prefers-reduced-motion:reduce) { #aurora i { animation:none !important; } }
 body.fx-off #aurora i { animation:none !important; }
+/* Paneles estables: el scroll pertenece a la vista o al chat, nunca a la página. */
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+#app{height:var(--crm-viewport-height,100dvh);min-height:0;overflow:hidden}
+#app>main{min-width:0;min-height:0;overflow:hidden}
+#app>main>.top{flex-shrink:0}
+#view{overflow:auto;min-width:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+#login{height:var(--crm-viewport-height,100dvh);overflow:auto;overscroll-behavior:contain}
+.kanban,.col-b,.chat,.ci-body,.modal{overscroll-behavior:contain}
+body.modal-open #view{overflow:hidden}
+.mask{top:var(--crm-viewport-top,0px);bottom:auto;height:var(--crm-viewport-height,100dvh);overflow:hidden}
+.mask>.modal{max-height:calc(var(--crm-viewport-height,100dvh) - 32px)}
+.conversation-mask{animation:none}
+.modal.conversation-modal{height:min(900px,calc(var(--crm-viewport-height,100dvh) - 32px));max-width:1080px;display:flex;flex-direction:column;overflow:hidden;animation:none}
+.conversation-modal>.modal-h{position:relative;flex:none}
+.conversation-modal>.modal-b{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.conversation-modal .tabs{flex:none;margin-bottom:10px}
+.ficha-contexto{flex:none;max-height:190px;overflow:auto;overscroll-behavior:contain;margin-bottom:10px}
+.ficha-contexto>summary,.chat-tools>summary{cursor:pointer;font-size:12px;color:var(--muted);padding:5px 0}
+#t-chat:not(.hidden){display:flex;flex-direction:column;flex:1;min-height:0}
+.conversation-modal #chatbox{flex:1;min-height:80px;max-height:none;scroll-behavior:auto;overflow-anchor:none}
+.msg{flex:0 0 auto;overflow-wrap:anywhere}
+.message-text,.msg>div:not(.ubi){white-space:pre-wrap}
+.chat-compose{flex:none;min-width:0;padding-top:8px}
+.chat-tools[open]{max-height:150px;overflow:auto;overscroll-behavior:contain}
+.chat-input-row{flex-wrap:nowrap!important;align-items:flex-end!important}
+.chat-input-row textarea,.ci-f textarea{flex:1;min-width:0;width:100%;min-height:88px;height:96px;max-height:170px;resize:vertical;padding:12px;background:var(--surface2);border:1px solid var(--line);border-radius:11px;line-height:1.45}
+.chat-input-row>button,.ci-f>button,.ci-f>.emoji-picker{flex:none}
+.conversation-modal #t-det,.conversation-modal #t-his{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
+.ci-main,.ci-body{min-height:0;min-width:0}.ci-body{scroll-behavior:auto;overflow-anchor:none}
+.com-section{flex:1;min-height:0;display:flex;flex-direction:column}
+.com-section>.ci{flex:1;min-height:0;height:auto}
+.ci-h,.ci-f{flex:none}.ci-f{align-items:flex-end}
+@media(max-width:900px){
+  #app{position:fixed;top:0;left:0;right:0}
+  input,select,textarea{font-size:16px!important}
+  .mask{padding:0;align-items:stretch}
+  .mask>.modal{max-height:var(--crm-viewport-height,100dvh)}
+  .modal.conversation-modal{height:var(--crm-viewport-height,100dvh);max-height:var(--crm-viewport-height,100dvh);border-radius:0;max-width:none}
+  .conversation-modal>.modal-h{padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top))}
+  .conversation-modal>.modal-h h3{font-size:14px;min-width:0;overflow-wrap:anywhere}
+  .conversation-modal>.modal-b{padding:8px 10px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
+  .ficha-contexto{max-height:22dvh;margin-bottom:4px}
+  .conversation-modal #chatbox{min-height:40px;padding:8px}
+  .chat-compose{padding-top:4px;overflow:visible}
+  .chat-tools[open]{max-height:90px}
+  .chat-input-row{gap:5px}.chat-input-row .btn{padding:8px 10px;min-height:40px;font-size:12px}
+  .chat-input-row textarea,.ci-f textarea{height:64px;min-height:56px;max-height:112px;resize:none;padding:8px}
+  .chat-input-row .btn-adj,.chat-input-row .emoji-picker>summary{width:36px;height:40px}
+  .ci{grid-template-rows:minmax(50px,22%) minmax(0,1fr)}
+  .ci-side{max-height:none;min-height:0}.ci-f{padding:8px;gap:5px}
+}
 .emoji-picker{position:relative;flex:none;display:inline-block;margin:0;vertical-align:middle}
 .emoji-picker>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);font-size:22px;user-select:none}
 .emoji-picker>summary::-webkit-details-marker{display:none}

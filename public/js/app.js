@@ -6,9 +6,13 @@ import {
 } from './core.js';
 import { vistaNegociaciones, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { vistaContactos } from './contactos.js';
-import { vistaComunicacion, vistaCalendario, vistaReportes, vistaConfig } from './modulos.js';
+import { vistaComunicacion, vistaCalendario, vistaReportes, vistaConfig, refrescarChat } from './modulos.js';
+import { refrescarFicha } from './ficha.js';
 import { vistaAdmin } from './admin.js';
 import { vistaOrganigrama } from './organigrama.js';
+import { iniciarViewport } from './viewport.js';
+
+iniciarViewport();
 
 const NAV = [
   { id: 'neg', t: 'Negociaciones', ic: '◫', mod: 'negociaciones' },
@@ -127,7 +131,11 @@ function conectarRealtime() {
   const es = new EventSource(`/api/stream?token=${encodeURIComponent(S.token)}&empresa=${S.empresa.id}`);
   window._sse = es;
 
-  es.addEventListener('neg:patch', e => { if (S.vista === 'neg') patchTarjeta(JSON.parse(e.data).id); });
+  es.addEventListener('neg:patch', e => {
+    const { id } = JSON.parse(e.data);
+    if (S.vista === 'neg') patchTarjeta(id);
+    refrescarFicha(id).catch(() => {});
+  });
   es.addEventListener('neg:nueva', e => { if (S.vista === 'neg') patchTarjeta(JSON.parse(e.data).id, { nueva: true }); });
   es.addEventListener('neg:borradas', e => { if (S.vista === 'neg') quitarTarjetas(JSON.parse(e.data).ids); });
   es.addEventListener('neg:recargar', () => { if (S.vista === 'neg') vistaNegociaciones(); });
@@ -138,7 +146,7 @@ function conectarRealtime() {
     if (n.tipo === 'ganado') confeti(40);
     cargarNotificaciones();
   });
-  es.addEventListener('com', () => { if (S.vista === 'com') vistaComunicacion(); else cargarNotificaciones(); });
+  es.addEventListener('com', e => { if (S.vista === 'com') refrescarChat(JSON.parse(e.data)); else cargarNotificaciones(); });
   es.addEventListener('calendario', () => { if (S.vista === 'cal') vistaCalendario(); });
   es.addEventListener('config', async () => {
     const ctx = await get('/contexto');
