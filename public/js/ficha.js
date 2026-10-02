@@ -6,7 +6,7 @@ import {
 import { mover, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { conectarAdjuntos, mediaHTML, activarVisor, subir, elegirArchivo, ICONOS } from './adjuntos.js';
 import { conectarEmojis } from './emojis.js';
-import { actualizarMensajes } from './chat-mensajes.js';
+import { actualizarMensajes, mostrarMensajePendiente, confirmarIdPendiente } from './chat-mensajes.js';
 
 let actual = null, usuarios = [], rapidas = { equipo: [], personales: [] }, adj = null;
 
@@ -169,6 +169,11 @@ export async function refrescarFicha(id, seguir = false) {
   if (historial) historial.innerHTML = (n.historial || []).map(h => `<li>${esc(h.txt)}<small>${fdate(h.ts)} · ${esc(h.por)}</small></li>`).join('');
 }
 
+export function confirmarEnvio({ id, clienteId, mensajeId }) {
+  if ($('.conversation-modal')?.dataset.negociacionId === id)
+    confirmarIdPendiente($('#chatbox'), clienteId, mensajeId);
+}
+
 function herramientasHTML(campo) {
   const html = botonesHTML(campo) + rapidasHTML(campo);
   return html ? `<details class="chat-tools" ${esMovil() ? '' : 'open'}><summary>Respuestas y acciones</summary>${html}</details>` : '';
@@ -278,15 +283,23 @@ function conectar(n) {
       const archivoId = adjuntos?.archivo?.id || null;
       if (!txt && !archivoId) return;
       enviando = true; input.value = ''; boton.disabled = true;
+      const pendiente = mostrarMensajePendiente($('#chatbox'), {
+        dir: 'out', txt, autor_id: S.usuario.id, archivo_id: archivoId,
+        media_url: adjuntos?.archivo?.url || null, media_tipo: adjuntos?.archivo?.tipo || null,
+        media_nombre: adjuntos?.archivo?.nombre || null
+      }, mensajeHTML);
       try {
-        await post(`/negociaciones/${n.id}/mensajes`, { texto: txt, archivoId });
+        const r = await post(`/negociaciones/${n.id}/mensajes`, { texto: txt, archivoId, clienteId: pendiente.id });
+        pendiente.confirmar(r.mensaje);
       } catch (e) {
-        input.value = input.value ? borrador + '\n' + input.value : borrador;
-        toast(e.message, 'bad'); return;
+        if (pendiente.fallar()) {
+          input.value = input.value ? borrador + '\n' + input.value : borrador;
+          toast(e.message, 'bad'); return;
+        }
       } finally { enviando = false; boton.disabled = false; }
       if (adjuntos?.archivo?.id === archivoId) adjuntos?.limpiar();
       vibrar(12); patchTarjeta(n.id);
-      try { await refrescarFicha(n.id, true); }
+      try { await refrescarFicha(n.id); }
       catch { toast('Mensaje guardado. La conversación se actualizará al recuperar la conexión.', 'warn'); }
     };
     $('#f-enviar').onclick = enviar;

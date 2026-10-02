@@ -190,9 +190,11 @@ r.post('/:id/mensajes', requiere(), async (req, res) => {
                agente_id=COALESCE(agente_id,$2) WHERE id=$1 AND empresa_id=$3`, [n.id, req.user.id, req.empresaId]);
     await historial(req.empresaId, n.id, `${nombreEtapa(emp, n.etapa)} → Contactado (respuesta del agente)`, req.user.nombre);
   }
-  await encolarSalida(req, n, texto, adjunto);
-  emitir(req.empresaId, 'neg:patch', { id: n.id });
-  res.json({ ok: true });
+  const mensaje = await encolarSalida(req, n, texto, adjunto);
+  const clienteId = typeof req.body?.clienteId === 'string' && req.body.clienteId.length <= 80
+    && /^local-\d+-\d+$/.test(req.body.clienteId) ? req.body.clienteId : null;
+  emitir(req.empresaId, 'neg:patch', { id: n.id, mensajeId: mensaje.id, clienteId });
+  res.json({ ok: true, mensaje });
 });
 
 r.post('/:id/regestionar', requiere(), async (req, res) => {
@@ -248,9 +250,9 @@ async function encolarSalida(req, n, texto, adjunto) {
     : '';
   const estado = canal && destino ? 'pendiente' : 'ok';
 
-  await q(
+  const { rows: mensajes } = await q(
     `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,autor_id,estado,archivo_id,media_url,media_tipo,media_nombre,media_bytes)
-     VALUES ($1,$2,'out',$3,$4,$5,$6,$7,$8,$9,$10)`,
+     VALUES ($1,$2,'out',$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
     [req.empresaId, n.id, texto, req.user.id, estado, adjunto?.id || null, adjunto?.url || null,
      adjunto?.tipo || null, adjunto?.nombre || null, adjunto?.bytes || null]);
   await q('UPDATE negociaciones SET actualizado=now() WHERE id=$1 AND empresa_id=$2', [n.id, req.empresaId]);
@@ -268,6 +270,7 @@ async function encolarSalida(req, n, texto, adjunto) {
       .then(({ drenarOutbox }) => drenarOutbox())
       .catch(e => console.error('[outbox inmediato]', e.message));
   }
+  return mensajes[0];
 }
 
 /* ---------- UBICACIONES ---------- */

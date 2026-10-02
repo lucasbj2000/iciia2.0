@@ -7,7 +7,7 @@ import {
 import { vistaNegociaciones, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { vistaContactos } from './contactos.js';
 import { vistaComunicacion, vistaCalendario, vistaReportes, vistaConfig, refrescarChat } from './modulos.js';
-import { refrescarFicha } from './ficha.js';
+import { refrescarFicha, confirmarEnvio } from './ficha.js';
 import { vistaAdmin } from './admin.js';
 import { vistaOrganigrama } from './organigrama.js';
 import { iniciarViewport } from './viewport.js';
@@ -132,7 +132,8 @@ function conectarRealtime() {
   window._sse = es;
 
   es.addEventListener('neg:patch', e => {
-    const { id } = JSON.parse(e.data);
+    const datos = JSON.parse(e.data), { id } = datos;
+    confirmarEnvio(datos);
     if (S.vista === 'neg') patchTarjeta(id);
     refrescarFicha(id).catch(() => {});
   });
