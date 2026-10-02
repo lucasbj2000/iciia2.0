@@ -92,6 +92,7 @@ function pintarColumnas() {
       <div class="col-h"><span class="dot" style="background:${e.color}"></span><b>${esc(e.nombre)}</b>
         ${e.activa ? '<span class="tag t-fecha" title="Etapa activa: sin duplicados">activa</span>' : ''}
         <span class="count">${lista.length}</span></div>
+      ${e.id === 'nuevo' && esAdmin() && fx('cargaManual') ? '<div class="col-quick"><button type="button" class="btn ghost sm" id="b-rapida">+ Crear negociación rápida</button></div>' : ''}
       <div class="col-b" data-body="${e.id}">
         ${lista.map(n => tarjeta(n)).join('') || vacio('◇', 'Sin negociaciones',
           e.id === 'nuevo' ? 'Los contactos entrantes caen acá' : '')}
@@ -101,6 +102,7 @@ function pintarColumnas() {
     const c = $(`[data-cnt="${e.id}"]`);
     if (c) c.textContent = ns.filter(n => n.etapa === e.id).length;
   });
+  if ($('#b-rapida')) $('#b-rapida').onclick = modalNegociacionRapida;
   conectarDrag();
   const sn = $('#sel-n'); if (sn) sn.textContent = SEL.size;
 }
@@ -314,6 +316,45 @@ function modalMotivo(id) {
   $('#mot-ok').onclick = () => {
     const m = $('#mot').value, c = $('#motc').value.trim();
     cerrar(); mover(id, 'cerrado', { motivo: m + (c ? ' — ' + c : '') });
+  };
+}
+
+/* ---------- Creación rápida en Nuevo contacto ---------- */
+function modalNegociacionRapida() {
+  modal(`<form id="form-rapida">
+    <div class="modal-h"><h3>Crear negociación rápida</h3><button type="button" class="x" data-cerrar aria-label="Cerrar">✕</button></div>
+    <div class="modal-b">
+      <div class="field"><label for="r-nom">Nombre</label><input id="r-nom" required maxlength="200" autocomplete="name"></div>
+      <div class="field"><label for="r-tel">Número de teléfono</label><input id="r-tel" type="tel" required maxlength="30" autocomplete="tel" placeholder="Ej.: +595 976 123456"></div>
+      <div id="r-dup"></div>
+      <div class="field"><label for="r-msg">Mensaje inicial de la conversación</label><textarea id="r-msg" rows="3" required maxlength="10000" placeholder="Escribí el mensaje inicial del cliente"></textarea></div>
+      <p class="sub">Se registra en Nuevo contacto. Este mensaje queda en el historial de la conversación.</p>
+      <div class="err" id="r-err" role="alert"></div>
+    </div>
+    <div class="modal-f"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn" id="r-ok">Crear negociación</button></div>
+  </form>`);
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  $('#r-nom').focus();
+  let timer, enviando = false;
+  $('#r-tel').oninput = e => { clearTimeout(timer); const tel=e.target.value; timer=setTimeout(() => chequearDuplicado(tel, '#r-dup'),350); };
+  $('#form-rapida').onsubmit = async e => {
+    e.preventDefault();
+    if (enviando) return;
+    const nombre=$('#r-nom').value.trim(), tel=$('#r-tel').value.trim(), mensaje=$('#r-msg').value.trim();
+    if (!nombre || !mensaje || !/^\+?[\d\s().-]+$/.test(tel) || tel.replace(/\D/g,'').length < 8 || tel.replace(/\D/g,'').length > 15)
+      return $('#r-err').textContent='Completá el nombre, un teléfono válido (8 a 15 dígitos) y el mensaje inicial.';
+    const btn=$('#r-ok'), err=$('#r-err');
+    enviando=true; btn.disabled=true; err.textContent=''; btn.textContent='Creando…';
+    try {
+      await post('/negociaciones/manual', { nombre, tel, mensaje, etapa:'nuevo', origen:'otro',
+        motivoCarga:'Creación rápida', sucursal:S.usuario.sucursal || S.sucursales[0]?.nombre || '',
+        linea:S.usuario.linea || S.empresa.lineas?.[0] || '' });
+      clearTimeout(timer); cerrar();
+      S.etapaMovil='nuevo'; F.q=''; F.origen=''; F.agente=''; F.marcador='';
+      await vistaNegociaciones(); toast('Negociación creada en Nuevo contacto','ok');
+    } catch (ex) {
+      if (err.isConnected) { err.textContent=ex.data?.mensaje || ex.message; btn.disabled=false; btn.textContent='Crear negociación'; }
+    } finally { enviando=false; }
   };
 }
 
