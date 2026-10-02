@@ -56,7 +56,9 @@ body.modal-open #view{overflow:hidden}
 .chat-tools[open]{max-height:150px;overflow:auto;overscroll-behavior:contain}
 .chat-input-row{flex-wrap:nowrap!important;align-items:flex-end!important}
 .chat-input-row textarea,.ci-f textarea{flex:1;min-width:0;width:100%;min-height:88px;height:96px;max-height:170px;resize:vertical;padding:12px;background:var(--surface2);border:1px solid var(--line);border-radius:11px;line-height:1.45}
-.chat-input-row>button,.ci-f>button,.ci-f>.emoji-picker{flex:none}
+.chat-input-row>button,.ci-f>button,.ci-f>.emoji-picker{flex:none;min-width:0}
+.chat-input-row>.btn-adj,.chat-input-row>.emoji-picker{flex:0 0 40px;min-width:0;width:40px}
+.chat-input-row{min-width:0;width:100%}
 .conversation-modal #t-det,.conversation-modal #t-his{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
 .ci-main,.ci-body{min-height:0;min-width:0}.ci-body{scroll-behavior:auto;overflow-anchor:none}
 .com-section{flex:1;min-height:0;display:flex;flex-direction:column}
@@ -72,12 +74,26 @@ body.modal-open #view{overflow:hidden}
   .conversation-modal>.modal-h h3{font-size:14px;min-width:0;overflow-wrap:anywhere}
   .conversation-modal>.modal-b{padding:8px 10px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
   .ficha-contexto{max-height:22dvh;margin-bottom:4px}
-  .conversation-modal #chatbox{min-height:40px;padding:8px}
+  .conversation-modal #chatbox{min-height:0;padding:8px}
   .chat-compose{padding-top:4px;overflow:visible}
   .chat-tools[open]{max-height:90px}
-  .chat-input-row{gap:5px}.chat-input-row .btn{padding:8px 10px;min-height:40px;font-size:12px}
+  /* El texto ocupa una fila completa: los controles nunca lo comprimen. */
+  .conversation-modal .chat-input-row{display:grid;grid-template-columns:44px 44px minmax(0,1fr);gap:6px;align-items:end!important}
+  .conversation-modal .chat-input-row>textarea{grid-column:1/-1;grid-row:1;width:100%;min-width:0;height:72px;min-height:72px;max-height:112px;box-sizing:border-box}
+  .conversation-modal .chat-input-row>.btn-adj{grid-column:1;grid-row:2;width:44px;min-width:0;height:44px;padding:0}
+  .conversation-modal .chat-input-row>.emoji-picker{grid-column:2;grid-row:2;width:44px;min-width:0}
+  .conversation-modal .chat-input-row>.emoji-picker>summary{width:44px;height:44px}
+  .conversation-modal .chat-input-row>.btn{grid-column:3;grid-row:2;min-width:0;width:auto;max-width:100%;justify-self:end;padding:10px 12px;min-height:44px;font-size:13px;white-space:normal}
+  .conversation-modal .chat-tools{max-height:60px;overflow:auto;overscroll-behavior:contain}
+  .conversation-modal .tabs{overflow-x:auto;min-width:0;gap:0;margin-bottom:6px}
+  .conversation-modal .tab{flex:none;white-space:nowrap;padding:8px 10px}
+  .conversation-modal .chat-compose{flex-shrink:0;overflow:visible}
   .chat-input-row textarea,.ci-f textarea{height:64px;min-height:56px;max-height:112px;resize:none;padding:8px}
   .chat-input-row .btn-adj,.chat-input-row .emoji-picker>summary{width:36px;height:40px}
+  .crm-viewport-compact .conversation-modal .ficha-contexto,
+  .crm-viewport-compact .conversation-modal .chat-tools{display:none}
+  .crm-viewport-compact .conversation-modal>.modal-h{padding-top:6px;padding-bottom:6px}
+  .crm-viewport-compact .conversation-modal .chat-input-row>textarea{height:60px;min-height:60px}
   .ci{grid-template-rows:minmax(50px,22%) minmax(0,1fr)}
   .ci-side{max-height:none;min-height:0}.ci-f{padding:8px;gap:5px}
 }

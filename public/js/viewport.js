@@ -8,6 +8,7 @@ export function iniciarViewport() {
       const viewport = window.visualViewport;
       if (viewport && Math.abs(viewport.scale - 1) > 0.01) return;
       const alto = Math.round(viewport?.height || window.innerHeight);
+      document.documentElement.classList.toggle('crm-viewport-compact', alto < 450);
       const arriba = Math.round(viewport?.offsetTop || 0);
       document.documentElement.style.setProperty('--crm-viewport-height', `${alto}px`);
       document.documentElement.style.setProperty('--crm-viewport-top', `${arriba}px`);
