@@ -8,6 +8,7 @@ import { vistaNegociaciones, patchTarjeta, quitarTarjetas } from './negociacione
 import { vistaContactos } from './contactos.js';
 import { vistaComunicacion, vistaCalendario, vistaReportes, vistaConfig } from './modulos.js';
 import { vistaAdmin } from './admin.js';
+import { vistaOrganigrama } from './organigrama.js';
 
 const NAV = [
   { id: 'neg', t: 'Negociaciones', ic: '◫', mod: 'negociaciones' },
@@ -16,12 +17,13 @@ const NAV = [
   { id: 'cal', t: 'Calendario', ic: '▦', mod: 'calendario', flag: 'calendario' },
   { id: 'rep', t: 'Reportes', ic: '▤', mod: 'reportes' },
   { id: 'cfg', t: 'Configuración', ic: '⚙', mod: 'configuracion' },
+  { id: 'org', t: 'Organigrama', ic: '▥', mando: true },
   { id: 'adm', t: 'Administración', ic: '★', admin: true }
 ];
 const VISTAS = { neg: vistaNegociaciones, con: vistaContactos, com: vistaComunicacion,
-  cal: vistaCalendario, rep: vistaReportes, cfg: vistaConfig, adm: vistaAdmin };
+  cal: vistaCalendario, rep: vistaReportes, cfg: vistaConfig, org: vistaOrganigrama, adm: vistaAdmin };
 const TITULOS = { neg: 'Negociaciones', con: 'Contactos', com: 'Comunicación interna',
-  cal: 'Calendario', rep: 'Reportes', cfg: 'Configuración', adm: 'Administración' };
+  cal: 'Calendario', rep: 'Reportes', cfg: 'Configuración', org: 'Organigrama', adm: 'Administración' };
 
 /* ================= LOGIN ================= */
 $('#form-login').onsubmit = async e => {
@@ -93,7 +95,7 @@ function pintarDisponibilidad() {
 export function pintarNav() {
   const mods = S.empresa?.modulos || [];
   $('#nav').innerHTML = NAV
-    .filter(n => n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
+    .filter(n => n.mando ? ['admin','gerente'].includes(S.usuario.rol) : n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
     .map(n => `<button class="nav-i ${S.vista === n.id ? 'active' : ''}" data-nav="${n.id}">
       <span class="ic">${n.ic}</span>${n.t}${n.id === 'com' ? '<span class="bdg" style="display:none"></span>' : ''}</button>`).join('')
     ;
