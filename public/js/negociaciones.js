@@ -21,6 +21,17 @@ export async function vistaNegociaciones() {
   pintarShell();
 }
 
+export async function ubicarNegociacion(id, etapaId) {
+  Object.assign(F, { q: '', origen: '', agente: '', marcador: '' });
+  S.etapaMovil = etapaId;
+  MODO_SEL = false; SEL.clear();
+  const { ir } = await import('./app.js');
+  await ir('neg');
+  const tarjeta = $(`[data-id="${id}"]`);
+  if (tarjeta) { tarjeta.scrollIntoView({ block: 'center', inline: 'center' }); destacar(tarjeta); }
+  await fichaNeg(id);
+}
+
 function pintarShell() {
   const puedeBorrar = esAdmin() && fx('eliminarNegociaciones');
   const etapas = S.empresa.etapas || [];

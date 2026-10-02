@@ -4,8 +4,25 @@ import { requiere, alcanceSQL } from '../auth.mjs';
 import { notificar, auditar, historial, nombreEtapa, negActivaPorTel, crearContacto } from '../core.mjs';
 import { emitir } from '../realtime.mjs';
 import * as ubi from '../ubicaciones.mjs';
+import { conversacionContacto } from '../conversacion-contacto.mjs';
 
 const r = Router();
+
+r.get('/:id/conversacion', requiere(), async (req, res) => {
+  try { res.json(await conversacionContacto(req, req.params.id)); }
+  catch (e) { if (!e.status) console.error('[conversación contacto]', e.message); res.status(e.status || 500).json({ error: e.status ? e.message : 'No se pudo consultar la conversación.' }); }
+});
+r.post('/:id/conversacion', requiere(), async (req, res) => {
+  try {
+    const resultado = await conversacionContacto(req, req.params.id, req.body || {});
+    if (resultado.creada) {
+      emitir(req.empresaId, 'neg:nueva', { id: resultado.id });
+      import('../worker.mjs').then(({ drenarOutbox }) => drenarOutbox())
+        .catch(e => console.error('[conversación contacto]', e.message));
+    }
+    res.status(resultado.activa ? 409 : 200).json(resultado);
+  } catch (e) { if (!e.status) console.error('[conversación contacto]', e.message); res.status(e.status || 500).json({ error: e.status ? e.message : 'No se pudo iniciar la conversación. Intentá nuevamente.' }); }
+});
 
 r.get('/', requiere(), async (req, res) => {
   const busca = String(req.query.q || '').trim().toLowerCase();

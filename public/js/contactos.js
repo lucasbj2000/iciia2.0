@@ -40,7 +40,7 @@ export async function vistaContactos() {
      <td>${c.etapa_abierta ? `<span class="tag t-re">Abierta · ${esc(etapa(c.etapa_abierta).nombre)}</span>`
        : `<span style="color:var(--muted)">${c.n_negociaciones} cerradas</span>`}</td>
      <td class="hide-m">${fd(c.creado)}</td>
-     <td style="text-align:right"><button class="btn ghost sm" data-360="${c.id}">Ficha 360°</button></td></tr>`).join('')
+     <td><div style="display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap"><button class="btn sm" data-conversacion="${c.id}">Conversación</button><button class="btn ghost sm" data-360="${c.id}">Ficha 360°</button></div></td></tr>`).join('')
      || `<tr><td colspan="7">${vacio('◎', 'Sin contactos', 'Los que ingresen por los canales aparecerán acá')}</td></tr>`}
    </tbody></table></div></div>`;
 
@@ -48,6 +48,12 @@ export async function vistaContactos() {
   $('#c-buscar').oninput = e => { clearTimeout(t); QC = e.target.value; t = setTimeout(vistaContactos, 320); };
   $('#c-nuevo').onclick = modalNuevo;
   $$('[data-360]').forEach(b => b.onclick = () => ficha360(b.dataset['360']));
+  $$('[data-conversacion]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try { await abrirConversacion(b.dataset.conversacion); }
+    catch (e) { toast(e.message, 'bad'); }
+    finally { b.disabled = false; }
+  });
   $$('[data-sol]').forEach(b => b.onclick = async () => {
     await post(`/contactos/solicitudes/${b.dataset.sol}/resolver`, { aceptar: b.dataset.ok === '1' });
     toast(b.dataset.ok === '1' ? 'Contacto transferido' : 'Solicitud rechazada', b.dataset.ok === '1' ? 'ok' : 'warn');
@@ -64,6 +70,58 @@ export async function vistaContactos() {
     $('#c-import').onclick = () => $('#c-file').click();
     $('#c-file').onchange = importar;
   }
+}
+
+async function ubicarConversacion(n) {
+  cerrar();
+  const { ubicarNegociacion } = await import('./negociaciones.js');
+  await ubicarNegociacion(n.id, n.etapa);
+}
+
+function avisarActiva(n) {
+  modal(`<div class="modal-h"><h3>Ya hay una negociación activa</h3><button class="x" data-cerrar>✕</button></div>
+    <div class="modal-b"><p>Responsable: <b>${esc(n.responsable)}</b></p>
+      <p>Ubicación: <b>${esc(etapa(n.etapa).nombre)}</b> · ${esc(n.sucursal || 'Sin sucursal')} · ${esc(n.linea || 'Sin línea')}</p>
+      <p>${n.propia ? 'La negociación está a tu cargo. Podés ir al chat y a su ubicación en el tablero.' : 'No se creó otra negociación. La conversación continúa con su responsable.'}</p></div>
+    <div class="modal-f"><button class="btn ghost" data-cerrar>Cerrar</button>
+      ${n.propia ? '<button class="btn" id="c-ir-chat">Ir al chat y ubicación</button>' : ''}</div>`);
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  if ($('#c-ir-chat')) $('#c-ir-chat').onclick = async () => {
+    try { await ubicarConversacion(n); } catch (e) { toast(e.message, 'bad'); }
+  };
+}
+
+async function abrirConversacion(id) {
+  const c = await get(`/contactos/${id}/conversacion`);
+  if (c.activa) return avisarActiva(c);
+  modal(`<div class="modal-h"><h3>Conversación · ${esc(c.nombre)}</h3><button class="x" data-cerrar>✕</button></div>
+    <form id="c-chat-form"><div class="modal-b"><p>${esc(c.tel || 'Sin teléfono')}</p>
+      <p>Al enviar el primer mensaje se creará una negociación en Contactado, a tu cargo.</p>
+      <div class="field"><label for="c-chat-canal">Línea WhatsApp</label><select required id="c-chat-canal">
+        ${c.canales.length === 1 ? '' : '<option value="">Seleccionar…</option>'}
+        ${c.canales.map(x => `<option value="${x.id}">${esc(x.nombre)} · ${esc(x.sucursal || 'General')} · ${esc(x.linea || '')}</option>`).join('')}</select></div>
+      ${c.canales.length ? '' : '<p>No hay líneas WhatsApp habilitadas para tu sucursal. Consultá al administrador.</p>'}
+      <div class="field"><label for="c-chat-texto">Mensaje inicial</label><textarea required maxlength="10000" rows="4" id="c-chat-texto"></textarea></div>
+      <div class="err" role="alert" id="c-chat-error"></div></div>
+      <div class="modal-f"><button type="button" class="btn ghost" data-cerrar>Cancelar</button>
+        <button type="submit" class="btn" id="c-chat-send" ${c.canales.length ? '' : 'disabled'}>Enviar e iniciar negociación</button></div></form>`);
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  let enviando = false;
+  $('#c-chat-form').onsubmit = async e => {
+    e.preventDefault(); if (enviando) return;
+    const texto = $('#c-chat-texto').value.trim(), canalId = $('#c-chat-canal').value;
+    if (!texto || !canalId) return;
+    enviando = true; $('#c-chat-send').disabled = true;
+    try {
+      const n = await post(`/contactos/${id}/conversacion`, { texto, canalId });
+      if (n.activa) return avisarActiva(n);
+      toast('Negociación creada · mensaje en cola de envío', 'ok');
+      await ubicarConversacion(n);
+    } catch (ex) {
+      if (ex.data?.activa) return avisarActiva(ex.data);
+      if ($('#c-chat-error')) $('#c-chat-error').textContent = ex.message;
+    } finally { enviando = false; if ($('#c-chat-send')) $('#c-chat-send').disabled = false; }
+  };
 }
 
 function modalNuevo() {
