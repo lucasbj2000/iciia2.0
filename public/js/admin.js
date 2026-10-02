@@ -4,6 +4,7 @@ import {
   confirmar, fx, etapa, vacio, skeleton, ROLES, ORIGENES, vibrar
 } from './core.js';
 import { modalCargaManual } from './negociaciones.js';
+import { tablaCambios } from './colaboracion.js';
 
 let TADM = 'canales', defs = null, timerQR = null, sucursalesCache = [];
 
@@ -912,9 +913,25 @@ async function aLimpieza() {
 
 async function aAudit() {
   const rows = await get('/admin/auditoria');
-  AB().innerHTML = `<div class="card-box"><h3>Auditoría</h3>
+  AB().innerHTML = `<div class="card-box"><h3>Historial de cambios</h3><form id="audit-filtro" class="row"><div class="field"><label for="audit-entidad">Sector</label><select id="audit-entidad"><option value="">Todos</option><option value="negociaciones">Negociaciones</option><option value="contactos">Contactos</option><option value="usuarios">Empleados y accesos</option></select></div><div class="field"><label for="audit-buscar">Usuario o campo</label><input id="audit-buscar" maxlength="100"></div><button class="btn" type="submit">Buscar</button></form><div id="audit-cambios"></div><button class="btn ghost sm" id="audit-mas" hidden>Cargar anteriores</button></div><div class="card-box"><h3>Registro de actividad</h3>
    <table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th><th class="hide-m">IP</th></tr></thead>
    <tbody>${rows.map(a => `<tr><td>${fdate(a.ts)}</td><td>${esc(a.usuario)}</td><td>${esc(a.accion)}</td>
      <td>${esc(a.detalle)}</td><td class="hide-m mono">${esc(a.ip || '')}</td></tr>`).join('')
      || '<tr><td colspan="5" class="empty">Sin registros</td></tr>'}</tbody></table></div>`;
+  let cursor=null,busy=false,revision=0;
+  const cargar=async(reset=true)=>{
+    const box=$('#audit-cambios');if(!box||busy)return;
+    busy=true;const version=++revision;
+    try{
+      const filtro=new URLSearchParams({entidad:$('#audit-entidad').value,q:$('#audit-buscar').value.trim()});
+      if(!reset&&cursor)filtro.set('antes',cursor);
+      const data=await get('/admin/cambios?'+filtro);
+      if($('#audit-cambios')!==box||version!==revision)return;
+      if(reset)box.innerHTML=tablaCambios(data.cambios);else box.insertAdjacentHTML('beforeend',tablaCambios(data.cambios));
+      cursor=data.siguiente;$('#audit-mas').hidden=!cursor;
+    }catch(e){toast(e.message,'bad');}finally{busy=false;}
+  };
+  $('#audit-filtro').onsubmit=e=>{e.preventDefault();cargar(true);};
+  $('#audit-mas').onclick=()=>cargar(false);
+  await cargar();
 }

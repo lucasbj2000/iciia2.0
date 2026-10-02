@@ -7,12 +7,16 @@ import {
 import { vistaNegociaciones, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { vistaContactos } from './contactos.js';
 import { vistaComunicacion, vistaCalendario, vistaReportes, vistaConfig, refrescarChat } from './modulos.js';
-import { refrescarFicha, confirmarEnvio } from './ficha.js';
+import { fichaNeg, refrescarFicha, confirmarEnvio } from './ficha.js';
 import { vistaAdmin } from './admin.js';
 import { vistaOrganigrama } from './organigrama.js';
 import { iniciarViewport } from './viewport.js';
 
+import { iniciarPWA, notificarApp } from './pwa.js';
+import { cargarNotas, cargarCambiosNeg } from './colaboracion.js';
+
 iniciarViewport();
+iniciarPWA(id=>fichaNeg(id).catch(e=>toast(e.message,'bad')));
 
 const NAV = [
   { id: 'neg', t: 'Negociaciones', ic: '◫', mod: 'negociaciones' },
@@ -71,9 +75,7 @@ async function arrancar(fresco) {
       else if (S.usuario.rol !== 'admin') modalDisponibilidad();
     }, 800);
   }
-  if (fx('notiEscritorio') && 'Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-  }
+
 }
 
 export function aplicarMarca() {
@@ -141,9 +143,16 @@ function conectarRealtime() {
   es.addEventListener('neg:borradas', e => { if (S.vista === 'neg') quitarTarjetas(JSON.parse(e.data).ids); });
   es.addEventListener('neg:recargar', () => { if (S.vista === 'neg') vistaNegociaciones(); });
   es.addEventListener('ubicacion', e => { if (S.vista === 'neg') patchTarjeta(JSON.parse(e.data).negociacionId, { destacar: true }); });
+  es.addEventListener('notas:actualizadas', e => {
+    const { id } = JSON.parse(e.data);
+    if ($('.conversation-modal')?.dataset.negociacionId !== id) return;
+    if ($('#t-notas') && !$('#t-notas').classList.contains('hidden')) cargarNotas(id).catch(()=>{});
+    if ($('#t-his') && !$('#t-his').classList.contains('hidden')) cargarCambiosNeg(id).catch(()=>{});
+  });
   es.addEventListener('noti', e => {
     const n = JSON.parse(e.data);
     toast(n.msg, n.tono, n.titulo);
+    notificarApp(n);
     if (n.tipo === 'ganado') confeti(40);
     cargarNotificaciones();
   });
@@ -314,7 +323,8 @@ window.addEventListener('resize', () => {
 /* ================= INICIO ================= */
 aplicarTema();
 if (S.token) {
-  arrancar(false).catch(() => { salir(); const el = $('#l-emp'); if (el) el.focus(); });
+  arrancar(false).catch(() => { salir(); const el = $('#l-usr'); if (el) el.focus(); });
 } else {
-  $('#l-emp').focus();
+  $('#l-usr').focus();
 }
+

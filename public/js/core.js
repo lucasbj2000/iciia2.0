@@ -88,7 +88,7 @@ export function toast(msg, tono = 'ok', titulo) {
   el.innerHTML = `<span class="ti">${ic}</span><div><b>${esc(titulo || 'iciia2.0')}</b><small>${esc(msg)}</small></div>`;
   $('#toasts').appendChild(el);
   if (fx('notiSonido')) beep(tono);
-  if (fx('notiEscritorio') && 'Notification' in window && Notification.permission === 'granted') {
+  if (localStorage.getItem('impar_avisos') == null && fx('notiEscritorio') && 'Notification' in window && Notification.permission === 'granted') {
     try { new Notification(titulo || 'iciia2.0', { body: msg }); } catch (e) {}
   }
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 320); }, 4400);
@@ -205,3 +205,4 @@ document.addEventListener('click', e => {
   s.style.top = (e.clientY - r.top - d / 2) + 'px';
   b.appendChild(s); setTimeout(() => s.remove(), 620);
 });
+

@@ -21,6 +21,7 @@ import rNegociaciones from './routes/negociaciones.mjs';
 import rContactos from './routes/contactos.mjs';
 import rAdmin from './routes/admin.mjs';
 import rOrganigrama from './routes/organigrama.mjs';
+import rColaboracion from './routes/colaboracion.mjs';
 import rCanales from './routes/canales.mjs';
 import rArchivos from './routes/archivos.mjs';
 import rVarios from './routes/varios.mjs';
@@ -122,6 +123,7 @@ app.get('/api/contexto', requiere(), async (req, res) => {
 app.get('/api/stream', requiere(), sseHandler);
 
 app.use('/api/negociaciones', rNegociaciones);
+app.use('/api/negociaciones', rColaboracion);
 app.use('/api/contactos', rContactos);
 app.use('/api/admin', rAdmin);
 app.use('/api/organigrama', rOrganigrama);

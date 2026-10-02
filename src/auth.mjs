@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { q } from './db.mjs';
+import { contextoAuditoria } from './contexto-auditoria.mjs';
 
 const SECRET = process.env.JWT_SECRET;
 const EXPIRA = process.env.JWT_EXPIRA || '12h';
@@ -41,7 +42,7 @@ export function requiere(...roles) {
       req.user = user; req.empresa = empresa;
       req.empresaId = empresa ? empresa.id : null;
       req.esAdmin = user.rol === 'admin';
-      next();
+      contextoAuditoria.run({ usuario: user.usuario, id: user.id, ip: req.ip || '' }, next);
     } catch (e) { res.status(401).json({ error: 'token inválido' }); }
   };
 }

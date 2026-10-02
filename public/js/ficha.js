@@ -6,6 +6,7 @@ import {
 import { mover, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { conectarAdjuntos, mediaHTML, activarVisor, subir, elegirArchivo, ICONOS } from './adjuntos.js';
 import { conectarEmojis } from './emojis.js';
+import { notasHTML,conectarNotas,cargarNotas,cargarCambiosNeg } from './colaboracion.js';
 import { actualizarMensajes, mostrarMensajePendiente, confirmarIdPendiente } from './chat-mensajes.js';
 
 let actual = null, usuarios = [], rapidas = { equipo: [], personales: [] }, adj = null;
@@ -74,6 +75,7 @@ function pintar() {
 
    </details>
    <div class="tabs"><button class="tab active" data-tab="t-chat">Conversación</button>
+     <button class="tab" data-tab="t-notas">Notas internas</button>
      <button class="tab" data-tab="t-det">Detalle</button>
      <button class="tab" data-tab="t-his">Historial</button></div>
 
@@ -129,7 +131,8 @@ function pintar() {
        ${n.motivo ? `<div style="margin-top:10px;color:var(--muted);font-size:var(--fs-sm)">Motivo: <b style="color:var(--txt)">${esc(n.motivo)}</b></div>` : ''}</div></div>
    </div>
 
-   <div id="t-his" class="hidden"><ul class="tl">${(n.historial || []).map(h =>
+   <div id="t-notas" class="hidden">${notasHTML()}</div>
+   <div id="t-his" class="hidden"><h3>Historial de cambios</h3><div id="f-cambios"></div><h3>Actividad</h3><ul class="tl">${(n.historial || []).map(h =>
      `<li>${esc(h.txt)}<small>${fdate(h.ts)} · ${esc(h.por)}</small></li>`).join('')}</ul></div>
   </div>`, true);
 
@@ -209,13 +212,16 @@ function rapidasHTML(campo) {
 }
 
 function conectar(n) {
+  conectarNotas(n.id);
   conectarEmojis('#msg');
   conectarEmojis('#remsg');
   $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
   $$('.tab').forEach(t => t.onclick = () => {
     $$('.tab').forEach(x => x.classList.remove('active')); t.classList.add('active');
-    ['t-chat', 't-det', 't-his'].forEach(x => $('#' + x).classList.add('hidden'));
+    ['t-chat', 't-det', 't-his','t-notas'].forEach(x => $('#' + x).classList.add('hidden'));
     const p = $('#' + t.dataset.tab); p.classList.remove('hidden'); p.classList.add('fx-vista');
+    if(t.dataset.tab==='t-notas')cargarNotas(n.id).catch(e=>toast(e.message,'bad'));
+    if(t.dataset.tab==='t-his')cargarCambiosNeg(n.id).catch(e=>toast(e.message,'bad'));
   });
 
   /* respuestas rápidas */

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { q, crearEmpresa, FLAGS_DEF, NOTI_DEF, REGLAS_DEF, flagsDefault } from '../db.mjs';
 import { requiere, hash } from '../auth.mjs';
 import { auditar } from '../core.mjs';
+import { listarCambios } from '../colaboracion.mjs';
 import { emitir } from '../realtime.mjs';
 import { reprocesarCuarentena } from '../worker.mjs';
 import { obtener as obtenerArchivo } from '../archivos.mjs';
@@ -249,6 +250,11 @@ r.put('/rapidas-personales', requiere(), async (req, res) => {
 r.get('/auditoria', requiere('admin'), async (req, res) => {
   const { rows } = await q('SELECT * FROM auditoria WHERE empresa_id=$1 ORDER BY ts DESC LIMIT 200', [req.empresaId]);
   res.json(rows);
+});
+
+r.get('/cambios', requiere('admin'), async (req,res) => {
+  try { res.json(await listarCambios(req,req.query)); }
+  catch(e){res.status(e.status||500).json({error:e.status?e.message:'No se pudo consultar el historial.'});}
 });
 
 r.get('/cuarentena', requiere('admin'), async (req, res) => {
