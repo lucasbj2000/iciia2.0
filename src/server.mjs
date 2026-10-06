@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 import { q, migrar, seed } from './db.mjs';
+import { prepararRecepcionImpar } from './preparar-recepcion-impar.mjs';
 import { login, requiere } from './auth.mjs';
 import { sseHandler } from './realtime.mjs';
 import { motorSLA, avisarCumples, auditar } from './core.mjs';
@@ -186,6 +187,7 @@ app.use((err, _req, res, _next) => {
   console.log('\n· iciia2.0 — iniciando');
   await migrar();
   await seed();
+  await prepararRecepcionImpar();
   arrancarWorkers();
   await baileys.prelevantar();
   setInterval(() => motorSLA().catch(e => console.error('[sla]', e.message)), 60000);
@@ -201,3 +203,4 @@ app.use((err, _req, res, _next) => {
 for (const s of ['SIGTERM', 'SIGINT']) {
   process.on(s, () => { console.log(`\n· ${s} recibido, cerrando…`); process.exit(0); });
 }
+

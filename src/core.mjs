@@ -1,6 +1,7 @@
 import { q, telNorm } from './db.mjs';
 import { emitir } from './realtime.mjs';
 import * as ubi from './ubicaciones.mjs';
+import { programarBot } from './bot.mjs';
 
 /* ================= NOTIFICACIONES ================= */
 export async function destinatarios(empresa, dest, base = []) {
@@ -261,15 +262,20 @@ export async function ingresarMensaje(empresa, {
     }
     if (det) await guardarUbicacion(empresa, contacto, abierta, det);
     emitir(empresa.id, 'neg:patch', { id: abierta.id });
+    if (empresa.flags?.bot && empresa.bot?.activo) programarBot(empresa,abierta.id);
     return { negociacionId: abierta.id, reusada: true, contacto };
   }
 
   /* --- negociación nueva --- */
-  const responsableAnterior = reingreso
-    ? await responsableUltimoCierre(empresa, contacto.id)
-    : null;
-  const agente = responsableAnterior
-    || await asignarEquitativo(empresa, { sucursal: canalSucursal, linea: canalLinea });
+  const { rows: responsables } = contacto.responsable_id ? await q(
+    'SELECT id,sucursal FROM usuarios WHERE id=$1 AND empresa_id=$2 AND activo AND NOT oculto',
+    [contacto.responsable_id,empresa.id]) : { rows: [] };
+  const responsableAnterior = responsables[0]?.id || (reingreso
+    ? await responsableUltimoCierre(empresa, contacto.id) : null);
+  const recepcionImpar = empresa.codigo === 'impar' && empresa.flags?.bot && empresa.bot?.activo && empresa.bot?.recepcionImpar !== false;
+  const agente = responsableAnterior || (recepcionImpar ? null
+    : await asignarEquitativo(empresa, { sucursal: canalSucursal, linea: canalLinea }));
+  const { rows: owner } = agente ? await q('SELECT sucursal FROM usuarios WHERE id=$1 AND empresa_id=$2',[agente,empresa.id]) : { rows: [] };
 
   if (agente && contacto.responsable_id !== agente) {
     await q('UPDATE contactos SET responsable_id=$2 WHERE id=$1 AND empresa_id=$3',
@@ -287,7 +293,7 @@ export async function ingresarMensaje(empresa, {
        (empresa_id,contacto_id,titulo,etapa,origen,canal_id,agente_id,sucursal,linea,marcadores,bot_activo,creado,actualizado,entrada_etapa)
      VALUES ($1,$2,'Contacto entrante','nuevo',$3,$4,$5,$6,$7,$8,$9,$10,now(),now()) RETURNING *`,
     [empresa.id, contacto.id, origen, canalId || null, agente,
-     canalSucursal || contacto.sucursal, canalLinea || contacto.linea,
+     owner[0]?.sucursal || canalSucursal || contacto.sucursal, canalLinea || contacto.linea,
      JSON.stringify(marcadores), !!(empresa.flags?.bot && empresa.bot?.activo), cuando]);
   const neg = rows[0];
 
@@ -297,15 +303,12 @@ export async function ingresarMensaje(empresa, {
     [empresa.id, neg.id, texto || '', mediaUrl || null, mediaTipo || null, mediaNombre || null,
      archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando]);
 
-  if (empresa.flags?.bot && empresa.bot?.activo) {
-    await q(`INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,bot,ts) VALUES ($1,$2,'out',$3,TRUE,now())`,
-      [empresa.id, neg.id, String(empresa.bot.instrucciones || '').slice(0, 300)]);
-  }
+  if (empresa.flags?.bot && empresa.bot?.activo) programarBot(empresa,neg.id);
   await historial(empresa.id, neg.id,
     `Ingreso automático por ${origen}`
       + (responsableAnterior
         ? ' · conserva responsable de la última negociación cerrada'
-        : (agente ? ' · asignado por reparto equitativo entre agentes activos' : ' · sin agentes activos disponibles')),
+        : (agente ? ' · asignado por reparto equitativo entre agentes activos' : recepcionImpar ? ' · recepción pendiente de nombre y ciudad' : ' · sin agentes activos disponibles')),
     'Bot');
   await notificar(empresa, 'nuevo', { cliente: contacto.nombre, origen }, [agente], neg.id);
   if (det) await guardarUbicacion(empresa, contacto, neg, det);
@@ -365,3 +368,4 @@ export async function avisarCumples() {
     for (const p of rows) await notificar(emp, 'cumple', { persona: p.nombre }, []);
   }
 }
+

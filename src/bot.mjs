@@ -6,6 +6,7 @@
 import crypto from 'node:crypto';
 import { q } from './db.mjs';
 import { emitir } from './realtime.mjs';
+import { responderRecepcionImpar } from './recepcion-impar.mjs';
 
 /* ---------- Cifrado del token (AES-256-GCM con clave derivada de JWT_SECRET) ---------- */
 const clave = () => crypto.createHash('sha256').update(String(process.env.JWT_SECRET || 'iciia')).digest();
@@ -104,6 +105,7 @@ export async function responderBot(empresaId, negId) {
   const { rows: es } = await q('SELECT * FROM empresas WHERE id=$1 AND activa', [empresaId]);
   const emp = es[0];
   if (!emp || !emp.flags?.bot || !emp.bot?.activo) return;
+  if(emp.codigo==='impar' && emp.bot?.recepcionImpar!==false) return responderRecepcionImpar(empresaId,negId);
   const cfg = leerConfigIA(emp);
   if (!cfg.apiKey) return;
 
@@ -145,3 +147,4 @@ export async function responderBot(empresaId, negId) {
   } else await anotar(empresaId, negId, '🤖 El bot generó una respuesta pero la conversación no tiene un canal activo para enviarla.');
   emitir(empresaId, 'neg:patch', { id: negId });
 }
+
