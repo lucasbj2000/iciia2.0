@@ -26,6 +26,7 @@ import rColaboracion from './routes/colaboracion.mjs';
 import rCanales from './routes/canales.mjs';
 import rArchivos from './routes/archivos.mjs';
 import rProyecto from './routes/proyecto.mjs';
+import rAyudas from './routes/ayudas.mjs';
 import rVarios from './routes/varios.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -132,6 +133,7 @@ app.use('/api/organigrama', rOrganigrama);
 app.use('/api/canales', rCanales);
 app.use('/api/archivos', rArchivos);
 app.use('/api/proyecto', rProyecto);
+app.use('/api/ayudas', rAyudas);
 app.use('/api', rVarios);
 
 app.get('/api/health', async (_req, res) => {
