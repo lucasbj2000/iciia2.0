@@ -103,6 +103,7 @@ const GUIAS = {
       ['[data-adm="diseno"]','Diseño y módulos','Configurá la marca y qué secciones están disponibles.'],
       ['[data-adm="flags"]','Funciones ON/OFF','Activá o desactivá capacidades del CRM para la empresa.','Revisá el impacto de cada función antes de desactivarla.'],
       ['[data-adm="ayudas"]','Ayudas interactivas','Elegí qué usuarios pueden acceder a las guías y mini explicaciones.'],
+      ['[data-adm="horarios"]','Horarios laborales','Configurá los días de trabajo, entrada, salida y excepciones individuales.','Los agentes verán un aviso diez minutos antes de su salida.'],
       ['[data-adm="etapas"]','Etapas comerciales','Organizá las etapas del flujo de negociaciones.'],
       ['[data-adm="bot"]','Bot de recepción','Definí cómo actúa la recepción automática de clientes.'],
       ['[data-adm="mensajeria"]','Salud de mensajería','Consultá conexiones e incidencias de comunicación.'],
