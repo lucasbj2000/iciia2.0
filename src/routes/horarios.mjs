@@ -54,11 +54,11 @@ r.post('/mi-turno/responder',async(req,res,next)=>{
       if(!HORA.test(hasta)||minutos(hasta)<=minutos(estado.objetivo)||minutos(hasta)<=minutos(estado.horaActual))
         return res.status(422).json({error:'La nueva salida debe ser posterior al horario previsto y dentro del mismo día.'});
     }
-    await q(\`INSERT INTO horarios_respuestas(empresa_id,usuario_id,dia_fecha,decision,hasta,confirmado_para)
+    await q(`INSERT INTO horarios_respuestas(empresa_id,usuario_id,dia_fecha,decision,hasta,confirmado_para)
        VALUES($1,$2,$3,$4,$5,$6)
        ON CONFLICT(empresa_id,usuario_id,dia_fecha) DO UPDATE SET
        decision=EXCLUDED.decision,hasta=EXCLUDED.hasta,
-       confirmado_para=EXCLUDED.confirmado_para,actualizado=now()\`,
+       confirmado_para=EXCLUDED.confirmado_para,actualizado=now()`,
       [req.empresaId,req.user.id,estado.fecha,decision,hasta,estado.objetivo]);
     emitir(req.empresaId,'horarios:respuesta',{usuario_id:req.user.id});
     res.json({ok:true,decision,hasta,fecha:estado.fecha});
@@ -93,9 +93,9 @@ r.put('/config',requiere('admin'),async(req,res,next)=>{
         const {rows}=await c.query("SELECT id FROM usuarios WHERE empresa_id=$1 AND activo AND rol='agente' AND id=ANY($2::uuid[])",[req.empresaId,uids]);
         if(rows.length!==uids.length)throw Object.assign(new Error('Agentes inválidos'),{status:422});
       }
-      for(const h of base)await c.query(\`INSERT INTO horarios_empresa(empresa_id,dia,activo,entrada,salida) VALUES($1,$2,$3,$4,$5)
+      for(const h of base)await c.query(`INSERT INTO horarios_empresa(empresa_id,dia,activo,entrada,salida) VALUES($1,$2,$3,$4,$5)
          ON CONFLICT(empresa_id,dia) DO UPDATE SET activo=EXCLUDED.activo,entrada=EXCLUDED.entrada,
-         salida=EXCLUDED.salida,actualizado=now()\`,[req.empresaId,h.dia,h.activo,h.entrada,h.salida]);
+         salida=EXCLUDED.salida,actualizado=now()`,[req.empresaId,h.dia,h.activo,h.entrada,h.salida]);
       await c.query('DELETE FROM horarios_agentes WHERE empresa_id=$1',[req.empresaId]);
       for(const h of excepciones)await c.query('INSERT INTO horarios_agentes(empresa_id,usuario_id,dia,activo,entrada,salida) VALUES($1,$2,$3,$4,$5,$6)',
         [req.empresaId,h.usuario_id,h.dia,h.activo,h.entrada,h.salida]);
@@ -108,13 +108,13 @@ r.put('/config',requiere('admin'),async(req,res,next)=>{
 r.get('/salidas-hoy',requiere('admin'),async(req,res,next)=>{
   try{
     const hoy=fechaLocal(),base=await turnosEmpresa(req.empresaId);
-    const {rows}=await q(\`SELECT u.id,u.nombre,u.sucursal,
+    const {rows}=await q(`SELECT u.id,u.nombre,u.sucursal,
       h.activo AS dia_activo,h.entrada AS entrada_personal,h.salida AS salida_personal,
       resp.decision,resp.hasta,resp.confirmado_para,resp.actualizado
       FROM usuarios u
       LEFT JOIN horarios_agentes h ON h.empresa_id=u.empresa_id AND h.usuario_id=u.id AND h.dia=$2
       LEFT JOIN horarios_respuestas resp ON resp.empresa_id=u.empresa_id AND resp.usuario_id=u.id AND resp.dia_fecha=$3
-      WHERE u.empresa_id=$1 AND u.rol='agente' AND u.activo AND NOT u.oculto ORDER BY u.nombre\`,
+      WHERE u.empresa_id=$1 AND u.rol='agente' AND u.activo AND NOT u.oculto ORDER BY u.nombre`,
       [req.empresaId,hoy.dia,hoy.fecha]);
     res.set('Cache-Control','no-store').json({fecha:hoy.fecha,horaActual:hoy.hora,
       agentes:rows.map(x=>({
