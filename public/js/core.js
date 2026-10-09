@@ -20,7 +20,8 @@ export async function api(ruta, opts = {}) {
   if (S.empresa?.id && S.usuario?.esAdminGlobal) h['X-Empresa'] = S.empresa.id;
   const r = await fetch(`/api${ruta}`, { ...opts, headers: h,
     body: opts.body ? JSON.stringify(opts.body) : undefined });
-  if (r.status === 401) { salir(); throw new Error('Sesión expirada. Volvé a ingresar.'); }
+  // Un 401 aislado no fuerza salir: el control central valida la sesión.
+  // Errores transitorios o peticiones antiguas no deben borrar el token.
   const ct = r.headers.get('content-type') || '';
   const data = ct.includes('json') ? await r.json() : await r.text();
   if (!r.ok) { const e = new Error(data?.mensaje || data?.error || 'Error inesperado'); e.data = data; e.status = r.status; throw e; }
@@ -39,6 +40,7 @@ export function salir() {
   if (window._sse) { window._sse.close(); window._sse = null; }
   $('#app').classList.add('hidden');
   $('#login').classList.remove('hidden');
+  document.documentElement.classList.remove('sesion-verificando');
   const p = $('#l-pwd'); if (p) p.value = '';
 }
 
