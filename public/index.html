@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-tema="claro" data-densidad="comoda">
+<html lang="es" class="sesion-verificando" data-tema="claro" data-densidad="comoda">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -13,9 +13,12 @@
 <link rel="stylesheet" href="/impar.css?v=mobile-composer-2">
 <link rel="stylesheet" href="/proyecto.css?v=20261008-impar">
 <link rel="stylesheet" href="/ayudas.css?v=20261009-1">
+<link rel="stylesheet" href="/horarios.css?v=20261009-1">
 </head>
 <body>
 <div id="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<div id="inicio-estado" role="status" aria-live="polite"><div class="inicio-logo"><img src="/assets/impar-logo.jpg" alt="IMPAR"></div><p id="inicio-mensaje">Restableciendo tu sesión de IMPAR…</p><button id="inicio-reintentar" class="btn sm hidden">Reintentar conexión</button><button id="inicio-salir" class="btn ghost sm hidden">Cambiar usuario</button></div>
 
 <div id="login">
   <form class="login-card" id="form-login">
