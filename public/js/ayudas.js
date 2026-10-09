@@ -26,7 +26,7 @@ const GUIAS = {
       ['[data-conversacion]','Conversación','Abrí la gestión del cliente o iniciá una nueva cuando corresponda.','Si ya hay una gestión activa, el sistema procura llevarte a ella.'],
       ['[data-360]','Ficha 360°','Consultá los datos del contacto y sus antecedentes comerciales.','Ideal antes de volver a contactar a un cliente.'],
       ['#c-import','Importar','Subí clientes mediante el archivo permitido, si tenés acceso.','Verificá el formato y los datos antes de importar.'],
-      ['#c-export','Exportar','Descargá un listado de contactos si tu rol tiene permiso.','Tratà los datos descargados como información empresarial.']
+      ['#c-export','Exportar','Descargá un listado de contactos si tu rol tiene permiso.','Tratá los datos descargados como información empresarial.']
     ]
   },
   com:{
@@ -142,7 +142,7 @@ const NAVEGACION = {
 };
 
 let estado={habilitado:false,mini_ayudas:false,bienvenida:false,recorrido_visto:true,administrador:false};
-let iniciada=false, observar=null, programado=false, tooltip=null, panel=null, bienvenida=null;
+let iniciada=false, observar=null, programado=false, tooltip=null, panel=null, bienvenida=null, bienvenidaLista=false;
 let recorrido=null, marco=null, tarjeta=null, fondo=null;
 const esMovil = () => matchMedia('(max-width:900px)').matches;
 const visible = el => !!el && el.getClientRects().length>0 && getComputedStyle(el).visibility!=='hidden';
@@ -168,6 +168,7 @@ function quitarMarcas(){
   });
 }
 function desactivar(){
+  bienvenidaLista=false;
   cerrarTooltip(); cerrarPanel(); quitarMarcas(); cerrarBienvenida();
   terminarRecorrido(false,false);
   if(delEstado())delEstado().hidden=true;
@@ -182,8 +183,10 @@ export async function actualizarAyudas(){
   if(!estado.habilitado){desactivar();return estado;}
   if(delEstado())delEstado().hidden=false;
   programarDecoracion();
-  if(estado.bienvenida && !estado.recorrido_visto) crearBienvenida();
-  else cerrarBienvenida();
+  if(estado.bienvenida && !estado.recorrido_visto && !bienvenidaLista){
+    bienvenidaLista=true;
+    setTimeout(()=>{if(estado.bienvenida && !estado.recorrido_visto)crearBienvenida();},2100);
+  }else if(!estado.bienvenida || estado.recorrido_visto)cerrarBienvenida();
   return estado;
 }
 export async function iniciarAyudas(){
@@ -224,7 +227,10 @@ export function ayudasCambioDeVista(){
 function programarDecoracion(){
   if(programado || !iniciada || !estado.habilitado)return;
   programado=true;
-  requestAnimationFrame(()=>{programado=false;decorar();});
+  requestAnimationFrame(()=>{
+    programado=false;decorar();
+    if(bienvenidaLista && estado.bienvenida && !estado.recorrido_visto && !bienvenida)crearBienvenida();
+  });
 }
 function decorar(){
   if(!estado.habilitado)return;
@@ -315,7 +321,7 @@ function abrirPanel(){
   });
 }
 function crearBienvenida(){
-  if(bienvenida || !estado.habilitado || !$('#app') || $('#app').classList.contains('hidden'))return;
+  if(!bienvenidaLista || bienvenida || !estado.habilitado || !$('#app') || $('#app').classList.contains('hidden') || $('#modals .mask'))return;
   bienvenida=document.createElement('div');bienvenida.className='guia-bienvenida';
   bienvenida.innerHTML='<span class="guia-bienvenida-ico">✦</span><div><b>¿Primera vez en IMPAR?</b>'+
     '<p>Te mostramos para qué sirve cada sector, sin interrumpir tu trabajo.</p>'+
