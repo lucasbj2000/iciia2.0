@@ -35,6 +35,7 @@ export const del = r => api(r, { method: 'DELETE' });
 export function salir() {
   localStorage.removeItem('iciia_token');
   S.token = ''; S.usuario = null; S.empresa = null;
+  window.dispatchEvent(new Event('impar:salir'));
   if (window._sse) { window._sse.close(); window._sse = null; }
   $('#app').classList.add('hidden');
   $('#login').classList.remove('hidden');
