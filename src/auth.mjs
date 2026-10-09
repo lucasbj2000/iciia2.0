@@ -6,7 +6,7 @@ import { contextoAuditoria } from './contexto-auditoria.mjs';
 const SECRET = process.env.JWT_SECRET;
 // Respeta duraciones superiores, pero nunca expira antes de 8 h de sesión.
 const pedir=String(process.env.JWT_EXPIRA||'12h').trim();
-const partes=/^(\\d+)([mhd])$/.exec(pedir);
+const partes=/^(\d+)([mhd])$/.exec(pedir);
 const segundos=partes ? Number(partes[1])*({m:60,h:3600,d:86400}[partes[2]]) : 12*3600;
 export const SEGUNDOS_SESION=Math.max(8*3600,Number.isFinite(segundos)?segundos:12*3600);
 
