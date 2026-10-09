@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { q, tx } from '../db.mjs';
 import { requiere } from '../auth.mjs';
 import { emitir } from '../realtime.mjs';
+import { resolverGuia } from '../guia-reglas.mjs';
 import { auditar } from '../core.mjs';
 
 const r = Router();
@@ -21,13 +22,7 @@ async function estado(req) {
   );
   const config = cfg[0] || {general:false,mini_ayudas:true,bienvenida:true};
   const p = pref[0] || {modo:'heredar',recorrido_visto:false};
-  const habilitado = p.modo === 'mostrar' || (p.modo === 'heredar' && config.general);
-  return {
-    habilitado, mini_ayudas: habilitado && config.mini_ayudas,
-    bienvenida: habilitado && config.bienvenida,
-    recorrido_visto: !!p.recorrido_visto,
-    administrador: req.user.rol === 'admin'
-  };
+  return { ...resolverGuia(config,p), administrador: req.user.rol === 'admin' };
 }
 
 r.get('/estado', async (req,res,next) => {
