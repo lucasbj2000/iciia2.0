@@ -26,7 +26,7 @@ const GUIAS = {
       ['[data-conversacion]','Conversación','Abrí la gestión del cliente o iniciá una nueva cuando corresponda.','Si ya hay una gestión activa, el sistema procura llevarte a ella.'],
       ['[data-360]','Ficha 360°','Consultá los datos del contacto y sus antecedentes comerciales.','Ideal antes de volver a contactar a un cliente.'],
       ['#c-import','Importar','Subí clientes mediante el archivo permitido, si tenés acceso.','Verificá el formato y los datos antes de importar.'],
-      ['#c-export','Exportar','Descargá un listado de contactos si tu rol tiene permiso.','Tratí los datos descargados como información empresarial.']
+      ['#c-export','Exportar','Descargá un listado de contactos si tu rol tiene permiso.','Tratà los datos descargados como información empresarial.']
     ]
   },
   com:{
@@ -112,6 +112,16 @@ const GUIAS = {
 };
 
 const COMUNES = [
+  ['#chatbox','Historial de mensajes','Revisá los mensajes intercambiados con este cliente.','Desplazate para consultar mensajes anteriores.'],
+  ['#msg','Escribir al cliente','Redactá una respuesta para la conversación actual.','Revisá el destinatario antes de enviar.'],
+  ['#remsg','Recontactar cliente cerrado','Podés escribir nuevamente a un cliente cuya gestión se cerró.','El sistema inicia una nueva gestión de contacto.'],
+  ['#f-enviar','Enviar respuesta','Envía el texto que escribiste al canal del cliente.','Presioná una sola vez y verificá el estado del mensaje.'],
+  ['#f-rege','Enviar y re gestionar','Envía un nuevo mensaje y genera una gestión después del cierre.'],
+  ['#f-adj','Adjuntar archivo','Agregá imágenes, documentos u otros archivos permitidos a la conversación.'],
+  ['#f-bot','Bot automático','Indica si el bot puede responder en esta negociación.'],
+  ['[data-tab="t-notas"]','Notas internas','Registrá información interna para el equipo.','Estas notas no son mensajes al cliente.'],
+  ['[data-tab="t-det"]','Detalle de negociación','Consultá datos comerciales y herramientas de transferencia.'],
+  ['#f-transferir','Transferir atención','Asigná la negociación a otro integrante de IMPAR.','Verificá al nuevo responsable antes de confirmar.'],
   ['#btn-burger','Menú de navegación','En celulares, abre las secciones disponibles para tu usuario.'],
   ['#disp-pill','Disponibilidad','Indicá tu estado de atención; afecta cómo recibe trabajo tu cuenta.','Actualizalo al comenzar o terminar tu turno.'],
   ['#noti-btn','Notificaciones','Revisá mensajes, eventos y alertas de seguimiento pendientes.'],
@@ -133,7 +143,7 @@ const NAVEGACION = {
 
 let estado={habilitado:false,mini_ayudas:false,bienvenida:false,recorrido_visto:true,administrador:false};
 let iniciada=false, observar=null, programado=false, tooltip=null, panel=null, bienvenida=null;
-let recorrido=null, marco=null, tarjeta=null, recordarScroll=null;
+let recorrido=null, marco=null, tarjeta=null, fondo=null;
 const esMovil = () => matchMedia('(max-width:900px)').matches;
 const visible = el => !!el && el.getClientRects().length>0 && getComputedStyle(el).visibility!=='hidden';
 const itemsActuales = () => [...COMUNES, ...(GUIAS[S.vista]?.items||[])].map(([selector,titulo,descripcion,consejo]) => ({selector,titulo,descripcion,consejo:consejo||''}));
@@ -147,8 +157,15 @@ function cerrarPanel(){
 }
 function quitarMarcas(){
   $$('.guia-mini').forEach(x=>x.remove());
-  $$('[data-guia-activa]').forEach(e=>{e.removeAttribute('data-guia-activa');e.removeAttribute('title');});
-  $$('[data-guia-nav]').forEach(e=>e.removeAttribute('data-guia-nav'));
+  $('[data-guia-activa]').forEach(e=>{
+    if(e.dataset.guiaTituloGenerado==='1')e.removeAttribute('title');
+    e.removeAttribute('data-guia-activa');e.removeAttribute('data-guia-titulo-generado');
+  });
+  $('[data-guia-nav]').forEach(e=>{
+    if(e.dataset.guiaTituloOriginal==='__ausente__')e.removeAttribute('title');
+    else e.title=e.dataset.guiaTituloOriginal||'';
+    e.removeAttribute('data-guia-nav');e.removeAttribute('data-guia-titulo-original');
+  });
 }
 function desactivar(){
   cerrarTooltip(); cerrarPanel(); quitarMarcas(); cerrarBienvenida();
@@ -191,6 +208,7 @@ export async function iniciarAyudas(){
     const contenedores=['#view','#nav','#modals'];
     observar=new MutationObserver(()=>programarDecoracion());
     contenedores.forEach(sel=>{const el=$(sel);if(el)observar.observe(el,{childList:true,subtree:true});});
+    window.addEventListener('impar:salir', cerrarAyudas);
     window.addEventListener('resize',()=>{cerrarTooltip();situarRecorrido();},{passive:true});
     document.addEventListener('scroll',()=>{cerrarTooltip();situarRecorrido();},true);
   }
@@ -212,7 +230,10 @@ function decorar(){
   if(!estado.habilitado)return;
   $$('[data-nav]').forEach(b=>{
     const t=NAVEGACION[b.dataset.nav];
-    if(t){b.title=t;b.dataset.guiaNav='1';}
+    if(t){
+      if(!b.dataset.guiaNav)b.dataset.guiaTituloOriginal=b.hasAttribute('title')?b.title:'__ausente__';
+      b.title=t;b.dataset.guiaNav='1';
+    }
   });
   if(!estado.mini_ayudas){quitarMarcas();return;}
   const items=itemsActuales();
@@ -223,7 +244,7 @@ function decorar(){
       if(!visible(el))return;
       if(el.dataset.guiaActiva)return;
       el.dataset.guiaActiva='1';
-      if(!el.title)el.title=item.descripcion;
+      if(!el.title){el.title=item.descripcion;el.dataset.guiaTituloGenerado='1';}
       // Las ayudas de filas/columnas repetidas se encuentran en el centro de ayuda
       // y no se repiten decenas de veces en pantalla.
       if(n>0 || targets.length>8 && n>0)return;
@@ -322,10 +343,12 @@ export function abrirRecorrido(previsualizar=false){
   const pasos=inicio.filter(x=>visible(document.querySelector(x.selector)));
   if(!pasos.length)return;
   recorrido={pasos,indice:0,previsualizar};
+  fondo=document.createElement('div');fondo.className='guia-fondo';fondo.setAttribute('aria-hidden','true');
+  fondo.addEventListener('click',()=>terminarRecorrido(false,true));
   marco=document.createElement('div');marco.className='guia-marco';marco.setAttribute('aria-hidden','true');
   tarjeta=document.createElement('div');tarjeta.className='guia-recorrido';tarjeta.setAttribute('role','dialog');
   tarjeta.setAttribute('aria-modal','true');
-  document.body.append(marco,tarjeta);
+  document.body.append(fondo,marco,tarjeta);
   pintarRecorrido();
 }
 function pintarRecorrido(){
@@ -345,6 +368,7 @@ function pintarRecorrido(){
     else {recorrido.indice++;pintarRecorrido();}
   };
   situarRecorrido();
+  tarjeta.querySelector('#guia-siguiente')?.focus({preventScroll:true});
 }
 function situarRecorrido(){
   if(!recorrido || !tarjeta || !marco)return;
@@ -365,7 +389,7 @@ function situarRecorrido(){
 function terminarRecorrido(completado,guardar){
   if(!recorrido)return;
   const preview=recorrido.previsualizar;
-  recorrido=null;marco?.remove();tarjeta?.remove();marco=null;tarjeta=null;
+  recorrido=null;marco?.remove();tarjeta?.remove();fondo?.remove();marco=null;tarjeta=null;fondo=null;
   if(guardar && !preview)marcarVisto();
   if(completado)toast('¡Bien! Podés volver a la guía cuando la necesites.');
 }
