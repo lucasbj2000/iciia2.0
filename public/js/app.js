@@ -10,6 +10,7 @@ import { vistaComunicacion, vistaCalendario, vistaReportes, vistaConfig, refresc
 import { fichaNeg, refrescarFicha, confirmarEnvio } from './ficha.js';
 import { vistaAdmin } from './admin.js';
 import { vistaOrganigrama } from './organigrama.js';
+import { vistaProyecto } from './proyecto.js';
 import { iniciarViewport } from './viewport.js';
 
 import { iniciarPWA, notificarApp } from './pwa.js';
@@ -24,14 +25,15 @@ const NAV = [
   { id: 'com', t: 'Comunicación', ic: '✉', mod: 'comunicacion', flag: 'comunicacion' },
   { id: 'cal', t: 'Calendario', ic: '▦', mod: 'calendario', flag: 'calendario' },
   { id: 'rep', t: 'Reportes', ic: '▤', mod: 'reportes' },
+  { id: 'proy', t: 'Avances del CRM', ic: '◷', proyecto: true },
   { id: 'cfg', t: 'Configuración', ic: '⚙', mod: 'configuracion' },
   { id: 'org', t: 'Organigrama', ic: '▥', mando: true },
   { id: 'adm', t: 'Administración', ic: '★', admin: true }
 ];
 const VISTAS = { neg: vistaNegociaciones, con: vistaContactos, com: vistaComunicacion,
-  cal: vistaCalendario, rep: vistaReportes, cfg: vistaConfig, org: vistaOrganigrama, adm: vistaAdmin };
+  cal: vistaCalendario, rep: vistaReportes, proy: vistaProyecto, cfg: vistaConfig, org: vistaOrganigrama, adm: vistaAdmin };
 const TITULOS = { neg: 'Negociaciones', con: 'Contactos', com: 'Comunicación interna',
-  cal: 'Calendario', rep: 'Reportes', cfg: 'Configuración', org: 'Organigrama', adm: 'Administración' };
+  cal: 'Calendario', rep: 'Reportes', proy: 'Avances del proyecto CRM', cfg: 'Configuración', org: 'Organigrama', adm: 'Administración' };
 
 /* ================= LOGIN ================= */
 $('#form-login').onsubmit = async e => {
@@ -61,6 +63,8 @@ async function arrancar(fresco) {
 
   $('#login').classList.add('hidden');
   $('#app').classList.remove('hidden');
+  try { S.proyectoAcceso = await get('/proyecto/acceso'); }
+  catch { S.proyectoAcceso = { visible: esAdmin(), admin: esAdmin() }; }
   aplicarTema(); aplicarFX(); aplicarMarca(); pintarNav();
   await cargarNotificaciones();
   conectarRealtime(); reloj(); cargarClima();
@@ -101,7 +105,7 @@ function pintarDisponibilidad() {
 export function pintarNav() {
   const mods = S.empresa?.modulos || [];
   $('#nav').innerHTML = NAV
-    .filter(n => n.mando ? ['admin','gerente'].includes(S.usuario.rol) : n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
+    .filter(n => n.proyecto ? (esAdmin() || !!S.proyectoAcceso?.visible) : n.mando ? ['admin','gerente'].includes(S.usuario.rol) : n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
     .map(n => `<button class="nav-i ${S.vista === n.id ? 'active' : ''}" data-nav="${n.id}">
       <span class="ic">${n.ic}</span>${n.t}${n.id === 'com' ? '<span class="bdg" style="display:none"></span>' : ''}</button>`).join('')
     ;
@@ -158,6 +162,16 @@ function conectarRealtime() {
   });
   es.addEventListener('com', e => { if (S.vista === 'com') refrescarChat(JSON.parse(e.data)); else cargarNotificaciones(); });
   es.addEventListener('calendario', () => { if (S.vista === 'cal') vistaCalendario(); });
+  es.addEventListener('proyecto:permisos', async () => {
+    try {
+      S.proyectoAcceso = await get('/proyecto/acceso');
+      if (S.vista === 'proy' && !S.proyectoAcceso.visible && !esAdmin()) ir('neg');
+      else pintarNav();
+    } catch { /* El API comprueba permisos de acceso igualmente. */ }
+  });
+  es.addEventListener('proyecto', () => {
+    if (S.vista === 'proy' && !$('#view input:focus') && !$('#view textarea:focus') && !$('#modals .mask')) vistaProyecto();
+  });
   es.addEventListener('config', async () => {
     const ctx = await get('/contexto');
     S.empresa = ctx.empresa; S.sucursales = ctx.sucursales;
