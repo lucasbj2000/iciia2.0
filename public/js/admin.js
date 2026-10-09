@@ -10,7 +10,7 @@ let TADM = 'canales', defs = null, timerQR = null, sucursalesCache = [];
 
 const TABS = [
   ['canales', '📡 Canales'], ['diseno', 'Diseño'], ['sucursales', 'Sucursales'],
-  ['botones', '⚡ Botones'], ['flags', 'Funciones ON/OFF'], ['noti', 'Notificaciones'],
+  ['botones', '⚡ Botones'], ['flags', 'Funciones ON/OFF'], ['ayudas', '❔ Ayudas guiadas'], ['noti', 'Notificaciones'],
   ['rapidas', 'Respuestas rápidas'], ['usuarios', 'Usuarios'], ['etapas', 'Etapas'], ['reglas', 'Reglas'],
   ['ubicaciones', '📍 Direcciones'], ['stock', 'Stock'], ['bot', 'Bot'],
   ['mensajeria', 'Salud de mensajería'], ['limpieza', 'Limpieza'], ['audit', 'Auditoría']
@@ -29,7 +29,7 @@ export async function vistaAdmin() {
     <div id="adm-body" class="fx-vista">${skeleton(4)}</div></div>`;
   $$('[data-adm]').forEach(b => b.onclick = () => { clearInterval(timerQR); TADM = b.dataset.adm; vistaAdmin(); });
   const fn = { canales: aCanales, diseno: aDiseno, sucursales: aSucursales,
-    botones: aBotones, flags: aFlags, noti: aNoti, rapidas: aRapidas, usuarios: aUsuarios, etapas: aEtapas,
+    botones: aBotones, flags: aFlags, ayudas: aAyudas, noti: aNoti, rapidas: aRapidas, usuarios: aUsuarios, etapas: aEtapas,
     reglas: aReglas, ubicaciones: aUbicaciones, stock: aStock, bot: aBot, mensajeria: aMensajeria,
     limpieza: aLimpieza, audit: aAudit }[TADM];
   try { await fn(); } catch (e) { AB().innerHTML = `<div class="card-box">${vacio('⚠', 'No se pudo cargar', e.message)}</div>`; }
@@ -548,6 +548,63 @@ async function aFlags() {
   };
   $('#f-todos').onclick = () => todos(true);
   $('#f-ninguno').onclick = () => todos(false);
+}
+
+
+/* ================= AYUDAS PARA PRINCIPIANTES ================= */
+async function aAyudas() {
+  const respuesta = await get('/ayudas/config');
+  const cfg = respuesta.config;
+  const usuarios = respuesta.usuarios;
+  const opciones = usuario => [
+    ['heredar', 'Según ajuste general'],
+    ['mostrar', 'Mostrar ayudas'],
+    ['ocultar', 'Ocultar ayudas']
+  ].map(([v,t])=>'<option value="'+v+'" '+(usuario.modo===v?'selected':'')+'>'+t+'</option>').join('');
+  AB().innerHTML = '<div class="card-box"><h3>❔ Guía interactiva de IMPAR</h3>'+
+    '<p class="sub">Las miniayudas explican botones y sectores sin cambiar datos. El recorrido señala las funciones de la pantalla actual.</p>'+
+    '<div class="flagrow"><div><b>Ayudas activadas por defecto</b><small>Se aplica a los usuarios sin una excepción personalizada.</small></div>'+
+    '<label class="sw"><input id="ga-general" type="checkbox" '+(cfg.general?'checked':'')+'><i></i></label></div>'+
+    '<div class="flagrow"><div><b>Mini ayudas (?)</b><small>Agrega iconos explicativos junto a las funciones principales.</small></div>'+
+    '<label class="sw"><input id="ga-mini" type="checkbox" '+(cfg.mini_ayudas?'checked':'')+'><i></i></label></div>'+
+    '<div class="flagrow"><div><b>Invitación de bienvenida</b><small>Ofrece un recorrido inicial una sola vez por empleado.</small></div>'+
+    '<label class="sw"><input id="ga-bienvenida" type="checkbox" '+(cfg.bienvenida?'checked':'')+'><i></i></label></div>'+
+    '<div class="guia-admin-estado">Podés activar las ayudas para toda IMPAR y ocultarlas a determinados empleados, o desactivarlas en general y mostrarlas solamente a quienes elijas.</div>'+
+    '<div class="guia-admin-filtros"><input id="ga-buscar" placeholder="Buscar empleado o sucursal…" aria-label="Buscar usuario">'+
+    '<button class="btn ghost sm" id="ga-heredar">Restablecer todos</button>'+
+    '<button class="btn ghost sm" id="ga-todos">Mostrar a todos</button>'+
+    '<button class="btn ghost sm" id="ga-ninguno">Ocultar a todos</button></div>'+
+    '<div class="guia-admin-usuarios">'+usuarios.map(u=>
+      '<label class="guia-admin-usuario" data-ga-nombre="'+esc((u.nombre+' '+(u.sucursal||'')).toLowerCase())+'">'+
+      '<span><b>'+esc(u.nombre)+'</b><small>'+esc(u.rol)+' · '+esc(u.sucursal||'Sin sucursal')+'</small></span>'+
+      '<select data-ga-usuario="'+esc(u.id)+'">'+opciones(u)+'</select></label>'
+    ).join('')+'</div>'+
+    '<div class="guia-admin-filtros" style="margin-top:14px"><button class="btn" id="ga-guardar">Guardar configuración</button>'+
+    '<button class="btn ghost" id="ga-preview">Vista previa del recorrido</button></div>'+
+    '<p class="sub">Para ver cambios en otros equipos, los usuarios conectados actualizan los permisos automáticamente.</p></div>';
+  $('#ga-buscar').oninput=e=>{
+    const q=e.target.value.trim().toLowerCase();
+    $('[data-ga-nombre]').forEach(el=>{el.hidden=!el.dataset.gaNombre.includes(q);});
+  };
+  $('#ga-heredar').onclick=()=>$('[data-ga-usuario]').forEach(el=>{el.value='heredar';});
+  $('#ga-todos').onclick=()=>{ $('#ga-general').checked=true;$('[data-ga-usuario]').forEach(el=>{el.value='heredar';}); };
+  $('#ga-ninguno').onclick=()=>{ $('#ga-general').checked=false;$('[data-ga-usuario]').forEach(el=>{el.value='heredar';}); };
+  $('#ga-preview').onclick=()=>import('./ayudas.js').then(m=>m.abrirRecorrido(true));
+  $('#ga-guardar').onclick=async()=>{
+    const btn=$('#ga-guardar');btn.disabled=true;
+    const body={
+      general:$('#ga-general').checked,
+      mini_ayudas:$('#ga-mini').checked,
+      bienvenida:$('#ga-bienvenida').checked,
+      usuarios:$('[data-ga-usuario]').map(el=>({id:el.dataset.gaUsuario,modo:el.value}))
+    };
+    try {
+      await put('/ayudas/config',body);
+      await import('./ayudas.js').then(m=>m.actualizarAyudas());
+      toast('Ayudas configuradas y permisos guardados','ok');
+      await aAyudas();
+    } catch(ex){toast(ex.message,'bad');btn.disabled=false;}
+  };
 }
 
 /* ================= NOTIFICACIONES ================= */
