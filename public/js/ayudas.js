@@ -253,13 +253,23 @@ function decorar(){
       if(!el.title){el.title=item.descripcion;el.dataset.guiaTituloGenerado='1';}
       // Las ayudas de filas/columnas repetidas se encuentran en el centro de ayuda
       // y no se repiten decenas de veces en pantalla.
-      if(n>0 || targets.length>8 && n>0)return;
+      if(n>0)return;
       if(el.closest('#nav'))return;
+      const enModal=el.closest('.modal');
+      // En el chat no insertamos elementos entre la caja de texto y Enviar:
+      // desplazarlos deterioraría el diseño móvil. Se muestra una única ayuda
+      // en la cabecera del modal; los demás términos siguen en el índice.
+      if(enModal && enModal.querySelector('.guia-mini'))return;
       const icon=document.createElement('span');
       icon.className='guia-mini';icon.setAttribute('role','button');icon.tabIndex=0;
       icon.setAttribute('aria-label','Explicar: '+item.titulo);
       icon.dataset.guiaIndice=String(index);
       icon.textContent='?';
+      if(enModal){
+        const header=enModal.querySelector('.modal-h');
+        if(header)header.insertBefore(icon,header.querySelector('[data-cerrar]') || null);
+        return;
+      }
       const field=el.closest('.field'), label=field?.querySelector('label');
       if(label && !el.matches('label')){
         label.append(' ',icon);
