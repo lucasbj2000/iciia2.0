@@ -13,6 +13,8 @@ import { vistaOrganigrama } from './organigrama.js';
 import { vistaProyecto } from './proyecto.js';
 import { iniciarAyudas, actualizarAyudas, ayudasCambioDeVista, cerrarAyudas } from './ayudas.js';
 import { iniciarViewport } from './viewport.js';
+import { iniciarRenovacion } from './sesion.js';
+import { iniciarControlTurnos,comprobarSalida,refrescarSalidasHoy } from './horarios.js';
 
 import { iniciarPWA, notificarApp } from './pwa.js';
 import { cargarNotas, cargarCambiosNeg } from './colaboracion.js';
@@ -48,6 +50,7 @@ $('#form-login').onsubmit = async e => {
     S.token = r.token; localStorage.setItem('iciia_token', r.token);
     S.usuario = r.usuario; S.empresa = r.empresa;
     await arrancar(true);
+    document.documentElement.classList.remove('sesion-verificando');
   } catch (ex) {
     err.textContent = ex.message;
     const c = $('.login-card'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake');
@@ -73,6 +76,8 @@ async function arrancar(fresco) {
   S.vista = 'neg';
   await render();
   await iniciarAyudas();
+  iniciarRenovacion(conectarRealtime);
+  iniciarControlTurnos();
 
   if (fresco) {
     toast(`${saludo()}, ${S.usuario.nombre.split(' ')[0]}. Sesión en ${S.empresa?.nombre || 'iciia2.0'}.`, 'ok', 'Bienvenido');
@@ -166,6 +171,10 @@ function conectarRealtime() {
   es.addEventListener('com', e => { if (S.vista === 'com') refrescarChat(JSON.parse(e.data)); else cargarNotificaciones(); });
   es.addEventListener('calendario', () => { if (S.vista === 'cal') vistaCalendario(); });
   es.addEventListener('guias:cambio', () => { actualizarAyudas().catch(() => {}); });
+  es.addEventListener('horarios:cambio', () => { comprobarSalida().catch(()=>{}); });
+  es.addEventListener('horarios:respuesta', () => {
+    if(S.vista==='adm' && $('[data-adm="horarios"].active'))refrescarSalidasHoy().catch(()=>{});
+  });
   es.addEventListener('proyecto:permisos', async () => {
     try {
       S.proyectoAcceso = await get('/proyecto/acceso');
@@ -333,7 +342,7 @@ $('#btn-densidad').onclick = () => {
   toast(`Densidad ${S.densidad}`, 'ok');
 };
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && S.token) cargarNotificaciones();
+  if (document.visibilityState === 'visible' && S.token){cargarNotificaciones();comprobarSalida().catch(()=>{});}
 });
 window.addEventListener('resize', () => {
   if (!window.matchMedia('(max-width:900px)').matches) document.body.classList.remove('nav-open');
@@ -341,9 +350,37 @@ window.addEventListener('resize', () => {
 
 /* ================= INICIO ================= */
 aplicarTema();
-if (S.token) {
-  arrancar(false).catch(() => { salir(); const el = $('#l-usr'); if (el) el.focus(); });
-} else {
+// Mientras se comprueba una sesión almacenada, nunca mostramos el formulario.
+let recuperando=false,reintento=null;
+async function recuperarSesion(){
+  if(recuperando||!S.token)return;
+  recuperando=true;
+  const msg=$('#inicio-mensaje'),retry=$('#inicio-reintentar'),switcher=$('#inicio-salir');
+  retry.classList.add('hidden');switcher.classList.add('hidden');
+  msg.textContent='Restableciendo tu sesión de IMPAR…';
+  try{
+    await arrancar(false);
+    document.documentElement.classList.remove('sesion-verificando');
+    clearTimeout(reintento);
+  }catch(e){
+    if(e.status===401){
+      salir();
+      $('#l-usr').focus();
+      return;
+    }
+    // Problema de red o 503: conservamos el token y reintentamos sin salir.
+    msg.textContent='IMPAR no responde por el momento. Tu sesión sigue guardada.';
+    retry.classList.remove('hidden');switcher.classList.remove('hidden');
+    clearTimeout(reintento);
+    reintento=setTimeout(recuperarSesion,6000);
+  }finally{recuperando=false;}
+}
+$('#inicio-reintentar').onclick=()=>{clearTimeout(reintento);recuperarSesion();};
+$('#inicio-salir').onclick=()=>{clearTimeout(reintento);salir();$('#l-usr').focus();};
+if(S.token){
+  recuperarSesion();
+}else{
+  document.documentElement.classList.remove('sesion-verificando');
   $('#l-usr').focus();
 }
 
