@@ -20,3 +20,5 @@ jobs:
           node-version: '22'
       - name: Verificar sintaxis, imports y archivos sensibles
         run: node scripts/verificar.mjs
+      - name: Pruebas de permisos y guia interactiva
+        run: node scripts/test-ayudas.mjs
