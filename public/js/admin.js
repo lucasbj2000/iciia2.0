@@ -5,11 +5,12 @@ import {
 } from './core.js';
 import { modalCargaManual } from './negociaciones.js';
 import { tablaCambios } from './colaboracion.js';
+import { administrarHorarios } from './horarios.js';
 
 let TADM = 'canales', defs = null, timerQR = null, sucursalesCache = [];
 
 const TABS = [
-  ['canales', '📡 Canales'], ['diseno', 'Diseño'], ['sucursales', 'Sucursales'],
+  ['canales', '📡 Canales'], ['diseno', 'Diseño'], ['sucursales', 'Sucursales'], ['horarios','◷ Horarios laborales'],
   ['botones', '⚡ Botones'], ['flags', 'Funciones ON/OFF'], ['ayudas', '❔ Ayudas guiadas'], ['noti', 'Notificaciones'],
   ['rapidas', 'Respuestas rápidas'], ['usuarios', 'Usuarios'], ['etapas', 'Etapas'], ['reglas', 'Reglas'],
   ['ubicaciones', '📍 Direcciones'], ['stock', 'Stock'], ['bot', 'Bot'],
@@ -29,7 +30,7 @@ export async function vistaAdmin() {
     <div id="adm-body" class="fx-vista">${skeleton(4)}</div></div>`;
   $$('[data-adm]').forEach(b => b.onclick = () => { clearInterval(timerQR); TADM = b.dataset.adm; vistaAdmin(); });
   const fn = { canales: aCanales, diseno: aDiseno, sucursales: aSucursales,
-    botones: aBotones, flags: aFlags, ayudas: aAyudas, noti: aNoti, rapidas: aRapidas, usuarios: aUsuarios, etapas: aEtapas,
+    botones: aBotones, flags: aFlags, ayudas: aAyudas, horarios: administrarHorarios, noti: aNoti, rapidas: aRapidas, usuarios: aUsuarios, etapas: aEtapas,
     reglas: aReglas, ubicaciones: aUbicaciones, stock: aStock, bot: aBot, mensajeria: aMensajeria,
     limpieza: aLimpieza, audit: aAudit }[TADM];
   try { await fn(); } catch (e) { AB().innerHTML = `<div class="card-box">${vacio('⚠', 'No se pudo cargar', e.message)}</div>`; }
