@@ -1,7 +1,8 @@
 /* IMPAR · renovación silenciosa de sesiones activas.
    No cierra la sesión por cortes de red ni por un error aislado. */
 import { S,post,salir } from './core.js';
-let timer=null,enProceso=null;
+let timer=null,enProceso=null,verificarActual=null,ultimaActividad=Date.now();
+const actividad=()=>{ultimaActividad=Date.now();};
 const expiracion=token=>{
   try{
     const b=token.split('.')[1];
@@ -35,20 +36,32 @@ export function iniciarRenovacion(reiniciarStream){
   detenerRenovacion();
   const revisar=async()=>{
     if(!S.token||document.visibilityState==='hidden')return;
+    if(Date.now()-ultimaActividad>30*60000)return; // no perpetuar sesión en pantalla abandonada.
     const exp=expiracion(S.token),restante=exp-Date.now();
     // Token con menos de seis horas de validez: renovamos antes del vencimiento.
     if(restante<6*3600000){
       await renovarSesion(reiniciarStream);
     }
   };
+  verificarActual=revisar;
+  ultimaActividad=Date.now();
   timer=setInterval(revisar,5*60000);
   document.addEventListener('visibilitychange',revisar);
   window.addEventListener('focus',revisar);
+  window.addEventListener('pointerdown',actividad,{passive:true});
+  window.addEventListener('keydown',actividad);
   // La renovación inicial cubre cuentas con tokens antiguos cercanos a vencer.
   revisar();
 }
 export function detenerRenovacion(){
   if(timer)clearInterval(timer);
   timer=null;
+  if(verificarActual){
+    document.removeEventListener('visibilitychange',verificarActual);
+    window.removeEventListener('focus',verificarActual);
+    verificarActual=null;
+  }
+  window.removeEventListener('pointerdown',actividad);
+  window.removeEventListener('keydown',actividad);
 }
 window.addEventListener('impar:salir',detenerRenovacion);
