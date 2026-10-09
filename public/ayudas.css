@@ -78,3 +78,5 @@
 @media(prefers-reduced-motion:reduce){.guia-panel,.guia-bienvenida,.guia-marco{animation:none;transition:none}}
 
 .guia-fondo{position:fixed;inset:0;z-index:1310;background:transparent;cursor:default}
+
+body:has(#modals .mask) .guia-bienvenida{display:none}
