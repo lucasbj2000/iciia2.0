@@ -11,6 +11,7 @@ import { fichaNeg, refrescarFicha, confirmarEnvio } from './ficha.js';
 import { vistaAdmin } from './admin.js';
 import { vistaOrganigrama } from './organigrama.js';
 import { vistaProyecto } from './proyecto.js';
+import { iniciarAyudas, actualizarAyudas, ayudasCambioDeVista, cerrarAyudas } from './ayudas.js';
 import { iniciarViewport } from './viewport.js';
 
 import { iniciarPWA, notificarApp } from './pwa.js';
@@ -71,6 +72,7 @@ async function arrancar(fresco) {
 
   S.vista = 'neg';
   await render();
+  await iniciarAyudas();
 
   if (fresco) {
     toast(`${saludo()}, ${S.usuario.nombre.split(' ')[0]}. Sesión en ${S.empresa?.nombre || 'iciia2.0'}.`, 'ok', 'Bienvenido');
@@ -122,6 +124,7 @@ export async function ir(v) {
 }
 
 async function render() {
+  ayudasCambioDeVista();
   $('#v-title').textContent = TITULOS[S.vista];
   try { await (VISTAS[S.vista])(); }
   catch (e) {
@@ -162,6 +165,7 @@ function conectarRealtime() {
   });
   es.addEventListener('com', e => { if (S.vista === 'com') refrescarChat(JSON.parse(e.data)); else cargarNotificaciones(); });
   es.addEventListener('calendario', () => { if (S.vista === 'cal') vistaCalendario(); });
+  es.addEventListener('guias:cambio', () => { actualizarAyudas().catch(() => {}); });
   es.addEventListener('proyecto:permisos', async () => {
     try {
       S.proyectoAcceso = await get('/proyecto/acceso');
@@ -301,6 +305,7 @@ function reloj() {
 
 $('#btn-salir').onclick = () => {
   document.body.classList.remove('nav-open');
+  cerrarAyudas();
   salir();
 };
 $('#btn-burger').onclick = () => {
