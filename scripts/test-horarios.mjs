@@ -25,9 +25,9 @@ probar('no avisar en días no laborables',
 probar('avisar antes del horario extraordinario',
   calcularAviso({activo:true,salida:'17:00',hora:'18:20',decision:'extra',hasta:'18:30:00',confirmado_para:'17:00:00'}),
   {mostrar:true,objetivo:'18:30',faltan:10});
-probar('no volver a avisar tras confirmar el nuevo horario',
-  calcularAviso({activo:true,salida:'17:00',hora:'18:23',decision:'normal',confirmado_para:'18:30:00'}),
-  {mostrar:false,objetivo:'17:00',faltan:-83});
+probar('no volver a avisar tras confirmar el horario extraordinario',
+  calcularAviso({activo:true,salida:'17:00',hora:'18:23',decision:'extra',hasta:'18:30:00',confirmado_para:'18:30:00'}),
+  {mostrar:false,objetivo:'18:30',faltan:7});
 // Casos de zona horaria de Paraguay (independiente de la del VPS).
 const t=fechaLocal(new Date('2026-10-09T19:50:00.000Z'));
 assert.equal(t.fecha,'2026-10-09');
