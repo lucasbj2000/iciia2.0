@@ -25,6 +25,7 @@ import rOrganigrama from './routes/organigrama.mjs';
 import rColaboracion from './routes/colaboracion.mjs';
 import rCanales from './routes/canales.mjs';
 import rArchivos from './routes/archivos.mjs';
+import rProyecto from './routes/proyecto.mjs';
 import rVarios from './routes/varios.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -71,7 +72,7 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || true, credentials: true }));
 
 // El multipart de subida se lee como stream en su propia ruta
 app.use((req, res, next) => {
-  if (req.path === '/api/archivos' && req.method === 'POST') return next();
+  if (['/api/archivos', '/api/proyecto/documentos'].includes(req.path) && req.method === 'POST') return next();
   express.json({ limit: '5mb', verify: (r2, _s, buf) => { r2.rawBody = buf; } })(req, res, next);
 });
 
@@ -130,6 +131,7 @@ app.use('/api/admin', rAdmin);
 app.use('/api/organigrama', rOrganigrama);
 app.use('/api/canales', rCanales);
 app.use('/api/archivos', rArchivos);
+app.use('/api/proyecto', rProyecto);
 app.use('/api', rVarios);
 
 app.get('/api/health', async (_req, res) => {
