@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 
 import { q, migrar, seed } from './db.mjs';
 import { prepararRecepcionImpar } from './preparar-recepcion-impar.mjs';
-import { login, requiere } from './auth.mjs';
+import { login, requiere, firmar } from './auth.mjs';
 import { sseHandler } from './realtime.mjs';
 import { motorSLA, avisarCumples, auditar } from './core.mjs';
 import { arrancarWorkers } from './worker.mjs';
@@ -27,6 +27,7 @@ import rCanales from './routes/canales.mjs';
 import rArchivos from './routes/archivos.mjs';
 import rProyecto from './routes/proyecto.mjs';
 import rAyudas from './routes/ayudas.mjs';
+import rHorarios from './routes/horarios.mjs';
 import rVarios from './routes/varios.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -110,6 +111,11 @@ const publica = e => ({
   flags: e.flags, notis: e.notis, reglas: e.reglas, stock: e.stock, bot: e.bot
 });
 
+app.post('/api/sesion/renovar', requiere(), (req,res) => {
+  res.set('Cache-Control','no-store');
+  res.json({token: firmar(req.user)});
+});
+
 app.get('/api/contexto', requiere(), async (req, res) => {
   const { rows: sucs } = req.empresaId
     ? await q('SELECT * FROM sucursales WHERE empresa_id=$1 AND activa ORDER BY nombre', [req.empresaId])
@@ -134,6 +140,7 @@ app.use('/api/canales', rCanales);
 app.use('/api/archivos', rArchivos);
 app.use('/api/proyecto', rProyecto);
 app.use('/api/ayudas', rAyudas);
+app.use('/api/horarios', rHorarios);
 app.use('/api', rVarios);
 
 app.get('/api/health', async (_req, res) => {
