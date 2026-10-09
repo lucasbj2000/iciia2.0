@@ -48,7 +48,11 @@ r.post('/mi-turno/responder',async(req,res,next)=>{
     const estado=await estadoDeSalida(req);
     if(!estado.mostrarAviso || String(b.objetivo||'')!==estado.objetivo)
       return res.status(409).json({error:'El aviso ya no corresponde al turno actual. Actualizá la página.'});
-    let hasta=null;
+    // Confirmar la salida al finalizar una extensión mantiene registrado
+    // que hubo horario extraordinario, en vez de ocultar la prórroga.
+    const decisionGuardar=decision==='normal'&&estado.decision==='extra'
+      &&estado.objetivo!==estado.salida ? 'extra' : decision;
+    let hasta=decisionGuardar==='extra'&&decision==='normal'?estado.objetivo:null;
     if(decision==='extra'){
       hasta=String(b.hasta||'').slice(0,5);
       if(!HORA.test(hasta)||minutos(hasta)<=minutos(estado.objetivo)||minutos(hasta)<=minutos(estado.horaActual))
@@ -59,9 +63,9 @@ r.post('/mi-turno/responder',async(req,res,next)=>{
        ON CONFLICT(empresa_id,usuario_id,dia_fecha) DO UPDATE SET
        decision=EXCLUDED.decision,hasta=EXCLUDED.hasta,
        confirmado_para=EXCLUDED.confirmado_para,actualizado=now()`,
-      [req.empresaId,req.user.id,estado.fecha,decision,hasta,estado.objetivo]);
+      [req.empresaId,req.user.id,estado.fecha,decisionGuardar,hasta,estado.objetivo]);
     emitir(req.empresaId,'horarios:respuesta',{usuario_id:req.user.id});
-    res.json({ok:true,decision,hasta,fecha:estado.fecha});
+    res.json({ok:true,decision:decisionGuardar,hasta,fecha:estado.fecha});
   }catch(e){next(e);}
 });
 r.get('/config',requiere('admin'),async(req,res,next)=>{
