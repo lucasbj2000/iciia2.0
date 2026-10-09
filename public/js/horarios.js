@@ -59,7 +59,7 @@ function pintarEditor(){
     }
   });
 }
-async function estadoHoy(){
+export async function refrescarSalidasHoy(){
   const caja=$('#ho-hoy');if(!caja)return;
   try{
     const data=await get('/horarios/salidas-hoy');
@@ -86,7 +86,7 @@ export async function administrarHorarios(){
     '</select></label></div><div id="ho-editor"></div>'+
     '<div class="ho-aviso-info">Cada agente confirmará si sale a su hora normal o si continuará trabajando. Si extiende el turno, el CRM le volverá a consultar 10 minutos antes de su nueva salida. Las respuestas son una previsión, no una marcación automática de asistencia.</div></div>'+
     '<div class="card-box" id="ho-hoy"></div>';
-  pintarEditor();await estadoHoy();
+  pintarEditor();await refrescarSalidasHoy();
   $('#ho-persona').onchange=e=>{
     const nueva=e.target.value;
     try{leerActual();seleccionado=nueva;pintarEditor();}
@@ -97,7 +97,7 @@ export async function administrarHorarios(){
       leerActual();b.disabled=true;
       await put('/horarios/config',{empresa:cfg.empresa,excepciones:cfg.excepciones});
       toast('Horarios y excepciones actualizados','ok');
-      await estadoHoy();
+      await refrescarSalidasHoy();
     }catch(e){toast(e.message,'bad');}finally{b.disabled=false;}
   };
 }
