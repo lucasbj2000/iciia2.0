@@ -33,7 +33,9 @@ export function requiere(...roles) {
       const h = req.headers.authorization || '';
       const t = h.startsWith('Bearer ') ? h.slice(7) : (req.query.token || '');
       if (!t) return res.status(401).json({ error: 'sin token' });
-      const p = jwt.verify(t, SECRET);
+      let p;
+      try { p = jwt.verify(t, SECRET); }
+      catch { return res.status(401).json({ error: 'token inválido' }); }
       const { rows } = await q('SELECT * FROM usuarios WHERE id=$1 AND activo', [p.uid]);
       const user = rows[0];
       if (!user) return res.status(401).json({ error: 'usuario inactivo' });
@@ -47,7 +49,11 @@ export function requiere(...roles) {
       req.empresaId = empresa ? empresa.id : null;
       req.esAdmin = user.rol === 'admin';
       contextoAuditoria.run({ usuario: user.usuario, id: user.id, ip: req.ip || '' }, next);
-    } catch (e) { res.status(401).json({ error: 'token inválido' }); }
+    } catch (e) {
+      // Un fallo de PostgreSQL o un reinicio temporal NO invalida el JWT.
+      // El controlador general responde 500/503 y el navegador puede reintentar.
+      next(e);
+    }
   };
 }
 
