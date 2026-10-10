@@ -42,7 +42,7 @@ const files=[
   ['src/migrations/012_horarios_y_salidas.sql','CREATE TABLE IF NOT EXISTS horarios_respuestas'],
   ['public/js/app.js','iniciarControlTurnos()'],
   ['public/js/app.js','iniciarRenovacion(conectarRealtime)'],
-  ['public/index.html','class="sesion-verificando"'],
+  ['public/index.html','/js/login-rescate.js?v=20261010-1'],
   ['public/js/admin.js',"'horarios','◷ Horarios laborales'"]
 ];
 for(const [file,frag] of files){
