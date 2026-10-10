@@ -68,7 +68,8 @@ while [[ "$PASO" -lt 30 ]]; do
   ACCESO="$(curl --max-time 4 -fsS "http://127.0.0.1:${PORT_ACTUAL}/api/login/health" 2>/dev/null || true)"
   if [[ "$SALUD" == *"\"ok\":true"* && "$SALUD" == *"\"build\":\"$DESPUES\""* &&
         "$ACCESO" == *"\"ok\":true"* && "$ACCESO" == *"\"build\":\"$DESPUES\""* ]]; then
-    CORRECTO=1; break
+    HTTP_LOGIN="$(curl --max-time 5 -sS -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d '{"usuario":"__verificar_impar__","password":"__prueba__"}' "http://127.0.0.1:$PORT_ACTUAL/api/login" 2>/dev/null || true)"
+    if [[ "$HTTP_LOGIN" == 401 ]]; then CORRECTO=1; break; fi
   fi
   sleep 2
 done
