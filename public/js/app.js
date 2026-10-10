@@ -48,6 +48,8 @@ $('#form-login').onsubmit = async e => {
   try {
     const r = await api('/login', { method: 'POST', body: {
       usuario: $('#l-usr').value.trim(), password: $('#l-pwd').value } });
+    if (!r || typeof r.token !== 'string' || !r.token || !r.usuario)
+      throw new Error('La respuesta del servidor de IMPAR está incompleta. No se cambió tu sesión.');
     S.token = r.token; localStorage.setItem('iciia_token', r.token);
     accesoAceptado = true;
     S.usuario = r.usuario; S.empresa = r.empresa;
