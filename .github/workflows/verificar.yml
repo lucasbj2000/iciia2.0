@@ -24,3 +24,5 @@ jobs:
         run: node scripts/test-ayudas.mjs
       - name: Pruebas de horarios y aviso de salida
         run: node scripts/test-horarios.mjs
+      - name: Pruebas de login y recuperación de interfaz
+        run: node scripts/test-login.mjs
