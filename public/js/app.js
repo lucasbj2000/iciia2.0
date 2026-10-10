@@ -44,17 +44,29 @@ $('#form-login').onsubmit = async e => {
   const btn = $('#l-btn'), err = $('#l-err');
   err.textContent = ''; btn.disabled = true;
   btn.innerHTML = '<span class="spin"></span> Ingresando…';
+  let accesoAceptado = false;
   try {
     const r = await api('/login', { method: 'POST', body: {
       usuario: $('#l-usr').value.trim(), password: $('#l-pwd').value } });
     S.token = r.token; localStorage.setItem('iciia_token', r.token);
+    accesoAceptado = true;
     S.usuario = r.usuario; S.empresa = r.empresa;
     await arrancar(true);
     document.documentElement.classList.remove('sesion-verificando');
   } catch (ex) {
-    err.textContent = ex.message;
-    const c = $('.login-card'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake');
-    vibrar([30, 60, 30]);
+    if (accesoAceptado) {
+      // No pedir de nuevo credenciales que el servidor ya aceptó.
+      $('#login').classList.add('hidden');
+      $('#app').classList.add('hidden');
+      document.documentElement.classList.add('sesion-verificando');
+      $('#inicio-mensaje').textContent = 'Tu acceso fue validado, pero no se pudo cargar el CRM: ' + (ex?.message || 'fallo de conexión');
+      $('#inicio-reintentar').classList.remove('hidden');
+      $('#inicio-salir').classList.remove('hidden');
+    } else {
+      err.textContent = ex?.message || 'No fue posible iniciar sesión. Comprobá la conexión.';
+      const c = $('.login-card'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake');
+      vibrar([30, 60, 30]);
+    }
   } finally { btn.disabled = false; btn.textContent = 'Ingresar'; }
 };
 
@@ -67,17 +79,20 @@ async function arrancar(fresco) {
 
   $('#login').classList.add('hidden');
   $('#app').classList.remove('hidden');
+  // El usuario ve el CRM apenas se valida contexto, no al terminar módulos secundarios.
+  document.documentElement.classList.remove('sesion-verificando');
   try { S.proyectoAcceso = await get('/proyecto/acceso'); }
   catch { S.proyectoAcceso = { visible: esAdmin(), admin: esAdmin() }; }
   aplicarTema(); aplicarFX(); aplicarMarca(); pintarNav();
-  await cargarNotificaciones();
-  conectarRealtime(); reloj(); cargarClima();
+  cargarNotificaciones().catch(() => {});
+  try { conectarRealtime(); } catch (e) { console.warn('[impar] SSE no disponible:',e.message); }
+  reloj(); cargarClima();
 
   S.vista = 'neg';
-  await render();
-  await iniciarAyudas();
-  iniciarRenovacion(conectarRealtime);
-  iniciarControlTurnos();
+  render().catch(e => console.warn('[impar] No se pudo renderizar la vista:',e.message));
+  iniciarAyudas().catch(e => console.warn('[impar] Ayudas no disponibles:',e.message));
+  try { iniciarRenovacion(conectarRealtime); } catch (e) { console.warn('[impar] Renovación no disponible:',e.message); }
+  try { iniciarControlTurnos(); } catch (e) { console.warn('[impar] Horarios no disponibles:',e.message); }
 
   if (fresco) {
     toast(`${saludo()}, ${S.usuario.nombre.split(' ')[0]}. Sesión en ${S.empresa?.nombre || 'iciia2.0'}.`, 'ok', 'Bienvenido');
@@ -349,6 +364,9 @@ window.addEventListener('resize', () => {
 });
 
 /* ================= INICIO ================= */
+// Este indicador se activa solo si todos los imports y controles básicos cargaron.
+window.__imparAppLista = true;
+try { sessionStorage.removeItem('impar_intento_rescate'); } catch (_) {}
 aplicarTema();
 // Mientras se comprueba una sesión almacenada, nunca mostramos el formulario.
 let recuperando=false,reintento=null;
@@ -363,13 +381,13 @@ async function recuperarSesion(){
     document.documentElement.classList.remove('sesion-verificando');
     clearTimeout(reintento);
   }catch(e){
-    if(e.status===401){
+    if(e.status===401 || e.status===403){
       salir();
       $('#l-usr').focus();
       return;
     }
     // Problema de red o 503: conservamos el token y reintentamos sin salir.
-    msg.textContent='IMPAR no responde por el momento. Tu sesión sigue guardada.';
+    msg.textContent='No se pudo cargar IMPAR ('+(e?.message || 'conexión temporal')+'). Tu sesión sigue guardada.';
     retry.classList.remove('hidden');switcher.classList.remove('hidden');
     clearTimeout(reintento);
     reintento=setTimeout(recuperarSesion,6000);
