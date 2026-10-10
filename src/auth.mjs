@@ -23,7 +23,9 @@ export async function login({ empresa, usuario, password }) {
   if (!user) return { error: 'Usuario o contraseña incorrectos.' };
   const ok = await bcrypt.compare(String(password || ''), user.pass_hash);
   if (!ok) return { error: 'Usuario o contraseña incorrectos.' };
-  await q('UPDATE usuarios SET ultimo_login=now() WHERE id=$1', [user.id]);
+  // La auditoría de último ingreso es auxiliar: su fallo nunca bloquea credenciales válidas.
+  q('UPDATE usuarios SET ultimo_login=now() WHERE id=$1', [user.id])
+    .catch(e => console.warn('[login] No se pudo registrar último acceso:', e.message));
   return { token: firmar(user), user, empresa: empRow };
 }
 
