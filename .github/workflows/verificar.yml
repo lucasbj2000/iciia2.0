@@ -26,3 +26,6 @@ jobs:
         run: node scripts/test-horarios.mjs
       - name: Pruebas de login y recuperación de interfaz
         run: node scripts/test-login.mjs
+      - name: Validar script de despliegue
+        run: bash -n scripts/actualizar.sh
+
