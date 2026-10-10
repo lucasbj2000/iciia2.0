@@ -18,8 +18,24 @@ export async function api(ruta, opts = {}) {
   const h = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   if (S.token) h.Authorization = `Bearer ${S.token}`;
   if (S.empresa?.id && S.usuario?.esAdminGlobal) h['X-Empresa'] = S.empresa.id;
-  const r = await fetch(`/api${ruta}`, { ...opts, headers: h,
-    body: opts.body ? JSON.stringify(opts.body) : undefined });
+  // El login/contexto deben informar fallos de red; nunca girar indefinidamente.
+  const necesitaLimite = ['/login','/contexto','/sesion/renovar'].includes(ruta);
+  const ctrl = necesitaLimite && !opts.signal ? new AbortController() : null;
+  const timeout = ctrl ? setTimeout(() => ctrl.abort(), 15000) : null;
+  let r;
+  try {
+    r = await fetch(`/api${ruta}`, {
+      ...opts, headers: h, credentials:'same-origin',
+      ...(ctrl ? {signal:ctrl.signal} : {}),
+      cache:necesitaLimite?'no-store':opts.cache,
+      body:opts.body !== undefined ? JSON.stringify(opts.body) : undefined
+    });
+  } catch (err) {
+    const e = new Error(err.name==='AbortError'
+      ? 'IMPAR tardó demasiado en responder. Comprobá el servidor y volvé a intentar.'
+      : 'No se pudo conectar con IMPAR. Verificá la conexión o el estado del servidor.');
+    e.cause=err;throw e;
+  } finally { if(timeout)clearTimeout(timeout); }
   // Un 401 aislado no fuerza salir: el control central valida la sesión.
   // Errores transitorios o peticiones antiguas no deben borrar el token.
   const ct = r.headers.get('content-type') || '';
