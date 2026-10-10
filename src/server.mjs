@@ -93,11 +93,31 @@ const limiteLogin = rateLimit({
 });
 
 app.post('/api/login', limiteLogin, async (req, res) => {
-  const r = await login(req.body || {});
-  if (r.error) return res.status(401).json({ error: r.error });
-  const { user, empresa } = r;
-  await auditar(empresa?.id || null, user.nombre, 'Ingreso', 'Login correcto', req.ip);
-  res.json({ token: r.token, usuario: publicoUsuario(user), empresa: empresa ? publica(empresa) : null });
+  res.set('Cache-Control', 'no-store');
+  try {
+    const r = await login(req.body || {});
+    if (r.error) return res.status(401).json({ error: r.error });
+    const { user, empresa } = r;
+    // Un error al guardar auditoría NO debe impedir un login válido.
+    auditar(empresa?.id || null, user.nombre, 'Ingreso', 'Login correcto', req.ip)
+      .catch(e => console.warn('[login] Auditoría no disponible:', e.message));
+    res.json({ token: r.token, usuario: publicoUsuario(user), empresa: empresa ? publica(empresa) : null });
+  } catch (e) {
+    console.error('[login] Error operativo:',e.message);
+    res.status(503).json({ error: 'El servicio de acceso está temporalmente indisponible. Intentá nuevamente.' });
+  }
+});
+
+// Monitoreo del circuito de autenticación sin credenciales ni datos personales.
+app.get('/api/login/health', async (_req,res) => {
+  res.set('Cache-Control','no-store');
+  try {
+    const { rows } = await q("SELECT EXISTS(SELECT 1 FROM empresas WHERE codigo='impar' AND activa) AS listo");
+    if (!rows[0]?.listo) return res.status(503).json({ok:false,error:'configuracion no lista'});
+    return res.json({ok:true,build:BUILD_SHA});
+  } catch (e) {
+    return res.status(503).json({ok:false,error:'acceso temporalmente indisponible'});
+  }
 });
 
 const publicoUsuario = u => ({
