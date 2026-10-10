@@ -1,42 +1,81 @@
 #!/usr/bin/env bash
-# Actualiza el CRM desde GitHub y confirma exactamente qué revisión quedó en producción.
+# IMPAR · Protocolo 002. Despliegue con verificación real de login y recuperación segura.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-ANTES="$(git rev-parse --short=12 HEAD 2>/dev/null || echo desconocido)"
+RUTA="$(pwd)"
+ORIGEN="$(git remote get-url origin)"
+if ! printf '%s' "$ORIGEN" | grep -Eq 'lucasbj2000/iciia2[.]0([.]git)?$'; then
+  echo '✖ Repositorio incorrecto; este script solo actualiza IMPAR.' >&2; exit 1
+fi
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo '✖ Hay cambios locales versionados; no se actualizará para evitar sobrescribirlos.' >&2; exit 1
+fi
 
-echo "› Descargando cambios…"
-git pull --ff-only
+ANTES_SHA="${IMPAR_BASE_SHA:-$(git rev-parse HEAD)}"
+git cat-file -e "${ANTES_SHA}^{commit}" || { echo '✖ SHA anterior no válido' >&2; exit 1; }
+if ! git merge-base --is-ancestor "$ANTES_SHA" HEAD; then
+  echo '✖ El SHA anterior no corresponde al historial actual.' >&2; exit 1
+fi
 
+echo '› Descargando el commit de IMPAR…'
+git pull --ff-only origin main
 DESPUES="$(git rev-parse --short=12 HEAD)"
-echo "  Revisión: ${ANTES} → ${DESPUES}"
+echo "  Revisión: ${ANTES_SHA:0:12} → $DESPUES"
 
-echo "› Instalando dependencias…"
-npm ci --omit=dev 2>/dev/null || npm install --omit=dev
+# Se activa la recuperación únicamente después de confirmar el repositorio.
+REINICIADO=0
+recuperar() {
+  codigo="$?"
+  trap - ERR
+  echo '✖ Falló la actualización/verificación. Se restaurará el commit anterior.' >&2
+  if [[ "$(git rev-parse HEAD)" != "$ANTES_SHA" ]]; then
+    git reset --hard "$ANTES_SHA" || true
+    npm ci --omit=dev || true
+    node scripts/patch-baileys-lid.mjs || true
+  fi
+  if [[ "$REINICIADO" = 1 ]]; then
+    pm2 reload iciia-crm --update-env || true
+    pm2 save >/dev/null || true
+  fi
+  echo "  Revisión restaurada: $(git rev-parse --short=12 HEAD)" >&2
+  exit "$codigo"
+}
+trap recuperar ERR
 
-echo "› Aplicando compatibilidad WhatsApp LID/PN…"
+echo '› Instalando dependencias…'
+npm ci --omit=dev
+echo '› Compatibilidad WhatsApp…'
 node scripts/patch-baileys-lid.mjs
-
-echo "› Verificando el código…"
+echo '› Ejecutando verificaciones obligatorias…'
 node scripts/verificar.mjs
+node scripts/test-ayudas.mjs
+node scripts/test-horarios.mjs
+node scripts/test-login.mjs
 
-echo "› Reiniciando…"
+echo '› Reiniciando el CRM…'
+REINICIADO=1
 pm2 reload iciia-crm --update-env
-pm2 save >/dev/null
-
-# Espera breve para que Express termine migraciones y vuelva a escuchar.
-sleep 2
 
 PORT_ACTUAL="$(grep -E '^PORT=' .env 2>/dev/null | tail -1 | cut -d= -f2- || true)"
 PORT_ACTUAL="${PORT_ACTUAL:-3000}"
-
-echo "› Confirmando versión en ejecución…"
-HEALTH="$(curl -fsS "http://127.0.0.1:${PORT_ACTUAL}/api/health")"
-echo "  ${HEALTH}"
-
-if [[ "${HEALTH}" != *"\"build\":\"${DESPUES}\""* ]]; then
-  echo "✖ El proceso respondió, pero el build activo no coincide con Git: ${DESPUES}" >&2
-  exit 1
+PASO=0
+CORRECTO=0
+echo '› Verificando servicio y circuito de autenticación…'
+while [[ "$PASO" -lt 30 ]]; do
+  PASO=$((PASO+1))
+  SALUD="$(curl --max-time 4 -fsS "http://127.0.0.1:${PORT_ACTUAL}/api/health" 2>/dev/null || true)"
+  ACCESO="$(curl --max-time 4 -fsS "http://127.0.0.1:${PORT_ACTUAL}/api/login/health" 2>/dev/null || true)"
+  if [[ "$SALUD" == *"\"ok\":true"* && "$SALUD" == *"\"build\":\"$DESPUES\""* &&
+        "$ACCESO" == *"\"ok\":true"* && "$ACCESO" == *"\"build\":\"$DESPUES\""* ]]; then
+    CORRECTO=1; break
+  fi
+  sleep 2
+done
+if [[ "$CORRECTO" != 1 ]]; then
+  echo '✖ El nuevo servidor no confirmó el circuito de login. Revisá PM2 y PostgreSQL.' >&2
+  false
 fi
-
-echo "✔ Actualizado y confirmado en ${DESPUES}. Las migraciones de base corren solas al arrancar."
+pm2 save >/dev/null
+trap - ERR
+echo "✔ IMPAR operativo: revisión $DESPUES, base de datos y autenticación confirmadas."
