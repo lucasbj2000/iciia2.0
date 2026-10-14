@@ -6,6 +6,7 @@ import {
 import { modalCargaManual } from './negociaciones.js';
 import { tablaCambios } from './colaboracion.js';
 import { administrarHorarios } from './horarios.js';
+import { solicitarEliminarUsuario } from './organigrama.js';
 
 let TADM = 'canales', defs = null, timerQR = null, sucursalesCache = [], cargaCanalesSeq = 0;
 
@@ -758,7 +759,7 @@ async function aUsuarios() {
      <td class="hide-m">${u.nacimiento ? fd(u.nacimiento) : '<span style="color:var(--warn)">falta</span>'}</td>
      <td>${u.activo ? '<span style="color:var(--ok)">Activo</span>' : '<span style="color:var(--bad)">Inactivo</span>'}</td>
      <td style="text-align:right"><button class="btn ghost sm" data-act="${u.id}" data-v="${u.activo ? 0 : 1}">${u.activo ? 'Bloquear' : 'Activar'}</button>
-       <button class="btn ghost sm" data-pass="${u.id}">Clave</button></td></tr>`).join('')}
+       <button class="btn ghost sm" data-pass="${u.id}">Clave</button>${u.rol!=='admin'?`<button class="btn ghost sm" data-usr-eliminar="${u.id}">Eliminar</button>`:''} </td></tr>`).join('')}
    </tbody></table>
    <hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><h3>Alta de usuario</h3>
    <div class="row"><div class="field"><label>Nombre</label><input id="u-nom"></div>
@@ -776,7 +777,11 @@ async function aUsuarios() {
   $$('[data-act]').forEach(b => b.onclick = async () => {
     await patch(`/admin/usuarios/${b.dataset.act}`, { activo: b.dataset.v === '1' }); aUsuarios();
   });
-  $$('[data-pass]').forEach(b => b.onclick = () => {
+  $('[data-usr-eliminar]').forEach(b => b.onclick = () => {
+    const u = us.find(x => x.id === b.dataset.usrEliminar);
+    if(u) solicitarEliminarUsuario(u, () => aUsuarios());
+  });
+  $('[data-pass]').forEach(b => b.onclick = () => {
     modal(`<div class="modal-h"><h3>Nueva contraseña</h3><button class="x" data-cerrar>✕</button></div>
       <div class="modal-b"><div class="field"><label>Contraseña</label><input id="np" type="password"></div>
       <div class="err" id="np-e"></div></div>
