@@ -31,7 +31,7 @@ const q=async(sql,params)=>{
   assert.ok(sql.includes('ORDER BY m.ts DESC,m.id DESC LIMIT $6'));
   const filtrados=params[3]
     ? todos.filter(m=>m.ts<params[3]||(m.ts===params[3]&&BigInt(m.id)<BigInt(params[4])))
-    : todos;
+    : [...todos];
   return {rows:filtrados.sort((a,b)=>b.ts.localeCompare(a.ts)||b.id-a.id).slice(0,params[5])};
 };
 const primera=await obtenerHistorialContacto(q,'empresa-impar','contacto-original','neg-actual');
