@@ -58,14 +58,21 @@ export async function drenarOutbox() {
   try {
   const { rows } = await q(
     `SELECT o.*, c.tipo, c.config, c.nombre AS canal_nombre, c.empresa_id AS c_emp,
+            e.flags->>'bot' AS permiso_bot, e.bot->>'activo' AS bot_activo_empresa,
             a.archivo, a.mime, a.tipo AS a_tipo, a.nombre AS a_nombre
        FROM outbox o
+       LEFT JOIN empresas e ON e.id = o.empresa_id
        LEFT JOIN canales c ON c.id = o.canal_id
        LEFT JOIN archivos a ON a.id = o.archivo_id
       WHERE o.estado='pendiente' AND o.intentos < $1 ORDER BY o.ts ASC LIMIT 50`, [MAX_ENVIOS]);
 
   for (const o of rows) {
     try {
+      // Defensa final: ninguna respuesta automática puede salir si IMPAR pausó el bot.
+      if (o.automatico && (o.permiso_bot !== 'true' || o.bot_activo_empresa !== 'true')) {
+        await q("UPDATE outbox SET estado='cancelado',error='Respuesta automática pausada por IMPAR' WHERE id=$1 AND estado='pendiente'",[o.id]);
+        continue;
+      }
       if (!o.canal_id) throw new Error('mensaje sin canal asignado');
       const canal = { id: o.canal_id, tipo: o.tipo, config: o.config, nombre: o.canal_nombre, empresa_id: o.c_emp };
       const adjunto = o.archivo_id
