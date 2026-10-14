@@ -8,6 +8,7 @@ import {
 import { emitir } from '../realtime.mjs';
 import { obtener as obtenerArchivo } from '../archivos.mjs';
 import * as ubi from '../ubicaciones.mjs';
+import { obtenerHistorialContacto } from '../historial-contacto-impar.mjs';
 
 const r = Router();
 
@@ -53,17 +54,26 @@ r.get('/util/duplicados', requiere('admin'), async (req, res) => {
 r.get('/:id', requiere(), async (req, res) => {
   const n = await obtenerNegociacionVisible(req, req.params.id);
   if (!n) return res.status(404).json({ error: 'no encontrada' });
-  const [msgs, hist, trans, ubis] = await Promise.all([
-    q(`SELECT m.*, a.archivo, a.mime, a.tipo AS archivo_tipo, a.nombre AS archivo_nombre,
-              a.bytes AS archivo_bytes, a.ancho, a.alto,
-              CASE WHEN a.id IS NOT NULL THEN '/media/' || a.empresa_id || '/' || a.archivo ELSE m.media_url END AS media_url
-         FROM mensajes m LEFT JOIN archivos a ON a.id = m.archivo_id
-        WHERE m.negociacion_id=$1 ORDER BY m.ts ASC`, [n.id]),
+  const [conversacion, hist, trans, ubis] = await Promise.all([
+    obtenerHistorialContacto(q,req.empresaId,n.contacto_id,n.id),
     q('SELECT * FROM historial WHERE negociacion_id=$1 ORDER BY ts DESC', [n.id]),
     q('SELECT * FROM transferencias WHERE negociacion_id=$1 ORDER BY ts DESC', [n.id]),
     q('SELECT * FROM ubicaciones WHERE negociacion_id=$1 ORDER BY ts DESC', [n.id])
   ]);
-  res.json({ ...n, mensajes: msgs.rows, historial: hist.rows, transferencias: trans.rows, ubicaciones: ubis.rows });
+  res.json({ ...n,...conversacion, historial: hist.rows, transferencias: trans.rows, ubicaciones: ubis.rows });
+});
+
+/** Carga páginas anteriores del mismo contacto; siempre valida permisos de la negociación visible. */
+r.get('/:id/mensajes/anteriores', requiere(), async(req,res)=>{
+  const n=await obtenerNegociacionVisible(req,req.params.id);
+  if(!n)return res.status(404).json({error:'no encontrada'});
+  if(typeof req.query.antes!=='string' || !req.query.antes)
+    return res.status(422).json({error:'Falta el cursor de mensajes anteriores.'});
+  try{
+    res.json(await obtenerHistorialContacto(q,req.empresaId,n.contacto_id,n.id,req.query.antes));
+  }catch(e){
+    res.status(e.status||500).json({error:e.status?e.message:'No se pudo consultar el historial.'});
+  }
 });
 
 /* ---------- MOVER DE ETAPA ---------- */
