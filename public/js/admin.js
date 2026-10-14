@@ -55,13 +55,15 @@ async function aCanales() {
   sucursalesCache = sucs;
   const tarjeta = c => {
     const [cls, ico] = ICONOS[c.tipo] || ['otro', '📨'];
-    const color = c.estado === 'conectado' ? 'var(--ok)' : c.estado === 'pendiente' ? 'var(--warn)' : 'var(--bad)';
-    return `<div class="canal ${c.estado === 'conectado' ? 'conectado' : ''}"><div class="ico ${cls}">${ico}</div>
+    const color = c.estado === 'conectado' ? 'var(--ok)' : ['pendiente','reconectando','conectando'].includes(c.estado) ? 'var(--warn)' : 'var(--bad)';
+    return `<div class="canal ${c.estado === 'conectado' ? 'conectado' : ''}" data-canal-id="${esc(c.id)}"><div class="ico ${cls}">${ico}</div>
       <div style="flex:1;min-width:0"><b>${esc(c.nombre)}</b>
         <small>${NOMBRES[c.tipo]}${c.numero ? ' · ' + esc(c.numero) : ''}${c.linea ? ' · ' + esc(c.linea) : ''}</small>
-        <small><span class="dot ${c.estado === 'conectado' ? 'live' : ''}" style="background:${color}"></span>
-          ${c.estado === 'conectado' ? 'Conectado' : c.estado === 'pendiente' ? 'Esperando escaneo'
-            : c.estado === 'error' ? 'Error de credenciales' : 'Desconectado'}
+        <small data-canal-estado-etiqueta><span class="dot ${c.estado === 'conectado' ? 'live' : ''}" style="background:${color}"></span>
+          <span data-canal-estado-texto>${c.estado === 'conectado' ? 'Conectado'
+            : c.estado === 'pendiente' ? 'Esperando escaneo'
+            : ['reconectando','conectando'].includes(c.estado) ? 'Reconectando…'
+            : c.estado === 'error' ? 'Error de conexión' : 'Desconectado'}</span>
           ${c.ultima_conexion ? ' · última ' + ago(c.ultima_conexion) + ' atrás' : ''}
           ${!c.activo ? ' · <span style="color:var(--warn)">pausado</span>' : ''}</small>
         ${c.ultimo_error ? `<small style="color:var(--bad)">${esc(String(c.ultimo_error).slice(0, 70))}</small>` : ''}</div>
@@ -146,6 +148,26 @@ async function aCanales() {
   });
   $('#wh-copiar').onclick = () => copiar(info.url, 'URL copiada');
   $('#wh-copiar-tok').onclick = () => copiar(info.verifyToken, 'Token copiado');
+}
+
+/** Cambio de estado de WhatsApp: se actualiza el indicador, NO la pantalla completa. */
+export function actualizarEstadoCanal(evento) {
+  if (S.vista !== 'adm' || TADM !== 'canales' || !evento?.canalId) return;
+  const card = $('[data-canal-id]').find(el => el.dataset.canalId === String(evento.canalId));
+  if (!card) return;
+  const txt = card.querySelector('[data-canal-estado-texto]');
+  const dot = card.querySelector('[data-canal-estado-etiqueta] .dot');
+  const estado = evento.estado;
+  if (txt) txt.textContent = estado === 'conectado' ? 'Conectado'
+    : estado === 'pendiente' ? 'Esperando escaneo'
+    : ['reconectando','conectando'].includes(estado) ? 'Reconectando…'
+    : estado === 'error' ? 'Error de conexión' : 'Desconectado';
+  if (dot) {
+    dot.style.background = estado === 'conectado' ? 'var(--ok)'
+      : ['pendiente','reconectando','conectando'].includes(estado) ? 'var(--warn)' : 'var(--bad)';
+    dot.classList.toggle('live',estado==='conectado');
+  }
+  card.classList.toggle('conectado',estado==='conectado');
 }
 
 function copiar(txt, msg) {
