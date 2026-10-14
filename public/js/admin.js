@@ -145,7 +145,7 @@ async function aCanales() {
          Meta rechaza webhooks sin certificado válido. Configurá HTTPS antes de conectar estos canales.</div></div>` : ''}
      <div class="field"><label>URL de callback</label><input value="${esc(info.url)}" readonly id="wh-url"></div>
      <div class="field"><label>Token de verificación</label>
-       <input value="${esc(info.verifyToken || '(falta META_VERIFY_TOKEN en el .env)')}" readonly id="wh-tok"></div>
+       <input value="${esc(info.noDisponible ? '(pendiente de consulta)' : info.verifyToken || '(falta META_VERIFY_TOKEN en el .env)')}" readonly id="wh-tok"></div>
      <div style="display:flex;gap:8px;flex-wrap:wrap">
        <button class="btn ghost sm" id="wh-copiar">📋 Copiar URL</button>
        <button class="btn ghost sm" id="wh-copiar-tok">📋 Copiar token</button></div>
