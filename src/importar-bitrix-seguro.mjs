@@ -56,8 +56,9 @@ export async function analizarCargaBitrix(cliente, empresaId, body) {
   for (const c of contactos.rows) {
     const keys=new Set([
       c.tel_norm ? String(c.tel_norm).replace(/\D/g,'').slice(-8) : '',
-      claveTelefono(c.tel),claveTelefono(c.externos?.whatsapp),
-      claveTelefono(c.externos?.telefono)
+      String(c.tel || '').replace(/\D/g,'').slice(-8),
+      String(c.externos?.whatsapp || '').replace(/\D/g,'').slice(-8),
+      String(c.externos?.telefono || '').replace(/\D/g,'').slice(-8)
     ].filter(Boolean));
     for (const key of keys) {
       if (!antiguosPorTelefono.has(key)) antiguosPorTelefono.set(key,[]);
