@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { q, crearEmpresa, FLAGS_DEF, NOTI_DEF, REGLAS_DEF, flagsDefault } from '../db.mjs';
+import { q, tx, crearEmpresa, FLAGS_DEF, NOTI_DEF, REGLAS_DEF, flagsDefault } from '../db.mjs';
 import { requiere, hash } from '../auth.mjs';
 import { auditar } from '../core.mjs';
 import { listarCambios } from '../colaboracion.mjs';
@@ -77,14 +77,46 @@ r.patch('/motivos', requiere('admin'), async (req, res) => {
   res.json({ ok: true });
 });
 
+// El estado global se cambia solo aquí para evitar reactivaciones accidentales.
+r.patch('/bot/pausa', requiere('admin'), async (req, res, next) => {
+  try {
+    if (typeof req.body?.pausado !== 'boolean') return res.status(422).json({error:'Indicá si la automatización estará pausada.'});
+    const pausado=req.body.pausado;
+    const resultado=await tx(async db=>{
+      await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',['impar-automatizacion:'+req.empresaId]);
+      const {rows}=await db.query("SELECT id,flags,bot FROM empresas WHERE id=$1 AND codigo='impar' FOR UPDATE",[req.empresaId]);
+      if(!rows.length)throw new Error('El control solo está disponible en IMPAR.');
+      const empresa=rows[0];
+      const flags={...empresa.flags,bot:!pausado};
+      const bot={...empresa.bot,activo:!pausado};
+      await db.query('UPDATE empresas SET flags=$2,bot=$3 WHERE id=$1',[req.empresaId,JSON.stringify(flags),JSON.stringify(bot)]);
+      let cancelados=0,conversacionesSilenciadas=0;
+      if(pausado){
+        const q1=await db.query('UPDATE negociaciones SET bot_activo=FALSE WHERE empresa_id=$1 AND bot_activo=TRUE',[req.empresaId]);
+        conversacionesSilenciadas=q1.rowCount;
+        const q2=await db.query("UPDATE outbox SET estado='cancelado',error='Mensajes automáticos pausados por IMPAR' WHERE empresa_id=$1 AND automatico=TRUE AND estado='pendiente'",[req.empresaId]);
+        cancelados=q2.rowCount;
+        await db.query("UPDATE mensajes SET estado='cancelado' WHERE empresa_id=$1 AND bot=TRUE AND dir='out' AND estado='pendiente'",[req.empresaId]);
+      }
+      return {flags,bot,cancelados,conversacionesSilenciadas};
+    });
+    auditar(req.empresaId,req.user.nombre,'Automatización IMPAR',pausado?'Respuestas automáticas pausadas':'Bot activado para contactos nuevos',req.ip).catch(()=>{});
+    emitir(req.empresaId,'config',{});
+    res.json({ok:true,pausado,...resultado});
+  } catch(e){next(e);}
+});
 r.patch('/bot', requiere('admin'), async (req, res) => {
   const bot = { ...(req.empresa.bot || {}), ...(req.body?.bot || {}) };
+  // Guardar instrucciones nunca reactiva el bot. Usar /bot/pausa expresamente.
+  bot.activo = req.empresa.bot?.activo === true;
   await q('UPDATE empresas SET bot=$2 WHERE id=$1', [req.empresaId, JSON.stringify(bot)]);
   emitir(req.empresaId, 'config', {});
   res.json({ ok: true, bot });
 });
 
 r.post('/bot/reactivar', requiere('admin'), async (req, res) => {
+  if (!req.empresa.flags?.bot || !req.empresa.bot?.activo)
+    return res.status(409).json({error:'La automatización está pausada para IMPAR. Reactivala primero desde Administración → Bot.'});
   const activas = (req.empresa.etapas || []).filter(e => e.activa).map(e => e.id);
   const { rowCount } = await q(
     'UPDATE negociaciones SET bot_activo=TRUE WHERE empresa_id=$1 AND etapa = ANY($2) AND bot_activo=FALSE',
