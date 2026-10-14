@@ -68,8 +68,13 @@ export async function vistaContactos() {
     toast('Contactos exportados', 'ok');
   };
   if ($('#c-import')) {
-    $('#c-import').onclick = () => $('#c-file').click();
-    $('#c-file').onchange = importar;
+    if (esAdmin()) {
+      $('#c-import').textContent = '🛡 Importar sin duplicados';
+      $('#c-import').onclick = () => import('./admin.js').then(m => m.irABitrix());
+    } else {
+      $('#c-import').onclick = () => $('#c-file').click();
+      $('#c-file').onchange = importar;
+    }
   }
 }
 
