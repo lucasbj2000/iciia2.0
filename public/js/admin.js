@@ -933,26 +933,46 @@ async function aStock() {
 
 async function aBot() {
   const b = S.empresa.bot || {};
-  AB().innerHTML = `<div class="card-box"><h3>Instrucciones del bot</h3>
-   <label style="display:flex;gap:8px;align-items:center;margin-bottom:12px;font-size:var(--fs-sm)">
-     <span class="sw"><input type="checkbox" id="b-act" ${b.activo ? 'checked' : ''}><i></i></span>
-     Bot activo en la recepción de nuevos contactos</label>
-   <div class="card-box" style="background:var(--surface2);margin-bottom:12px">
-     <b style="font-size:var(--fs-sm)">🤖 Apagado automático</b>
-     <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:5px;line-height:1.7">
-       Con «Bot se apaga al responder el agente» activado, apenas una persona escribe el bot deja de
-       intervenir en esa negociación. Se reactiva manual desde la ficha o masivamente acá.</div></div>
-   <div class="field"><label>Prompt / instrucciones</label>
-     <textarea id="b-ins" rows="9">${esc(b.instrucciones || '')}</textarea></div>
-   <button class="btn sm" id="b-ok">Guardar instrucciones</button>
-   <button class="btn ghost sm" id="b-react">Reactivar bot en todas las abiertas</button></div>`;
-  $('#b-ok').onclick = async () => {
-    await patch('/admin/bot', { bot: { activo: $('#b-act').checked, instrucciones: $('#b-ins').value } });
-    await recargarCtx(); toast('Bot actualizado', 'ok');
+  const pausado = S.empresa.flags?.bot !== true || b.activo !== true;
+  AB().innerHTML = `<div class="card-box">
+    <h3>Automatización de mensajes · IMPAR</h3>
+    <div class="card-box" style="background:var(--surface2);border-color:${pausado?'var(--warn)':'var(--ok)'};margin:12px 0">
+      <b style="color:${pausado?'var(--warn)':'var(--ok)'}">${pausado?'Automatización pausada · atención manual':'Bot habilitado para nuevos contactos'}</b>
+      <p class="sub" style="margin:9px 0">${pausado
+        ? 'IMPAR recibe mensajes y los agentes pueden responder normalmente. No se envían saludos, solicitudes de nombre/ciudad ni respuestas automáticas del bot. Los mensajes de bot que estaban pendientes se cancelaron.'
+        : 'El sistema puede responder automáticamente a contactos nuevos. Las conversaciones previamente atendidas de forma manual se conservan sin bot hasta reactivarlas individualmente.'}</p>
+      <button class="btn ${pausado?'':'danger'}" id="b-pausa">${pausado?'Activar respuestas automáticas':'Pausar respuestas automáticas'}</button>
+    </div>
+    <p class="sub">Esta configuración afecta únicamente IMPAR y no modifica números de WhatsApp, mensajes entrantes ni respuestas escritas por empleados.</p>
+    <div class="field"><label>Instrucciones del bot (se conservan mientras está pausado)</label>
+      <textarea id="b-ins" rows="7">${esc(b.instrucciones || '')}</textarea></div>
+    <button class="btn ghost sm" id="b-ok">Guardar instrucciones</button>
+    ${pausado?'':'<button class="btn ghost sm" id="b-react">Reactivar bot en conversaciones existentes (opcional)</button>'}
+  </div>`;
+  $('#b-pausa').onclick = async () => {
+    const aviso = pausado
+      ? 'Se permitirán respuestas automáticas SOLO en conversaciones nuevas. Las existentes seguirán en modo manual.'
+      : 'Se detendrán las respuestas automáticas y se cancelarán las que estén pendientes de envío. La atención manual seguirá funcionando.';
+    if(!await confirmar(pausado?'Reactivar bot IMPAR':'Pausar automatización IMPAR',aviso,pausado?'Activar':'Pausar'))return;
+    const boton=$('#b-pausa');boton.disabled=true;
+    try {
+      const r=await patch('/admin/bot/pausa',{pausado:!pausado});
+      S.empresa.flags=r.flags;S.empresa.bot=r.bot;
+      toast(r.pausado?'IMPAR está en atención manual.':'Bot habilitado para nuevos contactos.', 'ok', 'Automatización');
+      aBot();
+    } catch(e){boton.disabled=false;toast(e.message,'bad');}
   };
-  $('#b-react').onclick = async () => {
-    const r = await post('/admin/bot/reactivar', {});
-    toast(`Bot reactivado en ${r.reactivadas} conversación(es)`, 'ok');
+  $('#b-ok').onclick = async () => {
+    try{
+      await patch('/admin/bot',{bot:{instrucciones:$('#b-ins').value}});
+      await recargarCtx();toast('Instrucciones guardadas sin modificar el estado del bot','ok');
+    }catch(e){toast(e.message,'bad');}
+  };
+  if($('#b-react'))$('#b-react').onclick = async () => {
+    if(!await confirmar('Reactivar bot en negociaciones abiertas',
+      'El bot podría comenzar a responder automáticamente en conversaciones ya iniciadas. Hacelo solo cuando el equipo esté preparado.', 'Reactivar'))return;
+    try{const r=await post('/admin/bot/reactivar',{});
+      toast('Bot habilitado en '+r.reactivadas+' conversaciones.','ok');}catch(e){toast(e.message,'bad');}
   };
 }
 
