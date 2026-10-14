@@ -9,6 +9,7 @@ import { q } from '../db.mjs';
 import { emitir } from '../realtime.mjs';
 import { notificar } from '../core.mjs';
 import { guardarBuffer, MEDIA_DIR } from '../archivos.mjs';
+import { guardarOriginal, recuperarOriginal } from '../wa-reintentos.mjs';
 
 const AUTH_DIR = process.env.WA_AUTH_DIR || './auth';
 if (!existsSync(AUTH_DIR)) mkdirSync(AUTH_DIR, { recursive: true });
@@ -47,7 +48,8 @@ export async function iniciar(canal) {
     (S.estado === 'conectando' && Date.now() - (S.iniciadoEn || 0) < 90000))) return estadoSesion(id);
   // No lanzar un segundo socket mientras ya se espera una reconexión programada.
   if (S?.reintentoTimer) return estadoSesion(id);
-  if (!S) { S = { sock: null, estado: 'desconectado', qr: null, numero: '', intentos: 0 }; sesiones.set(id, S); }
+  if (!S) { S = { sock: null, estado: 'desconectado', qr: null, numero: '', intentos: 0, retryCache:new Map() }; sesiones.set(id, S); }
+  if (!S.retryCache) S.retryCache=new Map();
   S.arrancando = true; S.error = null;
   S.estado = 'conectando'; S.iniciadoEn = Date.now();
   // Retirar un socket antiguo sin cerrar sesión de WhatsApp ni borrar credenciales.
@@ -70,13 +72,25 @@ export async function iniciar(canal) {
       browser: ['iciia2.0', 'Chrome', '1.0.0'],
       markOnlineOnConnect: false,
       syncFullHistory: false,
-      generateHighQualityLinkPreview: false
+      generateHighQualityLinkPreview: false,
+      // WhatsApp solicita el mensaje ORIGINAL al fallar su descifrado:
+      // recuperarlo de memoria o PostgreSQL después de una reconexión.
+      // Nunca generar un mensaje vacío ni reenviar por cuenta propia.
+      getMessage: key => recuperarOriginal({
+        q,proto:mod.proto,canalId:id,key,cache:S.retryCache
+      })
     });
     S.sock = sock;
+    // Serializar escrituras de credenciales para evitar sobrescrituras
+    // concurrentes del estado de la sesión Signal.
+    let colaCredenciales=Promise.resolve();
     sock.ev.on('creds.update', () => {
-      // Un socket anterior no puede sobrescribir credenciales del socket nuevo.
       if (S.sock !== sock) return;
-      Promise.resolve().then(saveCreds).catch(e => console.warn('[wa] Guardar sesión:', e.message));
+      colaCredenciales=colaCredenciales.catch(()=>{}).then(async()=>{
+        if(S.sock!==sock)return;
+        await saveCreds();
+      });
+      colaCredenciales.catch(e=>console.warn('[wa] Guardar sesión:',e.message));
     });
 
     sock.ev.on('connection.update', async u => {
@@ -110,6 +124,9 @@ export async function iniciar(canal) {
           if (!sesionCaducada && S.estado === 'reconectando' && S.reintentoTimer) return;
           S.estado = sesionCaducada ? 'desconectado' : 'reconectando';
           S.arrancando = false; S.qr = null;
+          // Terminar los guardados Signal iniciados antes de sustituir el socket.
+          await colaCredenciales.catch(()=>{});
+          if(S.sock!==sock)return;
           await actualizar(id, S.estado, S.numero);
           emitir(canal.empresa_id,'canal:estado',{ canalId:id,estado:S.estado });
           if (S.reintentoTimer) { clearTimeout(S.reintentoTimer); S.reintentoTimer = null; }
@@ -238,7 +255,8 @@ async function bajarMedia(mod, m, canal) {
 
 export async function enviar(canal, destino, texto, adjunto) {
   const S = sesiones.get(canal.id);
-  if (!S || S.estado !== 'conectado') throw new Error('sesión de WhatsApp no conectada');
+  const sock=S?.sock;
+  if (!sock || !S || S.estado !== 'conectado') throw new Error('sesión de WhatsApp no conectada');
   const prefijo = canal.config?.prefijoPais || process.env.PREFIJO_PAIS || '595';
   const bruto = String(destino || '').trim();
   let jid;
@@ -252,6 +270,16 @@ export async function enviar(canal, destino, texto, adjunto) {
     jid = `${num}@s.whatsapp.net`;
   }
 
+  // Cada salida se registra en el almacén de recuperación por su propio
+  // identificador original (no se duplican envíos para intentar repararla).
+  const transmitir=async contenido=>{
+    if(S.sock!==sock || S.estado!=='conectado')
+      throw new Error('Sesión WhatsApp cambió durante el envío. Reintentá cuando figure conectada.');
+    const enviado=await sock.sendMessage(jid,contenido);
+    await guardarOriginal({q,proto:(await cargarBaileys())?.proto,
+      canalId:canal.id,empresaId:canal.empresa_id,enviado,cache:S.retryCache});
+    return enviado;
+  };
   if (adjunto) {
     const bin = readFileSync(join(MEDIA_DIR, String(canal.empresa_id), adjunto.archivo));
     const pie = texto || undefined;
@@ -260,11 +288,11 @@ export async function enviar(canal, destino, texto, adjunto) {
       : adjunto.tipo === 'video' ? { video: bin, caption: pie }
       : adjunto.tipo === 'audio' ? { audio: bin, mimetype: adjunto.mime }
       : { document: bin, mimetype: adjunto.mime, fileName: adjunto.nombre, caption: pie };
-    await S.sock.sendMessage(jid, contenido);
-    if (adjunto.tipo === 'audio' && texto) await S.sock.sendMessage(jid, { text: texto });
+    await transmitir(contenido);
+    if (adjunto.tipo === 'audio' && texto) await transmitir({ text: texto });
     return true;
   }
-  await S.sock.sendMessage(jid, { text: texto });
+  await transmitir({ text: texto });
   return true;
 }
 
