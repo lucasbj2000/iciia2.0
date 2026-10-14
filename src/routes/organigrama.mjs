@@ -4,6 +4,7 @@ import { requiere, hash } from '../auth.mjs';
 import { auditar } from '../core.mjs';
 import { emitir } from '../realtime.mjs';
 import { importarImpar } from '../importar-impar.mjs';
+import { vistaPreviaTransferencia, eliminarConTransferencia } from '../eliminar-usuario-impar.mjs';
 const r=Router();
 const roles=new Set(['admin','gerente','jefe','agente']);
 const campos='id,nombre,usuario,rol,cargo,sucursal,linea,equipo,superior_id,email,tel,activo,fecha_baja';
@@ -73,6 +74,23 @@ async function guardar(req,res){
 }
 r.post('/empleados',requiere('admin'),guardar);
 r.patch('/empleados/:id',requiere('admin'),guardar);
+// Eliminación segura: un único paso desde el organigrama, solo administrador.
+r.get('/empleados/:id/transferencia',requiere('admin'),async(req,res)=>{
+  try { res.json(await vistaPreviaTransferencia(req.empresaId,req.params.id,req.user.id)); }
+  catch(e){res.status(e.status||500).json({error:e.status?e.message:'No se pudo consultar la transferencia.'});}
+});
+r.post('/empleados/:id/eliminar',requiere('admin'),async(req,res)=>{
+  const destinoId=req.body?.destinoId;
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!uuid.test(req.params.id)||typeof destinoId!=='string'||!uuid.test(destinoId)||destinoId===req.params.id||req.body?.confirmacion!=='TRANSFERIR_Y_ELIMINAR')
+    return res.status(422).json({error:'Seleccioná un empleado distinto para recibir los datos y confirmá la operación.'});
+  try {
+    const resultado=await eliminarConTransferencia(req.empresaId,req.params.id,destinoId,req.user.id);
+    emitir(req.empresaId,'config',{});
+    emitir(req.empresaId,'neg:recargar',{});
+    res.json({ok:true,...resultado});
+  }catch(e){res.status(e.status||500).json({error:e.status?e.message:'No se pudo finalizar la transferencia. No se aplicaron cambios.'});}
+});
 r.post('/importar',requiere('admin'),async(req,res)=>{
   try {const result=await importarImpar(req.empresaId,req.body);await auditar(req.empresaId,req.user.nombre,'Importación IMPAR',JSON.stringify(result),req.ip);emitir(req.empresaId,'config',{});res.json(result);}
   catch(e){res.status(422).json({error:e.message});}
