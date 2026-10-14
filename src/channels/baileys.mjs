@@ -43,9 +43,19 @@ export async function iniciar(canal) {
 
   const id = canal.id;
   let S = sesiones.get(id);
-  if (S && (S.arrancando || S.estado === 'conectado')) return estadoSesion(id);
+  if (S && (S.arrancando || S.estado === 'conectado' || S.estado === 'pendiente' ||
+    (S.estado === 'conectando' && Date.now() - (S.iniciadoEn || 0) < 90000))) return estadoSesion(id);
+  // No lanzar un segundo socket mientras ya se espera una reconexión programada.
+  if (S?.reintentoTimer) return estadoSesion(id);
   if (!S) { S = { sock: null, estado: 'desconectado', qr: null, numero: '', intentos: 0 }; sesiones.set(id, S); }
   S.arrancando = true; S.error = null;
+  S.estado = 'conectando'; S.iniciadoEn = Date.now();
+  // Retirar un socket antiguo sin cerrar sesión de WhatsApp ni borrar credenciales.
+  if (S.sock) {
+    const anterior = S.sock;
+    S.sock = null;
+    try { anterior.end?.(new Error('Sustituido por nueva conexión IMPAR')); } catch {}
+  }
 
   try {
     const carpeta = join(AUTH_DIR, String(id));
@@ -66,6 +76,7 @@ export async function iniciar(canal) {
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async u => {
+      if (S.sock !== sock) return; // evento tardío de un socket reemplazado
       const { connection, lastDisconnect, qr } = u;
       try {
         if (qr) {
@@ -75,34 +86,44 @@ export async function iniciar(canal) {
           emitir(canal.empresa_id, 'canal:qr', { canalId: id, qr: S.qr });
         }
         if (connection === 'open') {
-          S.estado = 'conectado'; S.qr = null; S.intentos = 0;
+          const cambioReal = S.estado !== 'conectado';
+          if (S.reintentoTimer) { clearTimeout(S.reintentoTimer); S.reintentoTimer = null; }
+          S.estado = 'conectado'; S.arrancando = false;
+          S.qr = null; S.intentos = 0;
           S.numero = (sock.user?.id || '').split(':')[0];
           await actualizar(id, 'conectado', S.numero, true);
-          emitir(canal.empresa_id, 'canal:estado', { canalId: id, estado: 'conectado', numero: S.numero });
-          await avisar(canal, 'conectada');
+          if (cambioReal) emitir(canal.empresa_id, 'canal:estado', { canalId: id, estado: 'conectado', numero: S.numero });
+          // Conexión transitoria recuperada: no generar notificaciones invasivas.
+
           console.log(`[wa:${canal.nombre}] conectado como ${S.numero}`);
         }
         if (connection === 'close') {
           const code = lastDisconnect?.error?.output?.statusCode;
-          S.estado = 'desconectado'; S.arrancando = false;
-          await actualizar(id, 'desconectado', S.numero);
-          emitir(canal.empresa_id, 'canal:estado', { canalId: id, estado: 'desconectado' });
-          if (code !== mod.DisconnectReason?.loggedOut) {
+          const sesionCaducada = code === mod.DisconnectReason?.loggedOut;
+          S.estado = sesionCaducada ? 'desconectado' : 'reconectando';
+          S.arrancando = false; S.qr = null;
+          await actualizar(id, S.estado, S.numero);
+          emitir(canal.empresa_id,'canal:estado',{ canalId:id,estado:S.estado });
+          if (S.reintentoTimer) { clearTimeout(S.reintentoTimer); S.reintentoTimer = null; }
+          if (!sesionCaducada) {
             S.intentos = Math.min(S.intentos + 1, 6);
             const espera = Math.min(3000 * 2 ** (S.intentos - 1), 60000);
-            console.log(`[wa:${canal.nombre}] cerrado (${code}) · reintento en ${espera / 1000}s`);
-            setTimeout(() => iniciar(canal).catch(e => console.error(e.message)), espera);
+            console.log(`[wa:${canal.nombre}] conexión interrumpida (${code || 'sin código'}) · reintento en ${espera / 1000}s`);
+            S.reintentoTimer = setTimeout(() => {
+              S.reintentoTimer = null;
+              if (sesiones.get(id) !== S || S.sock !== sock) return;
+              iniciar(canal).catch(e => console.error(`[wa:${canal.nombre}] reintento:`,e.message));
+            },espera);
           } else {
             rmSync(carpeta, { recursive: true, force: true });
-            S.qr = null;
-            await avisar(canal, 'desvinculada');
+            await avisar(canal,'desvinculada');
           }
         }
       } catch (e) { console.error(`[wa:${canal.nombre}] update:`, e.message); }
     });
 
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
-      if (type !== 'notify') return;
+      if (S.sock !== sock || type !== 'notify') return;
       for (const m of messages) {
         try { await recibir(mod, m, canal, id); }
         catch (e) { console.error(`[wa:${canal.nombre}] recibir:`, e.message); }
@@ -241,8 +262,11 @@ export async function enviar(canal, destino, texto, adjunto) {
 
 export async function desvincular(canal) {
   const S = sesiones.get(canal.id);
-  try { await S?.sock?.logout(); } catch (e) {}
-  try { S?.sock?.end?.(); } catch (e) {}
+  if (S?.reintentoTimer) { clearTimeout(S.reintentoTimer); S.reintentoTimer = null; }
+  const sock = S?.sock;
+  if (S) S.sock = null; // el evento close tardío no debe relanzar la sesión
+  try { await sock?.logout(); } catch (e) {}
+  try { sock?.end?.(); } catch (e) {}
   rmSync(join(AUTH_DIR, String(canal.id)), { recursive: true, force: true });
   sesiones.delete(canal.id);
   await actualizar(canal.id, 'desconectado', '');
@@ -273,8 +297,11 @@ export async function prelevantar() {
       const { rows: cs } = await q("SELECT * FROM canales WHERE tipo='whatsapp_qr' AND activo");
       for (const c of cs) {
         const S = sesiones.get(c.id);
-        if (existsSync(join(AUTH_DIR, String(c.id))) && (!S || (S.estado !== 'conectado' && !S.arrancando))) {
-          iniciar(c).catch(() => {});
+        const esperando = S && (S.arrancando || S.reintentoTimer ||
+          ['conectado','pendiente'].includes(S.estado) ||
+          (S.estado === 'conectando' && Date.now() - (S.iniciadoEn || 0) < 90000));
+        if (existsSync(join(AUTH_DIR, String(c.id))) && !esperando) {
+          iniciar(c).catch(e => console.warn('[wa] Verificación de sesión:',e.message));
         }
       }
     } catch (e) {}
