@@ -38,7 +38,7 @@ function editar(u){
     <div class="row"><div class="field"><label for="org-email">Correo</label><input type="email" id="org-email" value="${esc(v.email||'')}"></div><div class="field"><label for="org-tel">Teléfono</label><input type="tel" id="org-tel" value="${esc(v.tel||'')}"></div></div>
     ${u?`<label><input type="checkbox" id="org-activo" ${v.activo?'checked':''}> Empleado activo</label><p class="sub">Al dar de baja se bloquea el acceso y se conserva el historial. Reasigná primero sus subordinados.</p>`:''}
     <div class="err" id="org-error" role="alert"></div></div><div class="modal-f">${u&&u.rol!=='admin'?'<button type="button" class="btn ghost" id="org-delete">Eliminar usuario</button>':''}<button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn" id="org-save">Guardar</button></div></form>`);
-  $('[data-cerrar]').forEach(b=>b.onclick=cerrar);
+  $$('[data-cerrar]').forEach(b=>b.onclick=cerrar);
   if($('#org-delete'))$('#org-delete').onclick=()=>{cerrar();solicitarEliminarUsuario(u);};
   let busy=false;$('#org-form').onsubmit=async e=>{
     e.preventDefault();if(busy)return;
@@ -81,7 +81,7 @@ export async function solicitarEliminarUsuario(usuario,alTerminar){
     '<div class="err" id="org-transfer-error" role="alert"></div></div>'+
     '<div class="modal-f"><button type="button" class="btn ghost" data-cerrar>Cancelar</button>'+
     '<button type="button" class="btn danger" id="org-transfer-ok" disabled>Eliminar y transferir</button></div>');
-  $('[data-cerrar]').forEach(x=>x.onclick=cerrar);
+  $$('[data-cerrar]').forEach(x=>x.onclick=cerrar);
   const elegir=$('#org-transfer-destino'),enviar=$('#org-transfer-ok');
   elegir.onchange=()=>{enviar.disabled=!elegir.value;};
   enviar.onclick=async()=>{
