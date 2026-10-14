@@ -1,0 +1,32 @@
+/* IMPAR · administración de accesos, responsive y sin datos secretos persistidos */
+.acc-panel{display:grid;gap:16px;min-width:0}
+.acc-panel h2{font-size:20px;margin:0 0 6px}
+.acc-panel .sub{font-size:12px;line-height:1.6}
+.acc-cabecera{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.acc-actions{display:flex;flex-wrap:wrap;gap:8px}
+.acc-info{background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:12px;font-weight:600}
+.acc-filtros{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:10px}
+.acc-filtros input{flex:1;min-width:min(100%,220px);max-width:440px;border:1px solid var(--line);border-radius:9px;padding:10px;background:var(--surface2);color:var(--txt)}
+.acc-filtros small{font-size:12px;color:var(--muted)}
+.acc-scroll{max-width:100%;overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.acc-scroll table{min-width:745px;width:100%;border-collapse:collapse}
+.acc-scroll th{padding:12px 10px;background:var(--surface2);text-align:left;font-size:11px;white-space:nowrap}
+.acc-scroll td{padding:11px 10px;border-top:1px solid var(--line);font-size:12px;vertical-align:middle}
+.acc-scroll td b{font-size:12px}
+.acc-scroll td small{display:block;margin-top:5px;color:var(--muted);font-family:monospace;font-size:11px}
+.acc-online{color:var(--ok);font-weight:600}
+.acc-offline{color:var(--bad);font-weight:600}
+.acc-cerrada{color:var(--muted);font-size:11px}
+.acc-clave{user-select:all;white-space:nowrap;font-weight:700}
+.acc-seguridad{padding:15px;border:1px solid var(--line);border-radius:11px;background:var(--surface2)}
+.acc-seguridad>b{font-size:14px}
+.acc-seguridad p{font-size:12px;line-height:1.65;margin:8px 0}
+.acc-seguridad .btn:disabled{opacity:.4;cursor:not-allowed}
+.acc-panel button{max-width:100%}
+@media(max-width:650px){
+ .acc-panel{padding:12px}
+ .acc-cabecera,.acc-actions{display:grid;grid-template-columns:1fr;width:100%}
+ .acc-cabecera{gap:10px}
+ .acc-actions button,.acc-seguridad .btn{width:100%}
+ .acc-info{line-height:1.6}
+}
