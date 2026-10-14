@@ -113,25 +113,45 @@ function mostrarClaves(entregas){
   $('#acc-fin-temporales').onclick=terminar;
 }
 
-async function generarClaves(){
+function generarClaves(){
   const ids=[...seleccion];
   if(!ids.length)return;
-  if(ids.length>30){toast('Por seguridad, máximo 30 cuentas por operación.','warn');return;}
-  const confirmacion=await confirmar('Crear nuevas contraseñas para '+ids.length+' empleados',
-    '<b>Esta acción invalida inmediatamente sus contraseñas actuales.</b> Se generan claves distintas y seguras, que verás solo una vez. No incluye cuentas administradoras. Exportar el listado normal no requiere este cambio.',
-    'Generar y reemplazar',false);
-  if(!confirmacion)return;
-  const boton=$('#acc-generar');boton.disabled=true;boton.textContent='Generando claves…';
-  try{
-    const r=await post('/admin/accesos/claves-temporales',{
-      ids,confirmacion:'RESTABLECER_ACCESOS'
-    });
-    if(!r.ok||!Array.isArray(r.entregas))throw new Error('El servidor no confirmó la generación de las credenciales.');
-    seleccion.clear();
-    pintarTabla();
-    mostrarClaves(r.entregas);
-  }catch(e){toast(e.message,'bad','Claves de acceso');}
-  finally{if($('#acc-generar')){boton.disabled=seleccion.size===0;boton.textContent='Generar nuevas claves ('+seleccion.size+')';}}
+  if(ids.length>30){toast('Por seguridad, máximo 30 empleados por operación.','warn');return;}
+  modal('<div class="modal-h"><h3>Confirmar nuevas contraseñas · '+ids.length+' empleados</h3>'+
+    '<button class="x" id="acc-cancelar-reset">✕</button></div>'+
+    '<div class="modal-b"><p><b>Los accesos anteriores de estos empleados dejarán de funcionar de inmediato.</b> Ninguna cuenta administradora puede seleccionarse.</p>'+
+    '<div class="field"><label>Tu contraseña actual de administrador</label>'+
+    '<input id="acc-admin-pass" type="password" autocomplete="current-password" required></div>'+
+    '<div class="field"><label>Escribí RESTABLECER para confirmar</label>'+
+    '<input id="acc-palabra" autocomplete="off" placeholder="RESTABLECER"></div>'+
+    '<div class="err" id="acc-error" role="alert"></div></div>'+
+    '<div class="modal-f"><button class="btn ghost" id="acc-reset-volver">Cancelar</button>'+
+    '<button class="btn danger" id="acc-reset-ejecutar">Crear '+ids.length+' claves nuevas</button></div>');
+  $('#acc-cancelar-reset').onclick=cerrar;
+  $('#acc-reset-volver').onclick=cerrar;
+  $('#acc-reset-ejecutar').onclick=async()=>{
+    const campo=$('#acc-admin-pass');
+    const pwd=campo.value;
+    if(!pwd || $('#acc-palabra').value.trim()!=='RESTABLECER'){
+      $('#acc-error').textContent='Ingresá tu contraseña y escribí RESTABLECER exactamente.';
+      return;
+    }
+    const btn=$('#acc-reset-ejecutar');btn.disabled=true;btn.textContent='Generando credenciales…';
+    campo.value='';
+    try{
+      const r=await post('/admin/accesos/claves-temporales',{
+        ids,confirmacion:'RESTABLECER_ACCESOS',passwordAdmin:pwd
+      });
+      if(!r.ok||!Array.isArray(r.entregas))throw new Error('El servidor no confirmó la generación.');
+      seleccion.clear();
+      cerrar();
+      pintarTabla();
+      mostrarClaves(r.entregas);
+    }catch(e){
+      if($('#acc-error')){$('#acc-error').textContent=e.message;btn.disabled=false;btn.textContent='Crear '+ids.length+' claves nuevas';}
+      else toast(e.message,'bad','Accesos');
+    }
+  };
 }
 
 export async function vistaAccesos(){
