@@ -66,10 +66,12 @@ async function verificarAccesos(){
     const resultado=await api('/admin/accesos',{cache:'no-store',signal:AbortSignal.timeout(12000)});
     if(!Array.isArray(resultado.usuarios))throw new Error('Listado de cuentas incompleto.');
     cuentas=resultado.usuarios;momento=resultado.consultadoEn;
+    if($('#acc-exportar'))$('#acc-exportar').disabled=false;
     seleccion=new Set([...seleccion].filter(id=>cuentas.some(u=>u.id===id&&esEmpleado(u))));
     pintarTabla();
     return true;
   }catch(e){
+    if(!momento&&$('#acc-exportar'))$('#acc-exportar').disabled=true;
     toast('No fue posible verificar las cuentas: '+e.message,'bad','Accesos');
     return false;
   }finally{if(btn){btn.disabled=false;btn.textContent='Verificar / actualizar';}}
@@ -91,7 +93,7 @@ function mostrarClaves(entregas){
   const nombre='IMPAR_Claves_Temporales_'+fechaNombre()+'.csv';
   modal('<div class="modal-h"><h3>Credenciales nuevas · mostrar una sola vez</h3>'+
     '<button class="x" id="acc-cerrar-temporales">✕</button></div>'+
-    '<div class="modal-b"><p><b>Se reemplazaron las contraseñas anteriores.</b> Estas nuevas claves no podrán volver a consultarse. Entregá cada una únicamente a su empleado.</p>'+
+    '<div class="modal-b"><p><b>Se reemplazaron las contraseñas anteriores para futuros ingresos.</b> Las sesiones abiertas podrían permanecer activas hasta vencer. Estas claves nuevas se muestran una sola vez. Entregá cada una únicamente a su empleado.</p>'+
     '<div class="acc-scroll"><table><thead><tr><th>Empleado</th><th>Usuario</th><th>Clave temporal</th><th></th></tr></thead><tbody>'+
     entregas.map((u,i)=>'<tr><td>'+esc(u.nombre)+'</td><td>'+esc(u.usuario)+
       '</td><td class="mono acc-clave">'+esc(u.claveTemporal)+'</td>'+
@@ -119,7 +121,7 @@ function generarClaves(){
   if(ids.length>30){toast('Por seguridad, máximo 30 empleados por operación.','warn');return;}
   modal('<div class="modal-h"><h3>Confirmar nuevas contraseñas · '+ids.length+' empleados</h3>'+
     '<button class="x" id="acc-cancelar-reset">✕</button></div>'+
-    '<div class="modal-b"><p><b>Los accesos anteriores de estos empleados dejarán de funcionar de inmediato.</b> Ninguna cuenta administradora puede seleccionarse.</p>'+
+    '<div class="modal-b"><p><b>Sus contraseñas anteriores dejarán de servir para nuevos ingresos.</b> Las sesiones ya abiertas pueden mantenerse activas hasta su vencimiento. Ninguna cuenta administradora puede seleccionarse.</p>'+
     '<div class="field"><label>Tu contraseña actual de administrador</label>'+
     '<input id="acc-admin-pass" type="password" autocomplete="current-password" required></div>'+
     '<div class="field"><label>Escribí RESTABLECER para confirmar</label>'+
@@ -161,7 +163,7 @@ export async function vistaAccesos(){
   panel.innerHTML='<div class="card-box acc-panel"><div class="acc-cabecera"><div>'+
     '<h2>Accesos del personal · IMPAR</h2><p class="sub">Consultar, verificar y exportar el listado actualizado de cuentas registradas. Acceso exclusivo del administrador.</p></div>'+
     '<div class="acc-actions"><button class="btn ghost sm" id="acc-verificar">Verificar / actualizar</button>'+
-    '<button class="btn sm" id="acc-exportar">Exportar listado CSV</button></div></div>'+
+    '<button class="btn sm" id="acc-exportar" disabled>Exportar listado CSV</button></div></div>'+
     '<div class="acc-info" id="acc-resumen">Consultando los usuarios de IMPAR…</div>'+
     '<div class="acc-filtros"><input id="acc-buscar" placeholder="Buscar por nombre, usuario o sucursal…" aria-label="Filtrar usuarios">'+
     '<small id="acc-total"></small></div><div id="acc-tabla"></div>'+
