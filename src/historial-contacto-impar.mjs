@@ -11,13 +11,15 @@ export function leerCursorMensaje(texto) {
   const ms=Date.parse(partes[0]);
   if (!Number.isFinite(ms) || BigInt(partes[1])<=0n)
     throw Object.assign(new Error('Cursor de conversación no válido.'),{status:422});
-  return {fecha:new Date(ms).toISOString(),id:partes[1]};
+  // Conservar microsegundos: redondear a Date (milisegundos) omitiría mensajes.
+  return {fecha:partes[0],id:partes[1]};
 }
 
 export async function obtenerHistorialContacto(q, empresaId, contactoId, negociacionId, cursorTexto=null) {
   const antes=leerCursorMensaje(cursorTexto);
   const {rows}=await q(
-    'SELECT m.*, a.archivo,a.mime,a.tipo AS archivo_tipo,a.nombre AS archivo_nombre, '+
+    'SELECT m.*, to_char(m.ts AT TIME ZONE \'UTC\',\'YYYY-MM-DD"T"HH24:MI:SS.US"Z"\') AS cursor_preciso, '+
+    'a.archivo,a.mime,a.tipo AS archivo_tipo,a.nombre AS archivo_nombre, '+
     "a.bytes AS archivo_bytes,a.ancho,a.alto, CASE WHEN a.id IS NOT NULL THEN '/media/' || "+
     'a.empresa_id || \'/\' || a.archivo ELSE m.media_url END AS media_url, '+
     'nx.creado AS creado_negociacion,nx.titulo AS titulo_negociacion, '+
@@ -36,6 +38,6 @@ export async function obtenerHistorialContacto(q, empresaId, contactoId, negocia
   return {
     mensajes,
     mensajesHayAnteriores:hayAnteriores,
-    mensajesCursorAnterior:hayAnteriores && primero ? new Date(primero.ts).toISOString()+'|'+primero.id : null
+    mensajesCursorAnterior:hayAnteriores && primero ? (primero.cursor_preciso || new Date(primero.ts).toISOString())+'|'+primero.id : null
   };
 }
