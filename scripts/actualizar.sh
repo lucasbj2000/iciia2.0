@@ -52,6 +52,7 @@ node scripts/verificar.mjs
 node scripts/test-ayudas.mjs
 node scripts/test-horarios.mjs
 node scripts/test-login.mjs
+node scripts/test-importar-bitrix.mjs
 
 echo '› Reiniciando el CRM…'
 REINICIADO=1
