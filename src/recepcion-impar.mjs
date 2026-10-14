@@ -75,7 +75,7 @@ export async function responderRecepcionImpar(empresaId,negId){
   await db.query('UPDATE negociaciones SET bot_recepcion=$3,bot_activo=$4 WHERE id=$1 AND empresa_id=$2',[negId,empresaId,JSON.stringify(st),!apagar]);
   if(respuesta){
    await db.query(`INSERT INTO mensajes(empresa_id,negociacion_id,dir,txt,bot,estado) VALUES($1,$2,'out',$3,true,'pendiente')`,[empresaId,negId,respuesta]);
-   await db.query(`INSERT INTO outbox(empresa_id,canal_id,negociacion_id,destino,txt) VALUES($1,$2,$3,$4,$5)`,[empresaId,n.canal_id,negId,a,respuesta]);
+   await db.query(`INSERT INTO outbox(empresa_id,canal_id,negociacion_id,destino,txt,automatico) VALUES($1,$2,$3,$4,$5,TRUE)`,[empresaId,n.canal_id,negId,a,respuesta]);
   }
   return {asignado,notificar:n.flags.notificaciones!==false,respondio:!!respuesta};
  });
