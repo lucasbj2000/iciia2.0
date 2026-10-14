@@ -777,11 +777,11 @@ async function aUsuarios() {
   $$('[data-act]').forEach(b => b.onclick = async () => {
     await patch(`/admin/usuarios/${b.dataset.act}`, { activo: b.dataset.v === '1' }); aUsuarios();
   });
-  $('[data-usr-eliminar]').forEach(b => b.onclick = () => {
+  $$('[data-usr-eliminar]').forEach(b => b.onclick = () => {
     const u = us.find(x => x.id === b.dataset.usrEliminar);
     if(u) solicitarEliminarUsuario(u, () => aUsuarios());
   });
-  $('[data-pass]').forEach(b => b.onclick = () => {
+  $$('[data-pass]').forEach(b => b.onclick = () => {
     modal(`<div class="modal-h"><h3>Nueva contraseña</h3><button class="x" data-cerrar>✕</button></div>
       <div class="modal-b"><div class="field"><label>Contraseña</label><input id="np" type="password"></div>
       <div class="err" id="np-e"></div></div>
