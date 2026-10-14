@@ -5,6 +5,7 @@ export function actualizarMensajes(caja, mensajes, render, seguir = false) {
   const existentes = new Map([...caja.children].filter(el => el.dataset.mensajeId)
     .map(el => [el.dataset.mensajeId, el]));
   if (mensajes.length) caja.querySelectorAll('.empty').forEach(el => el.remove());
+  let anterior = null;
   for (const mensaje of mensajes) {
     const id = String(mensaje.id), html = render(mensaje);
     let nodo = existentes.get(id);
@@ -16,6 +17,11 @@ export function actualizarMensajes(caja, mensajes, render, seguir = false) {
       else caja.append(nuevo);
       nodo = nuevo;
     }
+    // Si se cargaron mensajes anteriores, reinsertar solo lo necesario en orden
+    // cronológico sin reconstruir los nodos que contienen audio reproduciéndose.
+    const siguiente = anterior ? anterior.nextSibling : caja.firstChild;
+    if (nodo !== siguiente) caja.insertBefore(nodo, siguiente);
+    anterior = nodo;
     existentes.delete(id);
     delete nodo.dataset.local;
   }
