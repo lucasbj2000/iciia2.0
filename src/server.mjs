@@ -28,6 +28,7 @@ import rArchivos from './routes/archivos.mjs';
 import rProyecto from './routes/proyecto.mjs';
 import rAyudas from './routes/ayudas.mjs';
 import rHorarios from './routes/horarios.mjs';
+import rBitrix from './routes/importar-bitrix.mjs';
 import rVarios from './routes/varios.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -161,6 +162,7 @@ app.use('/api/archivos', rArchivos);
 app.use('/api/proyecto', rProyecto);
 app.use('/api/ayudas', rAyudas);
 app.use('/api/horarios', rHorarios);
+app.use('/api/bitrix', rBitrix);
 app.use('/api', rVarios);
 
 app.get('/api/health', async (_req, res) => {
