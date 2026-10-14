@@ -2,6 +2,7 @@
 .historial-barra{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 10px;margin:0 0 8px;background:var(--surface2);border:1px solid var(--line);border-radius:10px}
 .historial-barra small{color:var(--muted);font-size:var(--fs-xs);line-height:1.5}
 .historial-barra .btn{flex-shrink:0;min-height:35px}
+.historial-barra [hidden]{display:none!important}
 .historial-tramo{font-size:11px;line-height:1.5;padding:6px 8px;border-radius:7px;background:var(--surface2);color:var(--muted);border:1px solid var(--line);margin-bottom:7px;overflow-wrap:anywhere}
 .historial-tramo.anterior{font-weight:650;color:var(--txt);border-left:3px solid var(--brand)}
 @media(max-width:700px){.historial-barra{display:grid;grid-template-columns:1fr}.historial-barra .btn{width:100%;max-width:100%}.historial-tramo{font-size:10px}}
