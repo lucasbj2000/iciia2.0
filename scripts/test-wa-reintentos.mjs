@@ -1,0 +1,69 @@
+/** IMPAR: pruebas de recuperación original de mensajes WhatsApp (sin conectar teléfono). */
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {claveReintento,guardarOriginal,recuperarOriginal} from '../src/wa-reintentos.mjs';
+
+const source=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const ba=source('src/channels/baileys.mjs');
+const sql=source('src/migrations/015_wa_mensajes_reintento.sql');
+const worker=source('src/worker.mjs');
+const tabla=new Map(),consultas=[];
+const proto={
+  Message:{
+    encode:payload=>({finish:()=>Buffer.from(JSON.stringify(payload),'utf8')}),
+    decode:bytes=>JSON.parse(Buffer.from(bytes).toString('utf8'))
+  }
+};
+const store=async(sql,args)=>{
+  consultas.push({sql,args});
+  if(sql.startsWith('INSERT INTO wa_mensajes_reintento')){
+    tabla.set([args[1],args[2],args[3]].join('|'),args[4]);return {rows:[],rowCount:1};
+  }
+  if(sql.startsWith('SELECT contenido FROM')){
+    const raw=tabla.get(args.join('|'));
+    return {rows:raw?[{contenido:raw}]:[],rowCount:raw?1:0};
+  }
+  if(sql.startsWith('DELETE FROM'))return {rows:[],rowCount:0};
+  throw Error('SQL no esperada: '+sql);
+};
+const canalId='canal-A',empresaId='IMPAR';
+const key={remoteJid:'595981000001@s.whatsapp.net',id:'A1B2C3D4',fromMe:true};
+const otroJid={...key,remoteJid:'595981000002@s.whatsapp.net'};
+const otroCanal='canal-B';
+const sent={key,message:{conversation:'Hola desde IMPAR',extendedTextMessage:{
+  text:'Original',contextInfo:{stanzaId:'ref01'}}}};
+const cache=new Map();
+assert.equal(await guardarOriginal({q:store,proto,canalId,empresaId,enviado:sent,cache}),true);
+assert.deepEqual(await recuperarOriginal({q:store,proto,canalId,key,cache}),sent.message,
+  'Mismo socket recupera mensaje original con contexto Signal');
+// Simula socket y PM2 reiniciados: sin caché, tiene que buscar en DB.
+assert.deepEqual(await recuperarOriginal({q:store,proto,canalId,key,cache:new Map()}),sent.message);
+assert.equal(await recuperarOriginal({q:store,proto,canalId,key:otroJid,cache:new Map()}),undefined,
+  'Jamás devolver el mensaje de otro contacto');
+assert.equal(await recuperarOriginal({q:store,proto,canalId:otroCanal,key,cache:new Map()}),undefined,
+  'Jamás devolver mensajes de otro canal');
+assert.equal(await recuperarOriginal({q:store,proto,canalId,key:{...key,fromMe:false},cache}),undefined);
+assert.equal(await recuperarOriginal({q:store,proto,canalId,key:{...key,id:'OTROID99'},cache}),undefined);
+assert.equal(claveReintento({id:'',remoteJid:key.remoteJid}),null);
+assert.equal(claveReintento({id:key.id,remoteJid:'123@g.us'}),null);
+assert.equal(claveReintento({id:key.id,remoteJid:'a@lid'})?.jid,'a@lid');
+const qFalla=async()=>{throw Error('base temporalmente no disponible')};
+const cacheSinDB=new Map();
+assert.equal(await guardarOriginal({q:qFalla,proto,canalId,empresaId,enviado:sent,cache:cacheSinDB}),true,
+  'Una falla posterior al envío NO debe forzar reenvío del worker');
+assert.deepEqual(await recuperarOriginal({q:qFalla,proto,canalId,key,cache:cacheSinDB}),sent.message,
+  'Fallback temporal en memoria');
+assert.equal(await recuperarOriginal({q:qFalla,proto,canalId,key,cache:new Map()}),undefined,
+  'Falla de DB nunca fabrica mensaje vacío');
+const insert=consultas.find(x=>x.sql.startsWith('INSERT'));
+assert.ok(insert.sql.includes('ON CONFLICT(canal_id,jid,mensaje_id)'));
+assert.ok(sql.includes('PRIMARY KEY(canal_id, jid, mensaje_id)'));
+assert.ok(sql.includes("interval '7 days'"));
+assert.ok(!sql.includes('DELETE FROM contactos')&&!sql.includes('UPDATE usuarios'));
+assert.ok(ba.includes('getMessage: key => recuperarOriginal('));
+assert.ok(ba.includes('await guardarOriginal('));
+assert.ok(ba.includes('await transmitir(contenido)'));
+assert.ok(ba.includes('colaCredenciales=colaCredenciales.catch'));
+assert.ok(!/setTimeout\([^)]*sendMessage/.test(ba));
+assert.ok(worker.includes("if (o.tipo === 'whatsapp_qr') await baileys.enviar"),'Envío único');
+console.log('✔ IMPAR: getMessage usa original persistido sin mezclar contactos ni duplicar mensajes.');
