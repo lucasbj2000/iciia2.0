@@ -1,13 +1,13 @@
 /* ============ Panel de administración ============ */
 import {
-  $, $$, esc, S, get, post, patch, put, del, gs, fd, fdate, ago, toast, modal, cerrar,
+  $, $, esc, S, api, get, post, patch, put, del, gs, fd, fdate, ago, toast, modal, cerrar,
   confirmar, fx, etapa, vacio, skeleton, ROLES, ORIGENES, vibrar
 } from './core.js';
 import { modalCargaManual } from './negociaciones.js';
 import { tablaCambios } from './colaboracion.js';
 import { administrarHorarios } from './horarios.js';
 
-let TADM = 'canales', defs = null, timerQR = null, sucursalesCache = [];
+let TADM = 'canales', defs = null, timerQR = null, sucursalesCache = [], cargaCanalesSeq = 0;
 
 const TABS = [
   ['canales', '📡 Canales'], ['diseno', 'Diseño'], ['sucursales', 'Sucursales'], ['horarios','◷ Horarios laborales'],
@@ -49,10 +49,35 @@ const NOMBRES = { whatsapp_qr: 'WhatsApp (QR)', whatsapp_api: 'WhatsApp Cloud AP
   messenger: 'Facebook Messenger', instagram: 'Instagram Direct' };
 
 async function aCanales() {
-  const [data, info, sucs] = await Promise.all([
-    get('/canales/por-sucursal'), get('/canales/webhook/info'), get('/admin/sucursales')
-  ]);
-  sucursalesCache = sucs;
+  const solicitud = ++cargaCanalesSeq;
+  // La disponibilidad del webhook no bloquea la lista de canales.
+  const metadatos = api('/canales/webhook/info', {signal:AbortSignal.timeout(4000)}).catch(() => null);
+  let data;
+  try {
+    data = await api('/canales/por-sucursal', {signal:AbortSignal.timeout(9000)});
+  } catch(e) {
+    if (solicitud !== cargaCanalesSeq || TADM !== 'canales' || S.vista !== 'adm') return;
+    AB().innerHTML = '<div class="card-box" role="alert"><h3>No se pudieron cargar los canales</h3>' +
+      '<p class="sub">' + esc(e.message) + '</p>' +
+      '<button class="btn sm" id="canales-reintentar">Reintentar carga</button>' +
+      '<p class="sub">No se modificó ningún canal ni la sesión de WhatsApp.</p></div>';
+    $('#canales-reintentar').onclick = () => {
+      AB().innerHTML = '<div class="card-box">Consultando canales…</div>';
+      aCanales().catch(err => toast(err.message,'bad','Canales'));
+    };
+    return;
+  }
+  if (solicitud !== cargaCanalesSeq || TADM !== 'canales' || S.vista !== 'adm') return;
+  if (!Array.isArray(data?.sucursales) || !Array.isArray(data?.sinSucursal)) {
+    AB().innerHTML = '<div class="card-box">Respuesta de canales incompleta. <button class="btn sm" id="canales-reintentar">Reintentar</button></div>';
+    $('#canales-reintentar').onclick = () => aCanales();
+    return;
+  }
+  // Si metadata tarda demasiado, el panel carga igual; sin fingir que el canal falla.
+  const info = await Promise.race([metadatos, new Promise(resolve => setTimeout(() => resolve(null), 350))])
+    || {url:'',verifyToken:'',tieneSecret:false,https:true,noDisponible:true};
+  if (solicitud !== cargaCanalesSeq || TADM !== 'canales' || S.vista !== 'adm') return;
+  sucursalesCache = data.sucursales;
   const tarjeta = c => {
     const [cls, ico] = ICONOS[c.tipo] || ['otro', '📨'];
     const color = c.estado === 'conectado' ? 'var(--ok)' : ['pendiente','reconectando','conectando'].includes(c.estado) ? 'var(--warn)' : 'var(--bad)';
@@ -78,6 +103,7 @@ async function aCanales() {
   AB().innerHTML = `
    <div class="card-box" style="border-color:#2b5a7a">
      <h3>📡 Canales por sucursal</h3>
+     <button class="btn ghost sm" id="canales-actualizar" type="button">Actualizar estados</button>
      <div style="color:var(--muted);font-size:var(--fs-sm);line-height:1.7">
        Cada sucursal tiene sus propios números de WhatsApp y sus redes sociales. Cuando entra un mensaje,
        el sistema lo asigna a un agente <b>de la sucursal dueña del canal</b>, y todo desemboca en el mismo
@@ -111,6 +137,7 @@ async function aCanales() {
        }).join('')}</div></div>
 
    <div class="card-box"><h3>🔗 Webhook para los canales de Meta</h3>
+     ${info.noDisponible ? '<p class="sub">El estado de Webhooks no respondió. Los canales siguen disponibles.</p>' : ''}
      <p class="sub" style="margin-top:0">Pegá estos datos en tu app de Meta → Webhooks → Editar suscripción.</p>
      ${!info.https ? `<div class="card-box" style="border-color:var(--bad);background:var(--surface2)">
        <b style="font-size:var(--fs-sm);color:var(--bad)">⚠ Tu PUBLIC_URL no es HTTPS</b>
@@ -128,7 +155,8 @@ async function aCanales() {
        ${info.tieneSecret ? '<br>✓ App Secret configurado: las firmas se validan.'
          : '<br>⚠ Sin META_APP_SECRET: las firmas no se validan. Configuralo en el .env.'}</div></div>`;
 
-  $$('[data-nuevo]').forEach(b => b.onclick = () => modalCanal(null, b.dataset.nuevo));
+  $('#canales-actualizar').onclick = () => { $('#canales-actualizar').disabled = true; aCanales().catch(e => toast(e.message,'bad','Canales')); };
+  $('[data-nuevo]').forEach(b => b.onclick = () => modalCanal(null, b.dataset.nuevo));
   $$('[data-nuevo-suc]').forEach(b => b.onclick = () => modalElegirTipo(b.dataset.nuevoSuc));
   const todos = [...data.sucursales.flatMap(s => s.canales), ...data.sinSucursal];
   $$('[data-editar]').forEach(b => b.onclick = () => modalCanal(todos.find(c => c.id === b.dataset.editar)));
