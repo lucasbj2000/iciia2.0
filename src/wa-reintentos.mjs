@@ -38,10 +38,17 @@ function desdeCache(cache,k){
 export async function guardarOriginal({q,proto,canalId,empresaId,enviado,cache}){
   const k=claveReintento(enviado?.key);
   if(!k || !enviado?.message || !proto?.Message)return false;
-  // El proto auténtico conserva claves criptográficas/contexto de mensaje.
-  const contenido=Buffer.from(proto.Message.encode(enviado.message).finish());
-  if(!contenido.length)return false;
-  agregarCache(cache,k,contenido);
+  // Una falla al serializar ocurre DESPUÉS de que WhatsApp aceptó el envío:
+  // no propagarla al worker, porque reenviaría otro mensaje como nuevo.
+  let contenido;
+  try {
+    contenido=Buffer.from(proto.Message.encode(enviado.message).finish());
+    if(!contenido.length)return false;
+    agregarCache(cache,k,contenido);
+  } catch(e) {
+    console.warn('[wa:retry] no se pudo guardar el original:',e.message);
+    return false;
+  }
   try{
     await q(
       'INSERT INTO wa_mensajes_reintento (empresa_id,canal_id,jid,mensaje_id,contenido) '+
