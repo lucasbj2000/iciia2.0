@@ -23,7 +23,7 @@ verificar('Bot deshabilitado en flags',migration.includes("'{bot}','false'::json
 verificar('Bot de empresa deshabilitado',migration.includes("'{activo}','false'::jsonb"));
 verificar('Conversaciones previas mantienen modo manual',migration.includes('UPDATE negociaciones SET bot_activo=FALSE'));
 verificar('Mensajes antiguos de bot identificados sin cambiar manuales',
-  migration.includes('m.bot=TRUE')&&migration.includes("o.estado='pendiente'"));
+  migration.includes('m.bot=TRUE')&&migration.includes("o.estado IN ('pendiente','error')"));
 verificar('Cola de bot no enviada y preservada para historial',
   migration.includes("UPDATE outbox SET estado='cancelado'")&&
   migration.includes("UPDATE mensajes m SET estado='cancelado'"));
