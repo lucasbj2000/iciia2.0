@@ -2,7 +2,7 @@
 import { q, tx } from './db.mjs';
 
 export function validarSeleccion(origen,destino,administradorId){
-  if(!origen || origen.rol==='admin' || origen.id===administradorId || !origen.activo || origen.oculto)
+  if(!origen || origen.rol==='admin' || origen.id===administradorId || origen.oculto)
     throw Object.assign(new Error('No se puede eliminar esta cuenta (administrador, inactiva o archivada).'),{status:409});
   if(!destino || !destino.activo || destino.oculto || origen.id===destino.id)
     throw Object.assign(new Error('Seleccioná un empleado activo diferente para recibir los datos.'),{status:409});
@@ -36,18 +36,25 @@ export async function eliminarConTransferencia(empresaId,origenId,destinoId,admi
   return tx(async db=>{
     await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[empresaId]);
     const {rows:empleados}=await db.query(
-      'SELECT id,nombre,usuario,rol,superior_id,activo,oculto FROM usuarios WHERE empresa_id=$1 FOR UPDATE',
+      'SELECT id,nombre,usuario,rol,superior_id,equipo,activo,oculto FROM usuarios WHERE empresa_id=$1 FOR UPDATE',
       [empresaId]);
     const origen=empleados.find(u=>u.id===origenId);
     const destino=empleados.find(u=>u.id===destinoId);
     validarSeleccion(origen,destino,adminId);
-    let superior=destino;
+    let superior=destino, destinoDependiente=false;
     const vistos=new Set();
     while(superior?.superior_id){
-      if(vistos.has(superior.id) || superior.superior_id===origenId)
-        throw Object.assign(new Error('El empleado de destino depende de la cuenta que querés eliminar. Elegí otro destinatario o actualizá primero esa jerarquía.'),{status:409});
+      if(vistos.has(superior.id))
+        throw Object.assign(new Error('Organigrama con dependencias circulares. Corregí la estructura antes de transferir.'),{status:409});
       vistos.add(superior.id);
+      if(superior.superior_id===origenId){destinoDependiente=true;break;}
       superior=empleados.find(u=>u.id===superior.superior_id);
+    }
+    if(destinoDependiente){
+      // Ascender automáticamente al destinatario para no hacerlo su propio superior.
+      const jefeNuevo=empleados.find(u=>u.id===origen.superior_id);
+      await db.query('UPDATE usuarios SET superior_id=$3,equipo=$4 WHERE empresa_id=$1 AND id=$2',
+        [empresaId,destinoId,origen.superior_id||null,jefeNuevo?.rol==='jefe'?jefeNuevo.usuario:null]);
     }
 
     const cambiar=async(sql,params=[empresaId,origenId,destinoId])=>
@@ -83,7 +90,7 @@ export async function eliminarConTransferencia(empresaId,origenId,destinoId,admi
     // Su perfil permanece como referencia histórica, pero deja de poder iniciar sesión.
     const archivados=await cambiar(
       "UPDATE usuarios SET activo=FALSE,oculto=TRUE,fecha_baja=COALESCE(fecha_baja,now()),disponibilidad='fuera' "+
-      'WHERE empresa_id=$1 AND id=$2 AND activo AND NOT oculto',[empresaId,origenId]);
+      'WHERE empresa_id=$1 AND id=$2 AND NOT oculto',[empresaId,origenId]);
     if(archivados!==1)throw new Error('No se pudo archivar la cuenta antigua; se revirtió la transferencia.');
     await db.query(
       "INSERT INTO auditoria(empresa_id,usuario,accion,detalle) VALUES($1,'Sistema','Baja con transferencia',$2)",
