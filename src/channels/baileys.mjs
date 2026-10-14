@@ -73,14 +73,20 @@ export async function iniciar(canal) {
       generateHighQualityLinkPreview: false
     });
     S.sock = sock;
-    sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('creds.update', () => {
+      // Un socket anterior no puede sobrescribir credenciales del socket nuevo.
+      if (S.sock !== sock) return;
+      Promise.resolve().then(saveCreds).catch(e => console.warn('[wa] Guardar sesión:', e.message));
+    });
 
     sock.ev.on('connection.update', async u => {
       if (S.sock !== sock) return; // evento tardío de un socket reemplazado
       const { connection, lastDisconnect, qr } = u;
       try {
         if (qr) {
-          S.qr = await QRCode.toDataURL(qr, { margin: 1, width: 460, errorCorrectionLevel: 'M' });
+          const qrImagen = await QRCode.toDataURL(qr, { margin: 1, width: 460, errorCorrectionLevel: 'M' });
+          if (S.sock !== sock || ['conectado','reconectando','desconectado'].includes(S.estado)) return;
+          S.qr = qrImagen;
           S.estado = 'pendiente';
           await actualizar(id, 'pendiente', '');
           emitir(canal.empresa_id, 'canal:qr', { canalId: id, qr: S.qr });
@@ -100,6 +106,8 @@ export async function iniciar(canal) {
         if (connection === 'close') {
           const code = lastDisconnect?.error?.output?.statusCode;
           const sesionCaducada = code === mod.DisconnectReason?.loggedOut;
+          if (sesionCaducada && S.estado === 'desconectado') return;
+          if (!sesionCaducada && S.estado === 'reconectando' && S.reintentoTimer) return;
           S.estado = sesionCaducada ? 'desconectado' : 'reconectando';
           S.arrancando = false; S.qr = null;
           await actualizar(id, S.estado, S.numero);
