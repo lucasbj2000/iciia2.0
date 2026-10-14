@@ -56,8 +56,9 @@ assert.equal(new Set(claves).size,claves.length,'Claves únicas en las pruebas')
 
 const textoCSV=ui.slice(ui.indexOf('const noPeligroso='),ui.indexOf('\nfunction descargarCSV('))
   .replace('export function tablaCSV(','function tablaCSV(');
-const csv=vm.runInNewContext(textoCSV+
-  '; tablaCSV(["Nombre","Usuario"],[["=SUM(1,1)","a;b"],["Carlos \"Prueba\"","+123"]])');
+const filasEjemplo=[['=SUM(1,1)','a;b'],['Carlos "Prueba"','+123']];
+const csv=vm.runInNewContext(textoCSV+'; tablaCSV('+
+  JSON.stringify(['Nombre','Usuario'])+','+JSON.stringify(filasEjemplo)+')');
 assert.ok(csv.startsWith('\uFEFF'),'Excel UTF-8');
 assert.ok(csv.includes("'=SUM(1,1)"),'Fórmulas CSV neutralizadas');
 assert.ok(csv.includes('"a;b"'),'Celdas delimitadas correctamente');
