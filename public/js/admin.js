@@ -74,7 +74,7 @@ async function aCanales() {
     return;
   }
   // Si metadata tarda demasiado, el panel carga igual; sin fingir que el canal falla.
-  const info = await Promise.race([metadatos, new Promise(resolve => setTimeout(() => resolve(null), 350))])
+  const info = await Promise.race([metadatos, new Promise(resolve => setTimeout(() => resolve(null), 1500))])
     || {url:'',verifyToken:'',tieneSecret:false,https:true,noDisponible:true};
   if (solicitud !== cargaCanalesSeq || TADM !== 'canales' || S.vista !== 'adm') return;
   sucursalesCache = data.sucursales;
@@ -152,7 +152,7 @@ async function aCanales() {
      <div style="color:var(--muted);font-size:var(--fs-xs);margin-top:12px;line-height:1.8">
        Campos a suscribir: <b>WhatsApp Cloud API</b> → messages · <b>Messenger</b> → messages, messaging_postbacks
        · <b>Instagram</b> → messages.
-       ${info.tieneSecret ? '<br>✓ App Secret configurado: las firmas se validan.'
+       ${info.noDisponible ? '<br>Estado de Meta pendiente de verificación.' : info.tieneSecret ? '<br>✓ App Secret configurado: las firmas se validan.'
          : '<br>⚠ Sin META_APP_SECRET: las firmas no se validan. Configuralo en el .env.'}</div></div>`;
 
   $('#canales-actualizar').onclick = () => { $('#canales-actualizar').disabled = true; aCanales().catch(e => toast(e.message,'bad','Canales')); };
