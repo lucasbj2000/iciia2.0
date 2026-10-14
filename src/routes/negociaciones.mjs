@@ -160,6 +160,8 @@ r.patch('/:id/bot', requiere(), async (req, res) => {
   const n = await obtenerNegociacionVisible(req, req.params.id);
   if (!n) return res.status(404).json({ error: 'no encontrada' });
   const activo = !!req.body?.activo;
+  if(activo && (!req.empresa.flags?.bot || !req.empresa.bot?.activo))
+    return res.status(409).json({error:'Las respuestas automáticas están pausadas en IMPAR. Solo el administrador puede reactivarlas desde Administración → Bot.'});
   await q('UPDATE negociaciones SET bot_activo=$2 WHERE id=$1 AND empresa_id=$3', [n.id, activo, req.empresaId]);
   await historial(req.empresaId, req.params.id, `Bot ${activo ? 'reactivado' : 'desactivado'} manualmente`, req.user.nombre);
   emitir(req.empresaId, 'neg:patch', { id: req.params.id });
