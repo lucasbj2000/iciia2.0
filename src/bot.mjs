@@ -130,9 +130,11 @@ export async function responderBot(empresaId, negId) {
       mensajes: hist.reverse().map(m => ({ role: m.dir === 'in' ? 'user' : 'assistant', content: String(m.txt).slice(0, 2000) })) });
   } catch (e) { await anotar(empresaId, negId, `🤖 El bot no pudo responder: ${e.message}`); return; }
 
-  // Si mientras esperaba a OpenAI respondió un agente, el bot no interviene
-  const { rows: ya } = await q('SELECT bot_activo FROM negociaciones WHERE id=$1', [negId]);
-  if (!ya[0]?.bot_activo) return;
+  // Una pausa iniciada mientras OpenAI respondía debe ganar la carrera.
+  const { rows: ya } = await q(
+    'SELECT n.bot_activo,e.flags,e.bot AS empresa_bot FROM negociaciones n JOIN empresas e ON e.id=n.empresa_id WHERE n.id=$1 AND n.empresa_id=$2',
+    [negId,empresaId]);
+  if (!ya[0]?.bot_activo || !ya[0]?.flags?.bot || !ya[0]?.empresa_bot?.activo) return;
 
   const esWA = String(n.canal_tipo || '').startsWith('whatsapp');
   const destino = (!n.canal_id || n.canal_activo === false) ? ''
@@ -142,7 +144,7 @@ export async function responderBot(empresaId, negId) {
   await q(`INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,bot,estado,ts) VALUES ($1,$2,'out',$3,TRUE,$4,now())`,
     [empresaId, negId, texto, destino ? 'pendiente' : 'error']);
   if (destino) {
-    await q(`INSERT INTO outbox (empresa_id,canal_id,negociacion_id,destino,txt) VALUES ($1,$2,$3,$4,$5)`,
+    await q(`INSERT INTO outbox (empresa_id,canal_id,negociacion_id,destino,txt,automatico) VALUES ($1,$2,$3,$4,$5,TRUE)`,
       [empresaId, n.canal_id, negId, destino, texto]);
   } else await anotar(empresaId, negId, '🤖 El bot generó una respuesta pero la conversación no tiene un canal activo para enviarla.');
   emitir(empresaId, 'neg:patch', { id: negId });
