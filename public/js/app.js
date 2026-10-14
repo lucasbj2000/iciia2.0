@@ -8,7 +8,7 @@ import { vistaNegociaciones, patchTarjeta, quitarTarjetas } from './negociacione
 import { vistaContactos } from './contactos.js';
 import { vistaComunicacion, vistaCalendario, vistaReportes, vistaConfig, refrescarChat } from './modulos.js';
 import { fichaNeg, refrescarFicha, confirmarEnvio } from './ficha.js';
-import { vistaAdmin } from './admin.js';
+import { vistaAdmin, actualizarEstadoCanal } from './admin.js';
 import { vistaOrganigrama } from './organigrama.js';
 import { vistaProyecto } from './proyecto.js';
 import { iniciarAyudas, actualizarAyudas, ayudasCambioDeVista, cerrarAyudas } from './ayudas.js';
@@ -180,8 +180,7 @@ function conectarRealtime() {
   });
   es.addEventListener('noti', e => {
     const n = JSON.parse(e.data);
-    toast(n.msg, n.tono, n.titulo);
-    notificarApp(n);
+    if (n.tipo !== 'canal') { toast(n.msg, n.tono, n.titulo); notificarApp(n); }
     if (n.tipo === 'ganado') confeti(40);
     cargarNotificaciones();
   });
@@ -208,10 +207,8 @@ function conectarRealtime() {
     aplicarMarca(); aplicarFX(); pintarNav();
   });
   es.addEventListener('canal:estado', e => {
-    const d = JSON.parse(e.data);
-    if (S.vista === 'adm') render();
-    toast(`Canal ${d.estado === 'conectado' ? 'conectado ✓' : 'desconectado'}`,
-      d.estado === 'conectado' ? 'ok' : 'warn', 'WhatsApp');
+    try { actualizarEstadoCanal(JSON.parse(e.data)); }
+    catch (err) { console.warn('[IMPAR] Evento de canal incorrecto:',err.message); }
   });
   es.onerror = () => { /* EventSource reconecta solo */ };
 }
