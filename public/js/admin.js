@@ -1,6 +1,6 @@
 /* ============ Panel de administración ============ */
 import {
-  $, $, esc, S, api, get, post, patch, put, del, gs, fd, fdate, ago, toast, modal, cerrar,
+  $, $$, esc, S, api, get, post, patch, put, del, gs, fd, fdate, ago, toast, modal, cerrar,
   confirmar, fx, etapa, vacio, skeleton, ROLES, ORIGENES, vibrar
 } from './core.js';
 import { modalCargaManual } from './negociaciones.js';
@@ -156,7 +156,7 @@ async function aCanales() {
          : '<br>⚠ Sin META_APP_SECRET: las firmas no se validan. Configuralo en el .env.'}</div></div>`;
 
   $('#canales-actualizar').onclick = () => { $('#canales-actualizar').disabled = true; aCanales().catch(e => toast(e.message,'bad','Canales')); };
-  $('[data-nuevo]').forEach(b => b.onclick = () => modalCanal(null, b.dataset.nuevo));
+  $$('[data-nuevo]').forEach(b => b.onclick = () => modalCanal(null, b.dataset.nuevo));
   $$('[data-nuevo-suc]').forEach(b => b.onclick = () => modalElegirTipo(b.dataset.nuevoSuc));
   const todos = [...data.sucursales.flatMap(s => s.canales), ...data.sinSucursal];
   $$('[data-editar]').forEach(b => b.onclick = () => modalCanal(todos.find(c => c.id === b.dataset.editar)));
@@ -181,7 +181,7 @@ async function aCanales() {
 /** Cambio de estado de WhatsApp: se actualiza el indicador, NO la pantalla completa. */
 export function actualizarEstadoCanal(evento) {
   if (S.vista !== 'adm' || TADM !== 'canales' || !evento?.canalId) return;
-  const card = $('[data-canal-id]').find(el => el.dataset.canalId === String(evento.canalId));
+  const card = $$('[data-canal-id]').find(el => el.dataset.canalId === String(evento.canalId));
   if (!card) return;
   const txt = card.querySelector('[data-canal-estado-texto]');
   const dot = card.querySelector('[data-canal-estado-etiqueta] .dot');
