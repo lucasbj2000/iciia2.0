@@ -18,6 +18,7 @@ const TABS = [
 ];
 
 export function irABotones() { TADM = 'botones'; import('./app.js').then(m => m.ir('adm')); }
+export function irABitrix() { TADM = 'bitrix'; import('./app.js').then(m => m.ir('adm')); }
 
 export async function vistaAdmin() {
   if (S.usuario.rol !== 'admin') {
