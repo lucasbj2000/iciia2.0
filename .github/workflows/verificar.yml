@@ -36,6 +36,8 @@ jobs:
         run: node scripts/test-accesos.mjs
       - name: Eliminación segura de usuarios con transferencia
         run: node scripts/test-eliminar-usuario.mjs
+      - name: Historial continuo de clientes y reingresos
+        run: node scripts/test-historial-chat.mjs
       - name: Validar script de despliegue
         run: bash -n scripts/actualizar.sh
 
