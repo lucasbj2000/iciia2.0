@@ -38,6 +38,8 @@ jobs:
         run: node scripts/test-eliminar-usuario.mjs
       - name: Historial continuo de clientes y reingresos
         run: node scripts/test-historial-chat.mjs
+      - name: Verificar recuperación Signal de mensajes WhatsApp
+        run: node scripts/test-wa-reintentos.mjs
       - name: Validar script de despliegue
         run: bash -n scripts/actualizar.sh
 
