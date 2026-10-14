@@ -2,6 +2,8 @@
  * No muestra ni exporta hashes o contraseñas anteriores. */
 import { Router } from 'express';
 import { randomInt } from 'node:crypto';
+import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 import { q, tx } from '../db.mjs';
 import { requiere, hash } from '../auth.mjs';
 import { auditar } from '../core.mjs';
@@ -41,7 +43,11 @@ r.get('/',async(req,res,next)=>{
 
 /** Cambia únicamente claves de empleados activos; nunca de administradores.
  * Se entregan una sola vez, únicamente en la respuesta HTTPS al admin. */
-r.post('/claves-temporales',async(req,res,next)=>{
+const limitarClaves=rateLimit({
+  windowMs:15*60*1000,max:5,standardHeaders:true,legacyHeaders:false,
+  message:{error:'Demasiados intentos de cambios de acceso. Intentá más tarde.'}
+});
+r.post('/claves-temporales',limitarClaves,async(req,res,next)=>{
   try{
     const ids=req.body?.ids;
     if(req.body?.confirmacion!=='RESTABLECER_ACCESOS' ||
@@ -51,6 +57,9 @@ r.post('/claves-temporales',async(req,res,next)=>{
       return res.status(422).json({error:'Seleccioná entre 1 y 30 empleados y confirmá el restablecimiento.'});
     if(ids.includes(req.user.id))
       return res.status(422).json({error:'Esta función nunca modifica tu propia contraseña.'});
+    // Operación sensible: volver a verificar la contraseña del administrador.
+    const revalidado=await bcrypt.compare(String(req.body?.passwordAdmin||''),req.user.pass_hash);
+    if(!revalidado) return res.status(403).json({error:'La contraseña de administrador no coincide. No se cambió ninguna cuenta.'});
 
     const entregas=await tx(async db=>{
       const {rows}=await db.query(
