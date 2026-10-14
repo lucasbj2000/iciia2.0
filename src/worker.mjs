@@ -68,10 +68,15 @@ export async function drenarOutbox() {
 
   for (const o of rows) {
     try {
-      // Defensa final: ninguna respuesta automática puede salir si IMPAR pausó el bot.
-      if (o.automatico && (o.permiso_bot !== 'true' || o.bot_activo_empresa !== 'true')) {
-        await q("UPDATE outbox SET estado='cancelado',error='Respuesta automática pausada por IMPAR' WHERE id=$1 AND estado='pendiente'",[o.id]);
-        continue;
+      // La autorización se consulta en el momento del envío, no solo al listar la cola:
+      // así una pausa global puede detener también un lote que ya estaba en proceso.
+      if (o.automatico) {
+        const {rows:validez}=await q(
+          "SELECT flags->>'bot' AS permitido, bot->>'activo' AS activo FROM empresas WHERE id=$1",[o.empresa_id]);
+        if (validez[0]?.permitido !== 'true' || validez[0]?.activo !== 'true') {
+          await q("UPDATE outbox SET estado='cancelado',error='Respuesta automática pausada por IMPAR' WHERE id=$1 AND estado='pendiente'",[o.id]);
+          continue;
+        }
       }
       if (!o.canal_id) throw new Error('mensaje sin canal asignado');
       const canal = { id: o.canal_id, tipo: o.tipo, config: o.config, nombre: o.canal_nombre, empresa_id: o.c_emp };
