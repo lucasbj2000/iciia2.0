@@ -1,0 +1,32 @@
+/* IMPAR · importación segura Bitrix, solo desde administración. */
+.bi-panel{display:grid;gap:15px}
+.bi-panel h2{margin:0;font-size:20px}
+.bi-panel p.sub{max-width:820px;line-height:1.65}
+.bi-banner{border:1px solid var(--line);background:var(--surface2);border-radius:12px;padding:15px;display:grid;gap:10px}
+.bi-banner>b{font-size:14px}
+.bi-banner input[type=file]{border:1px dashed var(--brand);border-radius:10px;padding:13px;color:var(--txt);width:min(100%,620px);background:var(--surface)}
+.bi-banner>small{font-size:11px;color:var(--muted)}
+.bi-responsables{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:8px}
+.bi-responsable{display:grid;gap:7px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.bi-responsable b{font-size:13px;overflow-wrap:anywhere;display:block}
+.bi-responsable small{font-size:11px;color:var(--muted)}
+.bi-responsable select{min-width:0;width:100%;padding:10px;background:var(--surface2);color:var(--txt);border:1px solid var(--line);border-radius:8px;font-size:12px}
+.bi-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
+.bi-stat{border-radius:11px;border:1px solid var(--line);background:var(--surface);padding:12px;display:flex;flex-direction:column;gap:4px}
+.bi-stat b{font-size:24px;font-variant-numeric:tabular-nums}
+.bi-stat small{font-size:11px;line-height:1.4;color:var(--muted)}
+.bi-aviso{font-size:12px;font-weight:600;border-left:3px solid var(--brand);padding:9px 11px;background:var(--surface);line-height:1.6}
+.bi-tabla{max-height:440px;overflow:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:10px}
+.bi-tabla table{min-width:640px;width:100%;border-collapse:collapse}
+.bi-tabla th{position:sticky;top:0;background:var(--surface2);z-index:1;text-align:left}
+.bi-tabla td,.bi-tabla th{padding:10px;font-size:12px;border-bottom:1px solid var(--line)}
+.bi-tabla td small{display:block;margin-top:4px;color:var(--muted);font-size:11px}
+.bi-exito{padding:12px;border-radius:10px;border:1px solid var(--brand);font-size:12px;line-height:1.6;background:var(--surface)}
+.bi-banner>.btn{width:max-content;max-width:100%}
+.bi-banner>.btn:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:700px){
+ .bi-panel{padding:12px}
+ .bi-banner{padding:12px}
+ .bi-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .bi-banner>.btn{width:100%}
+}
