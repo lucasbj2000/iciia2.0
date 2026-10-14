@@ -89,8 +89,9 @@ export async function analizarCargaBitrix(cliente, empresaId, body) {
     } else if (antiguosPorNombre.has(f.nombreClave)) {
       estado='revision_nombre';motivo='El nombre ya existe con otro teléfono. Revisar manualmente.';
     } else {
-      const forzado=asignaciones[f.responsable];
-      if (forzado) usuario=usuarioPorId.get(forzado);
+      const mapeado=Object.prototype.hasOwnProperty.call(asignaciones,f.responsable);
+      const forzado=mapeado?asignaciones[f.responsable]:undefined;
+      if (mapeado) usuario=forzado?usuarioPorId.get(forzado):null;
       else {
         const candidatos=usuarioPorNombre.get(claveNombre(f.responsable))||[];
         if (candidatos.length===1) usuario=candidatos[0];
