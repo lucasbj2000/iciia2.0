@@ -94,9 +94,9 @@ r.patch('/bot/pausa', requiere('admin'), async (req, res, next) => {
       if(pausado){
         const q1=await db.query('UPDATE negociaciones SET bot_activo=FALSE WHERE empresa_id=$1 AND bot_activo=TRUE',[req.empresaId]);
         conversacionesSilenciadas=q1.rowCount;
-        const q2=await db.query("UPDATE outbox SET estado='cancelado',error='Mensajes automáticos pausados por IMPAR' WHERE empresa_id=$1 AND automatico=TRUE AND estado='pendiente'",[req.empresaId]);
+        const q2=await db.query("UPDATE outbox SET estado='cancelado',error='Mensajes automáticos pausados por IMPAR' WHERE empresa_id=$1 AND automatico=TRUE AND estado IN ('pendiente','error')",[req.empresaId]);
         cancelados=q2.rowCount;
-        await db.query("UPDATE mensajes SET estado='cancelado' WHERE empresa_id=$1 AND bot=TRUE AND dir='out' AND estado='pendiente'",[req.empresaId]);
+        await db.query("UPDATE mensajes SET estado='cancelado' WHERE empresa_id=$1 AND bot=TRUE AND dir='out' AND estado IN ('pendiente','error')",[req.empresaId]);
       }
       return {flags,bot,cancelados,conversacionesSilenciadas};
     });
