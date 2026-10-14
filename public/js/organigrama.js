@@ -37,8 +37,9 @@ function editar(u){
     <div class="field"><label for="org-superior">Superior directo</label><select id="org-superior"><option value="">Sin superior</option>${empleados.filter(x=>x.activo&&x.id!==v.id).map(x=>`<option value="${x.id}" ${x.id===v.superior_id?'selected':''}>${esc(x.nombre)} · ${esc(rolTexto[x.rol])}</option>`).join('')}</select></div>
     <div class="row"><div class="field"><label for="org-email">Correo</label><input type="email" id="org-email" value="${esc(v.email||'')}"></div><div class="field"><label for="org-tel">Teléfono</label><input type="tel" id="org-tel" value="${esc(v.tel||'')}"></div></div>
     ${u?`<label><input type="checkbox" id="org-activo" ${v.activo?'checked':''}> Empleado activo</label><p class="sub">Al dar de baja se bloquea el acceso y se conserva el historial. Reasigná primero sus subordinados.</p>`:''}
-    <div class="err" id="org-error" role="alert"></div></div><div class="modal-f"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn" id="org-save">Guardar</button></div></form>`);
-  $$('[data-cerrar]').forEach(b=>b.onclick=cerrar);
+    <div class="err" id="org-error" role="alert"></div></div><div class="modal-f">${u&&u.rol!=='admin'?'<button type="button" class="btn ghost" id="org-delete">Eliminar usuario</button>':''}<button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn" id="org-save">Guardar</button></div></form>`);
+  $('[data-cerrar]').forEach(b=>b.onclick=cerrar);
+  if($('#org-delete'))$('#org-delete').onclick=()=>{cerrar();solicitarEliminarUsuario(u);};
   let busy=false;$('#org-form').onsubmit=async e=>{
     e.preventDefault();if(busy)return;
     const payload={};for(const k of ['nombre','usuario','password','rol','cargo','sucursal','linea','email','tel'])payload[k]=$('#org-'+k).value.trim();
@@ -50,6 +51,61 @@ function editar(u){
     catch(ex){if($('#org-error'))$('#org-error').textContent=ex.message;if($('#org-save'))$('#org-save').disabled=false;}finally{busy=false;}
   };
 }
+
+/** Administrador: un paso para elegir a quién entregar la cartera y archivar la cuenta. */
+export async function solicitarEliminarUsuario(usuario,alTerminar){
+  if(S.usuario?.rol!=='admin' || usuario?.rol==='admin')return;
+  let previa;
+  try{
+    previa=await get('/organigrama/empleados/'+encodeURIComponent(usuario.id)+'/transferencia');
+  }catch(e){toast(e.message,'bad','Eliminar usuario');return;}
+  const candidatos=previa.candidatos||[];
+  if(!candidatos.length){toast('No existe otro empleado activo al que transferir los datos.','warn');return;}
+  const r=previa.resumen||{};
+  const contadores=[
+    ['Clientes',r.clientes],['Negociaciones',r.negociaciones],
+    ['Subordinados',r.subordinados],['Tareas',r.tareas],
+    ['Sucursales',r.sucursales],['Solicitudes',r.solicitudes]
+  ].map(([n,v])=>'<span style="display:inline-flex;gap:5px;border:1px solid var(--line);border-radius:7px;padding:6px 8px">'+
+    esc(n)+': <b>'+Number(v||0)+'</b></span>').join('');
+  modal('<div class="modal-h"><h3>Eliminar usuario y transferir datos</h3>'+
+    '<button type="button" class="x" data-cerrar>✕</button></div>'+
+    '<div class="modal-b">'+
+    '<p>Vas a eliminar del organigrama a <b>'+esc(previa.origen.nombre)+'</b> ('+esc(previa.origen.usuario)+').</p>'+
+    '<div class="field"><label for="org-transfer-destino">¿A qué empleado querés pasar sus datos?</label>'+
+    '<select id="org-transfer-destino" required><option value="">Elegir destinatario…</option>'+
+    candidatos.map(u=>'<option value="'+esc(u.id)+'">'+esc(u.nombre)+' · '+esc(u.usuario)+
+      (u.sucursal?' · '+esc(u.sucursal):'')+'</option>').join('')+'</select></div>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">'+contadores+'</div>'+
+    '<p class="sub">Se transferirán clientes, negociaciones, tareas y responsabilidades. No se modificarán la contraseña, el cargo ni la sucursal del destinatario. La cuenta antigua quedará sin acceso y oculta, conservando el historial de sus mensajes.</p>'+
+    '<div class="err" id="org-transfer-error" role="alert"></div></div>'+
+    '<div class="modal-f"><button type="button" class="btn ghost" data-cerrar>Cancelar</button>'+
+    '<button type="button" class="btn danger" id="org-transfer-ok" disabled>Eliminar y transferir</button></div>');
+  $('[data-cerrar]').forEach(x=>x.onclick=cerrar);
+  const elegir=$('#org-transfer-destino'),enviar=$('#org-transfer-ok');
+  elegir.onchange=()=>{enviar.disabled=!elegir.value;};
+  enviar.onclick=async()=>{
+    const destinoId=elegir.value;
+    if(!destinoId||enviar.disabled)return;
+    enviar.disabled=true;elegir.disabled=true;enviar.textContent='Transfiriendo…';
+    try{
+      const respuesta=await post('/organigrama/empleados/'+encodeURIComponent(usuario.id)+'/eliminar',{
+        destinoId,confirmacion:'TRANSFERIR_Y_ELIMINAR'
+      });
+      cerrar();
+      if(typeof alTerminar==='function')await alTerminar();
+      else await vistaOrganigrama();
+      toast('Usuario eliminado. '+Number(respuesta.movidos?.clientes||0)+' clientes y '+
+        Number(respuesta.movidos?.negociaciones||0)+' negociaciones transferidos a '+
+        respuesta.destino.nombre+'.','ok','IMPAR');
+    }catch(e){
+      const err=$('#org-transfer-error');if(err)err.textContent=e.message;
+      const btn=$('#org-transfer-ok');if(btn){btn.disabled=false;btn.textContent='Eliminar y transferir';}
+      if($('#org-transfer-destino'))$('#org-transfer-destino').disabled=false;
+    }
+  };
+}
+
 async function importar(e){
   const file=e.target.files[0];if(!file)return;
   if(file.size>4.5*1024*1024){toast('El archivo supera 4,5 MB','bad');return;}
