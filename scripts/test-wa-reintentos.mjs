@@ -55,6 +55,9 @@ assert.deepEqual(await recuperarOriginal({q:qFalla,proto,canalId,key,cache:cache
   'Fallback temporal en memoria');
 assert.equal(await recuperarOriginal({q:qFalla,proto,canalId,key,cache:new Map()}),undefined,
   'Falla de DB nunca fabrica mensaje vacío');
+const protoRoto={Message:{encode:()=>{throw Error('mensaje cifrado sin codificador')}}};
+assert.equal(await guardarOriginal({q:store,proto:protoRoto,canalId,empresaId,enviado:sent,cache:new Map()}),false,
+  'Una falla al codificar después del envío no debe provocar duplicación de salida');
 const insert=consultas.find(x=>x.sql.startsWith('INSERT'));
 assert.ok(insert.sql.includes('ON CONFLICT(canal_id,jid,mensaje_id)'));
 assert.ok(sql.includes('PRIMARY KEY(canal_id, jid, mensaje_id)'));
