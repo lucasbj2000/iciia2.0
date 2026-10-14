@@ -8,8 +8,10 @@ import { conectarAdjuntos, mediaHTML, activarVisor, subir, elegirArchivo, ICONOS
 import { conectarEmojis } from './emojis.js';
 import { notasHTML,conectarNotas,cargarNotas,cargarCambiosNeg } from './colaboracion.js';
 import { actualizarMensajes, mostrarMensajePendiente, confirmarIdPendiente } from './chat-mensajes.js';
+import { combinarHistorial } from './historial-chat.js';
 
 let actual = null, usuarios = [], rapidas = { equipo: [], personales: [] }, adj = null;
+let historialVista = null;
 
 export async function fichaNeg(id) {
   modal(`<div class="modal-b" style="text-align:center;padding:48px"><span class="spin lg"></span>
@@ -21,6 +23,8 @@ export async function fichaNeg(id) {
       get('/admin/rapidas')
     ]);
     actual = n; usuarios = us; rapidas = rp;
+    historialVista = { id:n.id, mensajes:combinarHistorial([],n.mensajes || []),
+      cursor:n.mensajesCursorAnterior, hayAnteriores:!!n.mensajesHayAnteriores };
     pintar();
   } catch (e) { cerrar(); toast(e.message, 'bad'); }
 }
@@ -80,6 +84,10 @@ function pintar() {
      <button class="tab" data-tab="t-his">Historial</button></div>
 
    <div id="t-chat">
+     <div class="historial-barra" aria-label="Historial completo del cliente">
+       <small>Conversación continua del cliente · incluye negociaciones anteriores</small>
+       <button class="btn ghost sm" id="f-mas-mensajes" type="button" ${historialVista?.hayAnteriores?'':'hidden'}>↑ Cargar mensajes anteriores</button>
+     </div>
      <div class="chat" id="chatbox"></div>
 
      ${cerrada ? `<div class="card-box chat-compose" style="margin:12px 0 0;border-color:var(--warn)">
@@ -139,7 +147,7 @@ function pintar() {
   $('.modal').classList.add('conversation-modal');
   $('.mask')?.classList.add('conversation-mask');
   $('.modal').dataset.negociacionId = n.id;
-  const cb = $('#chatbox'); if (cb) { cb.innerHTML = ''; actualizarMensajes(cb, n.mensajes || [], mensajeHTML, true); activarVisor(cb); }
+  const cb = $('#chatbox'); if (cb) { cb.innerHTML = ''; actualizarMensajes(cb, historialVista?.mensajes || n.mensajes || [], mensajeHTML, true); activarVisor(cb); }
   conectar(n);
 }
 
@@ -150,8 +158,11 @@ function mensajeHTML(m) {
          ? `<a class="ubi" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener">
               <span class="pin">📍</span><div style="min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.nombre || 'Ubicación compartida')}</b>
               <small style="color:var(--muted)">${esc(u.direccion || `${u.lat}, ${u.lon}`)}</small></div></a>` : '';
+       const tramo = m.inicioConversacion
+         ? `<div class="historial-tramo ${m.anterior?'anterior':''}">${m.anterior?'↶ Conversación anterior':'Conversación actual'}
+              · ${fd(m.creado_negociacion)}${m.titulo_negociacion?' · '+esc(m.titulo_negociacion):''}</div>` : '';
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
-          ${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${esc(m.txt)}</div>` : ''}${mapaUbi}
+          ${tramo}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${esc(m.txt)}</div>` : ''}${mapaUbi}
           <small>${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}
           ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}</small></div>`;
 }
@@ -163,7 +174,14 @@ export async function refrescarFicha(id, seguir = false) {
   const n = await get(`/negociaciones/${id}`);
   if ($('#chatbox') !== caja || $('.conversation-modal') !== ficha || caja._revision !== revision) return;
   actual = n;
-  actualizarMensajes(caja, n.mensajes || [], mensajeHTML, seguir);
+  if (!historialVista || historialVista.id!==id) {
+    historialVista={ id, mensajes:combinarHistorial([],n.mensajes||[]),
+      cursor:n.mensajesCursorAnterior,hayAnteriores:!!n.mensajesHayAnteriores };
+  } else {
+    historialVista.mensajes=combinarHistorial(historialVista.mensajes,n.mensajes||[]);
+  }
+  actualizarMensajes(caja, historialVista.mensajes, mensajeHTML, seguir);
+  actualizarBotonHistorial();
   activarVisor(caja);
   const titulo = $('#f-etapa');
   if (titulo) { titulo.textContent = etapa(n.etapa).nombre; titulo.style.color = etapa(n.etapa).color; }
@@ -175,6 +193,33 @@ export async function refrescarFicha(id, seguir = false) {
 export function confirmarEnvio({ id, clienteId, mensajeId }) {
   if ($('.conversation-modal')?.dataset.negociacionId === id)
     confirmarIdPendiente($('#chatbox'), clienteId, mensajeId);
+}
+
+function actualizarBotonHistorial(){
+  const boton=$('#f-mas-mensajes');
+  if(boton)boton.hidden=!historialVista?.hayAnteriores;
+}
+async function cargarMensajesAnteriores(id){
+  if(!historialVista || historialVista.id!==id || !historialVista.hayAnteriores ||
+    !historialVista.cursor) return;
+  const boton=$('#f-mas-mensajes'),caja=$('#chatbox');
+  if(!boton||!caja||boton.disabled)return;
+  boton.disabled=true;boton.textContent='Cargando historial…';
+  const cursor=historialVista.cursor;
+  const anteriorAlto=caja.scrollHeight,anteriorTop=caja.scrollTop;
+  try {
+    const pagina=await get(`/negociaciones/${id}/mensajes/anteriores?antes=${encodeURIComponent(cursor)}`);
+    if(!historialVista || historialVista.id!==id || $('#chatbox')!==caja)return;
+    historialVista.mensajes=combinarHistorial(historialVista.mensajes,pagina.mensajes||[]);
+    historialVista.cursor=pagina.mensajesCursorAnterior;
+    historialVista.hayAnteriores=!!pagina.mensajesHayAnteriores;
+    actualizarMensajes(caja,historialVista.mensajes,mensajeHTML,false);
+    activarVisor(caja);
+    // Mantener la posición del mensaje que estaba leyendo el agente.
+    caja.scrollTop=anteriorTop+(caja.scrollHeight-anteriorAlto);
+    actualizarBotonHistorial();
+  }catch(e){toast('No se pudieron cargar mensajes anteriores: '+e.message,'bad','Historial');}
+  finally{if(boton.isConnected){boton.disabled=false;boton.textContent='↑ Cargar mensajes anteriores';}}
 }
 
 function herramientasHTML(campo) {
@@ -212,6 +257,7 @@ function rapidasHTML(campo) {
 }
 
 function conectar(n) {
+  if($('#f-mas-mensajes'))$('#f-mas-mensajes').onclick=()=>cargarMensajesAnteriores(n.id);
   conectarNotas(n.id);
   conectarEmojis('#msg');
   conectarEmojis('#remsg');
@@ -322,7 +368,9 @@ function conectar(n) {
         toast('Nueva negociación en Contactado', 'ok', 'Re gestionado');
         patchTarjeta(r.id, { nueva: true });
         const nueva = await get(`/negociaciones/${r.id}`);
-        if ($('.conversation-modal')?.dataset.negociacionId === n.id) { actual = nueva; pintar(); }
+        if ($('.conversation-modal')?.dataset.negociacionId === n.id) { actual = nueva;
+          historialVista={id:nueva.id,mensajes:combinarHistorial([],nueva.mensajes||[]),
+            cursor:nueva.mensajesCursorAnterior,hayAnteriores:!!nueva.mensajesHayAnteriores}; pintar(); }
       } catch (e) {
         if (e.data?.negociacionId) { toast('Ya existe una negociación abierta', 'warn'); fichaNeg(e.data.negociacionId); }
         else toast(e.message, 'bad');
