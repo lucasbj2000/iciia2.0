@@ -28,6 +28,8 @@ jobs:
         run: node scripts/test-login.mjs
       - name: Pruebas de canales y reconexión WhatsApp
         run: node scripts/test-canales-estables.mjs
+      - name: IMPAR sin respuestas automáticas durante migración
+        run: node scripts/test-pausa-bot.mjs
       - name: Importación Bitrix sin duplicados y sin actualización de clientes
         run: node scripts/test-importar-bitrix.mjs
       - name: Validar script de despliegue
