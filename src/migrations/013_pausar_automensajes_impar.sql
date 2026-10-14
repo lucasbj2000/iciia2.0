@@ -17,8 +17,8 @@ WHERE o.estado='pendiente'
 
 -- Bloqueo persistente: apagamos recepción automática y bot de IA.
 UPDATE empresas
-SET flags=jsonb_set(COALESCE(flags,'{}'::jsonb),'#{bot}','false'::jsonb,TRUE),
-    bot=jsonb_set(COALESCE(bot,'{}'::jsonb),'#{activo}','false'::jsonb,TRUE)
+SET flags=jsonb_set(COALESCE(flags,'{}'::jsonb),'{bot}','false'::jsonb,TRUE),
+    bot=jsonb_set(COALESCE(bot,'{}'::jsonb),'{activo}','false'::jsonb,TRUE)
 WHERE codigo='impar';
 
 -- Cada negociación existente queda manual incluso si después se vuelve a
