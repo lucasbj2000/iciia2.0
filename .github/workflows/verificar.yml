@@ -34,6 +34,8 @@ jobs:
         run: node scripts/test-importar-bitrix.mjs
       - name: Comprobar panel admin de accesos y exportación
         run: node scripts/test-accesos.mjs
+      - name: Eliminación segura de usuarios con transferencia
+        run: node scripts/test-eliminar-usuario.mjs
       - name: Validar script de despliegue
         run: bash -n scripts/actualizar.sh
 
