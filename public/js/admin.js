@@ -93,12 +93,15 @@ async function aCanales() {
             : c.estado === 'error' ? 'Error de conexión' : 'Desconectado'}</span>
           ${c.ultima_conexion ? ' · última ' + ago(c.ultima_conexion) + ' atrás' : ''}
           ${!c.activo ? ' · <span style="color:var(--warn)">pausado</span>' : ''}</small>
+        ${c.config?.principal_global ? '<small style="color:var(--ok);font-weight:700">★ Principal compartida · todos los usuarios</small>' : ''}
         ${c.ultimo_error ? `<small style="color:var(--bad)">${esc(String(c.ultimo_error).slice(0, 70))}</small>` : ''}</div>
       <div style="flex:none;display:flex;gap:6px;flex-wrap:wrap">
         ${c.tipo === 'whatsapp_qr'
           ? `<button class="btn sm" data-qr="${c.id}">${c.estado === 'conectado' ? '🔄 Estado' : '📷 Vincular'}</button>`
           : `<button class="btn ghost sm" data-probar="${c.id}">✓ Probar</button>`}
         <button class="btn ghost sm" data-editar="${c.id}">Editar</button>
+        ${c.activo && c.tipo.startsWith('whatsapp') && !c.config?.principal_global ?
+          `<button class="btn ghost sm" data-principal="${c.id}">Hacer principal</button>` : ''}
         <button class="btn danger sm" data-borrar="${c.id}">✕</button></div></div>`;
   };
 
@@ -107,9 +110,10 @@ async function aCanales() {
      <h3>📡 Canales por sucursal</h3>
      <button class="btn ghost sm" id="canales-actualizar" type="button">Actualizar estados</button>
      <div style="color:var(--muted);font-size:var(--fs-sm);line-height:1.7">
-       Cada sucursal tiene sus propios números de WhatsApp y sus redes sociales. Cuando entra un mensaje,
-       el sistema lo asigna a un agente <b>de la sucursal dueña del canal</b>, y todo desemboca en el mismo
-       tablero con las mismas reglas. Los datos quedan aislados en <b>${esc(S.empresa.nombre)}</b>.</div>
+       El canal marcado como <b>★ Principal compartida</b> está disponible para todos los usuarios
+       y se selecciona por defecto al iniciar conversaciones desde Contactos.
+       Su sucursal propietaria sigue siendo Central, sin cambiar las sucursales de los agentes.
+       Los demás canales conservan sus reglas de acceso. Los datos quedan en <b>${esc(S.empresa.nombre)}</b>.</div>
    </div>
 
    ${data.sucursales.map(s => `<div class="suc-bloque">
@@ -161,7 +165,16 @@ async function aCanales() {
   $$('[data-nuevo]').forEach(b => b.onclick = () => modalCanal(null, b.dataset.nuevo));
   $$('[data-nuevo-suc]').forEach(b => b.onclick = () => modalElegirTipo(b.dataset.nuevoSuc));
   const todos = [...data.sucursales.flatMap(s => s.canales), ...data.sinSucursal];
-  $$('[data-editar]').forEach(b => b.onclick = () => modalCanal(todos.find(c => c.id === b.dataset.editar)));
+  $('[data-editar]').forEach(b => b.onclick = () => modalCanal(todos.find(c => c.id === b.dataset.editar)));
+  $('[data-principal]').forEach(b=>b.onclick=async()=>{
+    const ca=todos.find(c=>c.id===b.dataset.principal);
+    if(!ca)return;
+    if(!await confirmar('Compartir WhatsApp como línea principal',
+      'Se ofrecerá «'+esc(ca.nombre)+'» a todos los usuarios de IMPAR. No cambia responsables, conversaciones ni sesiones de WhatsApp.','Hacer principal'))return;
+    b.disabled=true;
+    try{await post('/canales/'+ca.id+'/principal-global',{});toast('Línea principal compartida habilitada.','ok');await aCanales();}
+    catch(e){toast(e.message,'bad','Canales');b.disabled=false;}
+  });
   $$('[data-qr]').forEach(b => b.onclick = () => modalQR(b.dataset.qr));
   $$('[data-probar]').forEach(b => b.onclick = async () => {
     b.disabled = true; b.innerHTML = '<span class="spin"></span>';
