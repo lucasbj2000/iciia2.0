@@ -31,14 +31,15 @@ export async function conversacionContacto(req, contactoId, envio = null) {
     const { rows: canales } = await db.query(`SELECT ca.id,ca.nombre,ca.linea,s.nombre AS sucursal
       FROM canales ca LEFT JOIN sucursales s ON s.id=ca.sucursal_id
       WHERE ca.empresa_id=$1 AND ca.activo AND ca.tipo IN('whatsapp_qr','whatsapp_api')
-      AND (ca.sucursal_id IS NULL OR s.nombre=$2)
-      AND (COALESCE(ca.linea,'')='' OR COALESCE($3,'')='' OR ca.linea=$3)
-      ORDER BY ca.nombre`, [req.empresaId, sucursal || '', u.linea || c.linea || '']);
+      AND ((ca.config->>'principal_global')='true' OR (
+        (ca.sucursal_id IS NULL OR s.nombre=$2)
+        AND (COALESCE(ca.linea,'')='' OR COALESCE($3,'')='' OR ca.linea=$3)))
+      ORDER BY ((ca.config->>'principal_global')='true') DESC,ca.nombre`, [req.empresaId, sucursal || '', u.linea || c.linea || '']);
     if (!envio) return { activa: false, nombre: c.nombre, tel: c.tel, canales };
     const texto = String(envio.texto || '').trim();
     if (!texto || texto.length > 10000) fallo(422, 'Escribí un mensaje de hasta 10.000 caracteres.');
     const canal = canales.find(x => x.id === envio.canalId);
-    if (!canal) fallo(422, 'Seleccioná una línea WhatsApp habilitada para tu sucursal.');
+    if (!canal) fallo(422, 'Seleccioná una línea WhatsApp habilitada para tu usuario.');
     let destino = String(c.tel || '').replace(/\D/g, '');
     if (destino.length === 10 && destino.startsWith('09')) destino = destino.slice(1);
     if (destino.length === 9 && destino.startsWith('9')) destino = '595' + destino;
@@ -47,7 +48,7 @@ export async function conversacionContacto(req, contactoId, envio = null) {
     const { rows: nuevas } = await db.query(`INSERT INTO negociaciones
       (empresa_id,contacto_id,titulo,etapa,origen,canal_id,agente_id,sucursal,linea,bot_activo)
       VALUES($1,$2,$3,'contactado','whatsapp',$4,$5,$6,$7,FALSE) RETURNING id`,
-      [req.empresaId,c.id,`Conversación · ${c.nombre}`,canal.id,u.id,canal.sucursal || sucursal || '',canal.linea || u.linea || c.linea || '']);
+      [req.empresaId,c.id,`Conversación · ${c.nombre}`,canal.id,u.id,u.sucursal || sucursal || '',canal.linea || u.linea || c.linea || '']);
     const id = nuevas[0].id;
     await db.query(`INSERT INTO mensajes(empresa_id,negociacion_id,dir,txt,autor_id,estado)
       VALUES($1,$2,'out',$3,$4,'pendiente')`, [req.empresaId,id,texto,u.id]);
