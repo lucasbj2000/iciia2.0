@@ -5,6 +5,7 @@ import { notificar, auditar, historial, nombreEtapa, negActivaPorTel, crearConta
 import { emitir } from '../realtime.mjs';
 import * as ubi from '../ubicaciones.mjs';
 import { conversacionContacto } from '../conversacion-contacto.mjs';
+import {consultarDestinos,cambiarResponsable} from '../responsable-contacto-impar.mjs';
 
 const r = Router();
 
@@ -22,6 +23,30 @@ r.post('/:id/conversacion', requiere(), async (req, res) => {
     }
     res.status(resultado.activa ? 409 : 200).json(resultado);
   } catch (e) { if (!e.status) console.error('[conversación contacto]', e.message); res.status(e.status || 500).json({ error: e.status ? e.message : 'No se pudo iniciar la conversación. Intentá nuevamente.' }); }
+});
+
+/* Reasignación desde Contactos: admin, gerencia y jefaturas de su equipo. */
+r.get('/responsables/disponibles', requiere('admin','gerente','jefe'), async(req,res)=>{
+  try{res.set('Cache-Control','no-store');res.json(await consultarDestinos(req));}
+  catch(e){res.status(e.status||500).json({error:e.status?e.message:'Error consultando responsables.'});}
+});
+r.patch('/:id/responsable',requiere('admin','gerente','jefe'),async(req,res)=>{
+  try{
+    const resultado=await cambiarResponsable(req,req.params.id,req.body?.responsableId);
+    if(!resultado.sinCambios){
+      await auditar(req.empresaId,req.user.nombre,'Responsable contacto',
+        resultado.cliente+': '+resultado.anterior+' → '+resultado.destino,req.ip)
+        .catch(e=>console.warn('[contactos] auditoría:',e.message));
+      emitir(req.empresaId,'neg:recargar',{});
+      await notificar(req.empresa,'transfer',
+        {origenUsr:req.user.nombre,cliente:resultado.cliente},
+        [resultado.destinoId]).catch(e=>console.warn('[contactos] aviso:',e.message));
+    }
+    res.json({ok:true,...resultado});
+  }catch(e){
+    if(!e.status)console.error('[contactos] reasignación:',e.message);
+    res.status(e.status||500).json({error:e.status?e.message:'No se pudo reasignar; no se aplicaron cambios.'});
+  }
 });
 
 r.get('/', requiere(), async (req, res) => {
