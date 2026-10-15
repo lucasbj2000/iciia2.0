@@ -18,7 +18,8 @@ export async function drenarInbox() {
   corriendoInbox = true;
   try {
     const { rows } = await q(
-      `SELECT i.*, c.sucursal_id, c.linea AS canal_linea, s.nombre AS canal_sucursal
+      `SELECT i.*, c.sucursal_id, c.linea AS canal_linea, s.nombre AS canal_sucursal,
+                (c.config->>'principal_global')='true' AS canal_compartido
          FROM inbox i
          LEFT JOIN canales c ON c.id = i.canal_id
          LEFT JOIN sucursales s ON s.id = c.sucursal_id
@@ -29,7 +30,8 @@ export async function drenarInbox() {
         const empresa = es[0];
         if (!empresa) throw new Error('empresa inexistente o inactiva');
         await ingresarMensaje(empresa, {
-          canalId: m.canal_id, canalSucursal: m.canal_sucursal, canalLinea: m.canal_linea,
+          canalId: m.canal_id, canalSucursal: m.canal_compartido ? null : m.canal_sucursal,
+          canalLinea: m.canal_compartido ? null : m.canal_linea,
           origen: ORIGEN[m.tipo] || 'otro', externoTipo: EXTERNO[m.tipo],
           extId: m.ext_id, remitente: m.remitente, nombre: m.nombre, texto: m.txt,
           mediaUrl: m.media_url, mediaTipo: m.media_tipo, mediaNombre: m.media_nombre,
