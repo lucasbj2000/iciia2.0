@@ -1,0 +1,220 @@
+/* IMPAR · Chat prioritario. Exclusivo del modal de negociación; sin cambios de datos. */
+/* Pantalla completa utilizable sin afectar otros modales o la bandeja general. */
+.modal.conversation-modal{
+  width:min(1420px,calc(100vw - 24px));
+  max-width:1420px;
+  height:calc(var(--crm-viewport-height,100dvh) - 20px);
+  max-height:calc(var(--crm-viewport-height,100dvh) - 20px);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.conversation-modal>.modal-h{flex:0 0 auto}
+.conversation-modal>.modal-b{
+  display:flex;
+  flex-direction:column;
+  flex:1 1 auto;
+  min-height:0;
+  min-width:0;
+  overflow:hidden;
+  padding:10px 16px 12px;
+  gap:6px;
+}
+.conversation-modal .ficha-acordeon{
+  flex:0 0 auto;
+  min-width:0;
+  margin:0;
+  background:var(--surface2);
+  border:1px solid var(--line);
+  border-radius:9px;
+  overflow:hidden;
+}
+.conversation-modal .ficha-acordeon>summary{
+  cursor:pointer;
+  color:var(--txt);
+  font-weight:650;
+  font-size:12px;
+  padding:8px 12px;
+  list-style:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  min-height:32px;
+  user-select:none;
+}
+.conversation-modal .ficha-acordeon>summary::-webkit-details-marker{display:none}
+.conversation-modal .ficha-acordeon>summary::after{
+  content:"⌄";
+  color:var(--muted);
+  font-size:16px;
+  margin-left:auto;
+  transition:transform .15s ease;
+}
+.conversation-modal .ficha-acordeon[open]>summary::after{transform:rotate(180deg)}
+.conversation-modal .ficha-acordeon>summary:focus-visible,
+.conversation-modal .chat-tools>summary:focus-visible{
+  outline:2px solid var(--brand);
+  outline-offset:-3px;
+}
+.conversation-modal .ficha-acordeon-ayuda{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:400;
+  margin-left:auto;
+}
+.conversation-modal .ficha-contexto[open]{
+  max-height:min(30vh,245px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.conversation-modal .ficha-contexto>.row{padding:9px 12px 0;margin-bottom:8px!important}
+.conversation-modal .ficha-contexto>.card-box{margin:8px 12px 12px}
+.conversation-modal .ficha-transferencias-cantidad{
+  font-size:11px;
+  color:var(--muted);
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:2px 7px;
+  margin-right:auto;
+}
+.conversation-modal .ficha-transferencias[open]{max-height:min(26vh,200px)}
+.conversation-modal .ficha-transferencias-contenido{
+  max-height:min(21vh,155px);
+  overflow:auto;
+  padding:7px 14px 12px;
+  overscroll-behavior:contain;
+  border-top:1px solid var(--line);
+}
+.conversation-modal .ficha-transferencias-contenido .tl{margin:0}
+.conversation-modal .tabs{flex:none;margin:0;min-height:36px}
+.conversation-modal .tab{padding:8px 13px}
+.conversation-modal #t-chat:not(.hidden){
+  display:flex;
+  flex-direction:column;
+  flex:1 1 0;
+  min-height:0;
+  min-width:0;
+  gap:6px;
+  overflow:hidden;
+}
+.conversation-modal .historial-barra{
+  flex:0 0 auto;
+  padding:5px 9px;
+  margin:0;
+  min-height:33px;
+  gap:7px;
+}
+.conversation-modal .historial-barra .btn{min-height:30px}
+.conversation-modal #chatbox{
+  flex:1 1 0;
+  min-height:0;
+  max-height:none;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  -webkit-overflow-scrolling:touch;
+  scroll-behavior:auto;
+  padding:13px;
+}
+.conversation-modal .chat-compose{
+  flex:0 0 auto;
+  min-width:0;
+  min-height:0;
+  padding-top:2px;
+}
+.conversation-modal .chat-tools{
+  max-height:none;
+  margin:0 0 5px;
+  min-width:0;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--surface2);
+  overflow:visible;
+}
+.conversation-modal .chat-tools>summary{
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  padding:6px 10px;
+  min-height:30px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:600;
+  list-style:none;
+}
+.conversation-modal .chat-tools>summary::-webkit-details-marker{display:none}
+.conversation-modal .chat-tools>summary::after{content:"⌄";margin-left:auto}
+.conversation-modal .chat-tools[open]>summary::after{content:"⌃"}
+.conversation-modal .chat-tools[open]{
+  max-height:min(29vh,230px);
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+.conversation-modal .chat-tools-contenido{
+  padding:8px 10px 11px;
+  border-top:1px solid var(--line);
+}
+.conversation-modal .chat-tools .acciones,
+.conversation-modal .chat-tools .qr-chips{max-width:100%}
+.conversation-modal .chat-input-row{margin-top:3px!important}
+.conversation-modal .chat-input-row>textarea{
+  min-height:70px;
+  height:78px;
+  max-height:140px;
+}
+.conversation-modal .chat-tools:not([open]) .chat-tools-contenido{display:none}
+.conversation-modal #t-det:not(.hidden),
+.conversation-modal #t-his:not(.hidden),
+.conversation-modal #t-notas:not(.hidden){flex:1 1 0;min-height:0;overflow:auto}
+
+/* Móvil: controles siempre accesibles, texto a tamaño normal y teclado respetado. */
+@media(max-width:900px){
+  .modal.conversation-modal{
+    width:100%;
+    max-width:none;
+    height:var(--crm-viewport-height,100dvh);
+    max-height:var(--crm-viewport-height,100dvh);
+    border-radius:0;
+  }
+  .conversation-modal>.modal-b{
+    padding:7px 9px max(8px,env(safe-area-inset-bottom));
+    gap:4px;
+  }
+  .conversation-modal .ficha-acordeon>summary{min-height:30px;padding:6px 9px}
+  .conversation-modal .ficha-contexto[open]{max-height:min(27dvh,175px)}
+  .conversation-modal .ficha-transferencias[open]{max-height:min(23dvh,150px)}
+  .conversation-modal .ficha-transferencias-contenido{max-height:min(18dvh,112px)}
+  .conversation-modal .ficha-acordeon-ayuda{display:none}
+  .conversation-modal .tabs{margin:0;min-height:32px}
+  .conversation-modal .tab{padding:7px 9px}
+  .conversation-modal .historial-barra{min-height:25px;padding:4px 7px}
+  .conversation-modal #chatbox{padding:8px;scrollbar-gutter:auto}
+  .conversation-modal .chat-tools{margin-bottom:3px}
+  .conversation-modal .chat-tools>summary{min-height:29px;padding:5px 9px}
+  .conversation-modal .chat-tools[open]{max-height:min(24dvh,155px)}
+  .conversation-modal .chat-compose{overflow:visible}
+  .conversation-modal .chat-input-row>textarea{
+    height:72px;
+    min-height:72px;
+    max-height:112px;
+    font-size:16px;
+  }
+  .crm-viewport-compact .conversation-modal .ficha-contexto,
+  .crm-viewport-compact .conversation-modal .ficha-transferencias,
+  .crm-viewport-compact .conversation-modal .chat-tools{display:block}
+  .crm-viewport-compact .conversation-modal .ficha-contexto[open],
+  .crm-viewport-compact .conversation-modal .ficha-transferencias[open]{
+    max-height:65px;
+    overflow:auto;
+  }
+  .crm-viewport-compact .conversation-modal .chat-tools[open]{
+    max-height:85px;
+    overflow:auto;
+  }
+}
+@media(max-width:380px){
+  .conversation-modal .ficha-acordeon>summary{font-size:11px}
+  .conversation-modal .historial-barra small{font-size:10px}
+}
