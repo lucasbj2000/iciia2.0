@@ -28,7 +28,8 @@ export async function conversacionContacto(req, contactoId, envio = null) {
         sucursal: n.sucursal, linea: n.linea, responsable: n.responsable || 'Sin asignar' };
     }
     const sucursal = ['admin', 'gerente'].includes(u.rol) ? (c.sucursal || u.sucursal) : u.sucursal;
-    const { rows: canales } = await db.query(`SELECT ca.id,ca.nombre,ca.linea,s.nombre AS sucursal
+    const { rows: canales } = await db.query(`SELECT ca.id,ca.nombre,ca.linea,s.nombre AS sucursal,
+      (ca.config->>'principal_global')='true' AS principal_global
       FROM canales ca LEFT JOIN sucursales s ON s.id=ca.sucursal_id
       WHERE ca.empresa_id=$1 AND ca.activo AND ca.tipo IN('whatsapp_qr','whatsapp_api')
       AND ((ca.config->>'principal_global')='true' OR (
