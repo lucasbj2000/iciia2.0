@@ -59,6 +59,7 @@ node scripts/test-accesos.mjs
 node scripts/test-eliminar-usuario.mjs
 node scripts/test-historial-chat.mjs
 node scripts/test-wa-reintentos.mjs
+node scripts/test-principal-contactos.mjs
 
 echo '› Reiniciando el CRM…'
 REINICIADO=1
