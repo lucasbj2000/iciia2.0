@@ -254,7 +254,8 @@ async function encolarSalida(req, n, texto, adjunto) {
   const c = cs[0];
   const { rows: canales } = await q(
     `SELECT * FROM canales WHERE empresa_id=$1 AND activo AND ($2::uuid IS NULL OR id=$2)
-      ORDER BY (id=$2) DESC LIMIT 1`, [req.empresaId, n.canal_id]);
+      ORDER BY (id=$2) DESC, ((config->>'principal_global')='true') DESC, creado ASC LIMIT 1`,
+    [req.empresaId, n.canal_id]);
   const canal = canales[0] || null;
   const destino = canal
     ? (canal.tipo.startsWith('whatsapp') ? (c.externos?.whatsapp || c.tel)
