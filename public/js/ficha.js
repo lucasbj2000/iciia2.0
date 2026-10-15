@@ -50,7 +50,7 @@ function pintar() {
    ${esAdmin() && fx('eliminarNegociaciones') ? `<button class="btn danger sm" id="f-borrar">🗑</button>` : ''}
    <button class="x" data-cerrar>✕</button></div>
   <div class="modal-b">
-   <details class="ficha-contexto" ${esMovil() ? '' : 'open'}><summary>Datos de la negociación</summary>
+   <details class="ficha-contexto ficha-acordeon"><summary>ⓘ Datos de la negociación <span class="ficha-acordeon-ayuda">Mostrar información</span></summary>
    <div class="row" style="margin-bottom:12px">
      ${fx('fechaCreacion') ? `<span class="pill" style="flex:none">📅 Creada ${fdate(n.creado)}</span>` : ''}
      <span class="pill" style="flex:none">🔄 ${ago(n.actualizado)} atrás</span>
@@ -72,12 +72,16 @@ function pintar() {
          ${!u.confirmada ? `<button class="btn ghost sm" data-confubi="${u.id}">✓ Confirmar</button>` : ''}</div></div>`).join('')}
      </div>` : ''}
 
-   ${(n.transferencias || []).length && fx('marcadorTransferido') ? `<div class="card-box" style="border-color:#5b47a0">
-     <h3>⇄ Historial de transferencias (${n.transferencias.length})</h3>
-     <ul class="tl">${n.transferencias.map(t => `<li>${esc(t.de_nombre || 'Sin asignar')} → <b>${esc(t.a_nombre)}</b>${t.nota ? ' · ' + esc(t.nota) : ''}
-       <small>${fdate(t.ts)} · por ${esc(t.por || '')}</small></li>`).join('')}</ul></div>` : ''}
-
    </details>
+
+   ${(n.transferencias || []).length && fx('marcadorTransferido') ?
+     `<details class="ficha-transferencias ficha-acordeon">
+       <summary>⇄ Historial de transferencias <span class="ficha-transferencias-cantidad">${n.transferencias.length}</span></summary>
+       <div class="ficha-transferencias-contenido">
+         <ul class="tl">${n.transferencias.map(t => `<li>${esc(t.de_nombre || 'Sin asignar')} → <b>${esc(t.a_nombre)}</b>${t.nota ? ' · ' + esc(t.nota) : ''}
+           <small>${fdate(t.ts)} · por ${esc(t.por || '')}</small></li>`).join('')}</ul>
+       </div>
+     </details>` : ''}
    <div class="tabs"><button class="tab active" data-tab="t-chat">Conversación</button>
      <button class="tab" data-tab="t-notas">Notas internas</button>
      <button class="tab" data-tab="t-det">Detalle</button>
@@ -224,7 +228,7 @@ async function cargarMensajesAnteriores(id){
 
 function herramientasHTML(campo) {
   const html = botonesHTML(campo) + rapidasHTML(campo);
-  return html ? `<details class="chat-tools" ${esMovil() ? '' : 'open'}><summary>Respuestas y acciones</summary>${html}</details>` : '';
+  return html ? `<details class="chat-tools"><summary>⚡ Respuestas y acciones <span class="ficha-acordeon-ayuda">Desplegar</span></summary><div class="chat-tools-contenido">${html}</div></details>` : '';
 }
 
 /* ---------- Botones personalizados ---------- */
