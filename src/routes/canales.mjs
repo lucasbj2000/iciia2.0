@@ -120,6 +120,26 @@ r.post('/', requiere('admin'), async (req, res) => {
   res.json({ ok: true, canal: sanear(rows[0]), prueba });
 });
 
+/* ---------- HACER PRINCIPAL Y COMPARTIDA ---------- */
+r.post('/:id/principal-global', requiere('admin'), async(req,res)=>{
+  const {rows}=await q(
+    "SELECT id,nombre,tipo,activo FROM canales WHERE id=$1 AND empresa_id=$2",
+    [req.params.id,req.empresaId]);
+  const canal=rows[0];
+  if(!canal||!canal.activo||!['whatsapp_qr','whatsapp_api'].includes(canal.tipo))
+    return res.status(422).json({error:'Seleccioná un canal WhatsApp activo de IMPAR.'});
+  // Solo una línea principal para toda IMPAR; preservar los tokens y el resto de
+  // configuración, así como su sucursal, credenciales y el número conectado.
+  await q(
+    "UPDATE canales SET config=CASE WHEN id=$2 THEN jsonb_set(COALESCE(config,'{}'::jsonb),'{principal_global}','true'::jsonb,true) "+
+    "ELSE COALESCE(config,'{}'::jsonb)-'principal_global' END "+
+    "WHERE empresa_id=$1 AND tipo IN ('whatsapp_qr','whatsapp_api')",
+    [req.empresaId,canal.id]);
+  await auditar(req.empresaId,req.user.nombre,'Canal principal',
+    'WhatsApp compartido para todas las sucursales: '+canal.nombre,req.ip);
+  res.json({ok:true,id:canal.id,nombre:canal.nombre});
+});
+
 /* ---------- EDITAR ---------- */
 r.patch('/:id', requiere('admin'), async (req, res) => {
   const b = req.body || {};
