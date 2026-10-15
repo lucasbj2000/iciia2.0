@@ -37,7 +37,11 @@ export async function vistaContactos() {
    <tbody>${cs.map(c => `<tr><td><b>${esc(c.nombre)}</b> ${c.frecuente && fx('marcadorFrecuente') ? '<span class="tag t-frec">★</span>' : ''}</td>
      <td class="hide-m">${esc(c.tel || '—')}</td>
      <td class="hide-m">${c.direccion ? `<span title="${esc(c.direccion)}">📍 ${esc(c.direccion.slice(0, 32))}${c.direccion.length > 32 ? '…' : ''}</span>` : '—'}</td>
-     <td>${esc(c.responsable || 'Libre')}</td>
+     <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+       <span>${esc(c.responsable || 'Libre')}</span>
+       ${['admin','gerente','jefe'].includes(S.usuario.rol) ?
+         `<button class="btn ghost sm" data-cambiar-responsable="${c.id}" title="Reasignar contacto">Cambiar</button>` : ''}
+       </div></td>
      <td>${c.etapa_abierta ? `<span class="tag t-re">Abierta · ${esc(etapa(c.etapa_abierta).nombre)}</span>`
        : `<span style="color:var(--muted)">${c.n_negociaciones} cerradas</span>`}</td>
      <td class="hide-m">${fd(c.creado)}</td>
@@ -48,7 +52,9 @@ export async function vistaContactos() {
   let t;
   $('#c-buscar').oninput = e => { clearTimeout(t); QC = e.target.value; t = setTimeout(vistaContactos, 320); };
   $('#c-nuevo').onclick = modalNuevo;
-  $$('[data-360]').forEach(b => b.onclick = () => ficha360(b.dataset['360']));
+  $('[data-360]').forEach(b => b.onclick = () => ficha360(b.dataset['360']));
+  $('[data-cambiar-responsable]').forEach(b=>b.onclick=()=>cambiarResponsableContacto(
+    b.dataset.cambiarResponsable,cs.find(c=>c.id===b.dataset.cambiarResponsable)));
   $$('[data-conversacion]').forEach(b => b.onclick = async () => {
     b.disabled = true;
     try { await abrirConversacion(b.dataset.conversacion); }
@@ -78,6 +84,49 @@ export async function vistaContactos() {
   }
 }
 
+/** Transferir el contacto y sus negociaciones abiertas sin alterar historial cerrado. */
+async function cambiarResponsableContacto(id,contacto) {
+  let disponibles;
+  try { disponibles=await get('/contactos/responsables/disponibles'); }
+  catch(e){return toast(e.message,'bad','Responsable');}
+  if(!Array.isArray(disponibles)||!disponibles.length)
+    return toast('No hay responsables disponibles para asignar.','warn');
+  const actual=contacto?.responsable_id || '';
+  modal(`<div class="modal-h"><h3>Cambiar responsable</h3>
+    <button class="x" data-cerrar>✕</button></div>
+    <div class="modal-b">
+      <p>Cliente: <b>${esc(contacto?.nombre||'Contacto')}</b></p>
+      <p class="sub">Responsable actual: <b>${esc(contacto?.responsable||'Sin asignar')}</b></p>
+      <div class="field"><label for="c-nuevo-responsable">Nuevo responsable</label>
+       <select id="c-nuevo-responsable"><option value="">Seleccioná un empleado…</option>
+         ${disponibles.map(u=>`<option value="${esc(u.id)}" ${actual===u.id?'selected':''}>
+           ${esc(u.nombre)} · ${esc(u.sucursal||'Sin sucursal')} (${esc(u.rol)})</option>`).join('')}
+       </select></div>
+      <p class="sub">Se transferirán las negociaciones abiertas de este cliente.
+      Se conservarán los mensajes, adjuntos y negociaciones cerradas.</p>
+      <div class="err" id="c-error-responsable"></div>
+    </div>
+    <div class="modal-f"><button class="btn ghost" data-cerrar>Cancelar</button>
+      <button class="btn" id="c-confirmar-responsable" disabled>Guardar responsable</button></div>`);
+  $('[data-cerrar]').forEach(x=>x.onclick=cerrar);
+  const selector=$('#c-nuevo-responsable'),boton=$('#c-confirmar-responsable');
+  const validar=()=>boton.disabled=!selector.value||selector.value===actual;
+  selector.onchange=validar;validar();
+  boton.onclick=async()=>{
+    const responsableId=selector.value;
+    if(!responsableId||boton.disabled)return;
+    boton.disabled=true;boton.textContent='Guardando…';
+    try{
+      const r=await patch(`/contactos/${id}/responsable`,{responsableId});
+      cerrar();toast(`Contacto asignado a ${r.destino}. ${r.movidas} negociaciones abiertas transferidas.`,'ok');
+      await vistaContactos();
+    }catch(e){
+      const error=$('#c-error-responsable');if(error)error.textContent=e.message;
+      boton.disabled=false;boton.textContent='Guardar responsable';
+    }
+  };
+}
+
 async function ubicarConversacion(n) {
   cerrar();
   const { ubicarNegociacion } = await import('./negociaciones.js');
@@ -104,8 +153,8 @@ async function abrirConversacion(id) {
     <form id="c-chat-form"><div class="modal-b"><p>${esc(c.tel || 'Sin teléfono')}</p>
       <p>Al enviar el primer mensaje se creará una negociación en Contactado, a tu cargo.</p>
       <div class="field"><label for="c-chat-canal">Línea WhatsApp</label><select required id="c-chat-canal">
-        ${c.canales.length === 1 ? '' : '<option value="">Seleccionar…</option>'}
-        ${c.canales.map(x => `<option value="${x.id}">${esc(x.nombre)} · ${esc(x.sucursal || 'General')} · ${esc(x.linea || '')}</option>`).join('')}</select></div>
+        ${c.canales.length === 1 || c.canales.some(ca=>ca.principal_global) ? '' : '<option value="">Seleccionar…</option>'}
+        ${c.canales.map(x => `<option value="${x.id}" ${x.principal_global?'selected':''}>${x.principal_global?'★ Principal · ':''}${esc(x.nombre)} · ${esc(x.sucursal || 'General')} · ${esc(x.linea || '')}</option>`).join('')}</select></div>
       ${c.canales.length ? '' : '<p>No hay líneas WhatsApp habilitadas para tu sucursal. Consultá al administrador.</p>'}
       <div class="field"><label for="c-chat-texto">Mensaje inicial</label><textarea required maxlength="10000" rows="4" id="c-chat-texto"></textarea></div>
       <div class="err" role="alert" id="c-chat-error"></div></div>
@@ -206,7 +255,9 @@ export async function ficha360(id) {
       <div class="row"><div class="field"><label>Email</label><input id="f-mail" value="${esc(c.email || '')}"></div>
        <div class="field"><label>Documento</label><input id="f-doc" value="${esc(c.doc || '')}"></div></div>
       <div class="row"><div class="field"><label>Ciudad</label><input id="f-ciu" value="${esc(c.ciudad || '')}"></div>
-       <div class="field"><label>Responsable</label><input value="${esc(c.responsable || 'Libre')}" disabled></div></div>
+       <div class="field"><label>Responsable</label><input value="${esc(c.responsable || 'Libre')}" disabled>
+        ${['admin','gerente','jefe'].includes(S.usuario.rol) ? '<button class="btn ghost sm" type="button" id="f-cambiar-responsable" style="margin-top:6px">Cambiar responsable</button>' : ''}
+      </div></div>
       <div class="field"><label>Dirección ${c.lat != null ? '· <span style="color:var(--ok)">ubicada en el mapa</span>' : ''}</label>
         <input id="f-dir" value="${esc(c.direccion || '')}"></div>
       <div class="field"><label>Primer alta</label><input value="${fdate(c.creado)}" disabled></div>
@@ -241,6 +292,8 @@ export async function ficha360(id) {
   $$('[data-neg]').forEach(b => b.onclick = () => { cerrar(); fichaNeg(b.dataset.neg); });
   const ab = $('[data-abrir]');
   if (ab) ab.onclick = () => { cerrar(); fichaNeg(abierta.id); };
+  if($('#f-cambiar-responsable'))$('#f-cambiar-responsable').onclick=()=>
+    cambiarResponsableContacto(c.id,c);
   $('#f-guardar').onclick = async () => {
     await patch(`/contactos/${c.id}`, {
       nombre: $('#f-nom').value.trim(), tel: $('#f-tel').value.trim(), email: $('#f-mail').value.trim(),
