@@ -40,6 +40,8 @@ jobs:
         run: node scripts/test-historial-chat.mjs
       - name: Verificar recuperación Signal de mensajes WhatsApp
         run: node scripts/test-wa-reintentos.mjs
+      - name: Canal principal compartido y responsables de Contactos
+        run: node scripts/test-principal-contactos.mjs
       - name: Validar script de despliegue
         run: bash -n scripts/actualizar.sh
 
