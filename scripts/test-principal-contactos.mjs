@@ -21,13 +21,14 @@ assert.ok(!/\bUPDATE\s+(usuarios|contactos|negociaciones)\b/i.test(sql),
 assert.ok(canal.includes("r.post('/:id/principal-global', requiere('admin')"));
 assert.ok(canal.includes("config,'{}'::jsonb)-'principal_global'"),
   'Un único canal principal puede estar habilitado');
-assert.ok(admin.includes('data-principal=') && admin.includes('Principal compartida'));
-assert.ok(chat.includes("((ca.config->>'principal_global')='true' OR ("),
-  'Agentes de otras sucursales pueden seleccionar principal');
-assert.ok(chat.includes("ORDER BY ((ca.config->>'principal_global')='true') DESC"),
-  'La compartida aparece primero');
-assert.ok(chat.includes("u.sucursal || sucursal"),
-  'La negociación pertenece a sucursal del agente, no del teléfono');
+assert.ok(admin.includes('data-principal=') && admin.includes('Central · principal única'),
+  'Administración identifica exactamente la línea oficial de Central');
+assert.ok(chat.includes("consultarPrincipalCentral(db,req.empresaId)"),
+  'Todos los agentes consultan la línea institucional sin filtros de sucursal');
+assert.ok(chat.includes('const canales=[principal]'),
+  'En la apertura de chats se ofrece un único número');
+assert.ok(chat.includes("u.sucursal || c.sucursal"),
+  'El nuevo chat conserva la sucursal del agente y del contacto');
 assert.ok(cola.includes('m.canal_compartido ? null : m.canal_sucursal'),
   'El teléfono compartido reparte ingresantes sin forzar Central');
 assert.ok(neg.includes("((config->>'principal_global')='true') DESC"),
@@ -40,8 +41,8 @@ assert.ok(front.includes("patch(\`/contactos/\${id}/responsable\`"));
 assert.ok(front.includes('f-cambiar-responsable'),'Disponible en ficha 360');
 assert.ok(front.includes("$$('[data-cambiar-responsable]').forEach"),
   'Todos los botones de listado se enlazan');
-assert.ok(front.includes("x.principal_global?'selected':''"),
-  'La línea principal está preseleccionada en nuevos chats');
+assert.ok(front.includes('type="hidden" id="c-chat-canal"'),
+  'La línea Central es la única opción del formulario de conversación');
 
 const fuente=leer('src/responsable-contacto-impar.mjs')
   .replace(/^import [^\n]*\n/gm,'').replace(/^export /gm,'');
