@@ -9,6 +9,28 @@ import {consultarDestinos,cambiarResponsable} from '../responsable-contacto-impa
 
 const r = Router();
 
+/* Búsqueda empresarial acotada para iniciar chats de clientes ya registrados.
+ * Disponible para todos los agentes de IMPAR; no entrega su ficha 360 ni
+ * el historial de otro responsable. Solo nombre, teléfono e identificación.
+ */
+r.get('/buscar/registrado', requiere(), async(req,res)=>{
+  const busca=String(req.query.q||'').trim().slice(0,90);
+  if(busca.length<3)return res.status(422).json({error:'Escribí al menos 3 caracteres para buscar un cliente.'});
+  const patron='%'+busca.replace(/[\\%_]/g,'\\r.get('/:id/conversacion', requiere(), async (req, res) => {')+'%';
+  try{
+    const {rows}=await q(
+      `SELECT c.id,c.nombre,c.tel,c.sucursal,u.nombre AS responsable
+         FROM contactos c LEFT JOIN usuarios u ON u.id=c.responsable_id
+        WHERE c.empresa_id=$1 AND
+          (c.nombre ILIKE $2 ESCAPE '\\' OR c.tel ILIKE $2 ESCAPE '\\'
+          OR c.email ILIKE $2 ESCAPE '\\')
+        ORDER BY c.nombre LIMIT 25`,
+      [req.empresaId,patron]);
+    res.set('Cache-Control','no-store').json(rows);
+  }catch(e){console.error('[impar] Buscar contacto registrado:',e.message);
+    res.status(500).json({error:'No se pudo consultar la base de clientes.'});}
+});
+
 r.get('/:id/conversacion', requiere(), async (req, res) => {
   try { res.json(await conversacionContacto(req, req.params.id)); }
   catch (e) { if (!e.status) console.error('[conversación contacto]', e.message); res.status(e.status || 500).json({ error: e.status ? e.message : 'No se pudo consultar la conversación.' }); }
