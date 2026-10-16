@@ -61,6 +61,7 @@ node scripts/test-historial-chat.mjs
 node scripts/test-wa-reintentos.mjs
 node scripts/test-principal-contactos.mjs
 node scripts/test-chat-amplio.mjs
+node scripts/test-central-unica-impar.mjs
 
 echo '› Reiniciando el CRM…'
 REINICIADO=1
