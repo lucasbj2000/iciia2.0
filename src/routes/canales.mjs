@@ -123,11 +123,15 @@ r.post('/', requiere('admin'), async (req, res) => {
 /* ---------- HACER PRINCIPAL Y COMPARTIDA ---------- */
 r.post('/:id/principal-global', requiere('admin'), async(req,res)=>{
   const {rows}=await q(
-    "SELECT id,nombre,tipo,activo FROM canales WHERE id=$1 AND empresa_id=$2",
+    "SELECT c.id,c.nombre,c.tipo,c.activo,s.nombre AS sucursal_nombre "+
+    "FROM canales c LEFT JOIN sucursales s ON s.id=c.sucursal_id AND s.empresa_id=c.empresa_id "+
+    "WHERE c.id=$1 AND c.empresa_id=$2",
     [req.params.id,req.empresaId]);
   const canal=rows[0];
-  if(!canal||!canal.activo||!['whatsapp_qr','whatsapp_api'].includes(canal.tipo))
-    return res.status(422).json({error:'Seleccioná un canal WhatsApp activo de IMPAR.'});
+  if(!canal||!canal.activo||!['whatsapp_qr','whatsapp_api'].includes(canal.tipo) ||
+     canal.nombre?.trim().toLowerCase()!=='principal' ||
+     canal.sucursal_nombre?.trim().toLowerCase()!=='central')
+    return res.status(422).json({error:'Solamente la línea «principal» de Central puede ser principal de IMPAR.'});
   // Solo una línea principal para toda IMPAR; preservar los tokens y el resto de
   // configuración, así como su sucursal, credenciales y el número conectado.
   await q(
