@@ -16,7 +16,7 @@ const r = Router();
 r.get('/buscar/registrado', requiere(), async(req,res)=>{
   const busca=String(req.query.q||'').trim().slice(0,90);
   if(busca.length<3)return res.status(422).json({error:'Escribí al menos 3 caracteres para buscar un cliente.'});
-  const patron='%'+busca.replace(/[\\%_]/g,'\\r.get('/:id/conversacion', requiere(), async (req, res) => {')+'%';
+  const patron='%'+busca.replace(/[\\%_]/g, m=>'\\'+m)+'%';
   try{
     const {rows}=await q(
       `SELECT c.id,c.nombre,c.tel,c.sucursal,u.nombre AS responsable
