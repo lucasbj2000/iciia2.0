@@ -149,6 +149,7 @@ function pintar() {
   </div>`, true);
 
   $('.modal').classList.add('conversation-modal');
+  $('.modal').querySelectorAll('details.ficha-contexto, details.ficha-transferencias, details.chat-tools').forEach(panel => { panel.open = false; });
   $('.mask')?.classList.add('conversation-mask');
   $('.modal').dataset.negociacionId = n.id;
   const cb = $('#chatbox'); if (cb) { cb.innerHTML = ''; actualizarMensajes(cb, historialVista?.mensajes || n.mensajes || [], mensajeHTML, true); activarVisor(cb); }
