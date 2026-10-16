@@ -36,7 +36,7 @@ await assert.rejects(
   /No hay una línea WhatsApp activa/
 );
 await assert.rejects(
-  ()=>consultar({query:async()=>({rows:[canalVisible,canalVisible]})},'empresa-impar'),
+  ()=>consultar({query:async()=>({rows:[{...canalVisible,activo:true,tipo:'whatsapp_qr',config:{}},{...canalVisible,activo:true,tipo:'whatsapp_qr',config:{}}]})},'empresa-impar'),
   /más de una línea/
 );
 
