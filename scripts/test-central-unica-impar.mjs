@@ -20,20 +20,20 @@ const idNeg='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const fuentePrincipal=principal.replace(/^export /gm,'');
 const consultar=vm.runInNewContext(fuentePrincipal+';consultarPrincipalCentral');
 const consulta=async(sql,args)=> {
-  assert.ok(sql.includes("lower(trim(ca.nombre))='principal'"));
-  assert.ok(sql.includes("lower(trim(sc.nombre))='central'"));
+  assert.ok(sql.includes("ca.tipo IN ('whatsapp_qr','whatsapp_api')"));
+  assert.ok(sql.includes('LEFT JOIN sucursales sc'));
   assert.ok(sql.includes('ca.empresa_id=$1'));
   assert.ok(sql.includes('ca.activo=TRUE'));
   assert.ok(!sql.includes('u.sucursal')&&!sql.includes("ca.config->>'principal_global'"));
   assert.equal(args[0],'empresa-impar');
-  return {rows:[{id:idCentral,nombre:'principal',linea:'',sucursal:'Central',principal_global:true}]};
+  return {rows:[{id:idCentral,nombre:'principal',linea:'',sucursal:'Central',activo:true,tipo:'whatsapp_qr',config:{}}]};
 };
 const canalVisible=await consultar({query:consulta},'empresa-impar');
 assert.equal(canalVisible.id,idCentral);
 assert.equal(canalVisible.principal_global,true);
 await assert.rejects(
   ()=>consultar({query:async()=>({rows:[]})},'empresa-impar'),
-  /No se encontró la línea/
+  /No hay una línea WhatsApp activa/
 );
 await assert.rejects(
   ()=>consultar({query:async()=>({rows:[canalVisible,canalVisible]})},'empresa-impar'),
@@ -111,6 +111,6 @@ assert.ok(front.includes("$$('[data-cerrar]').forEach"));
 assert.ok(worker.includes("lower(trim(c.nombre))='principal' AND lower(trim(s.nombre))='central'"),
   'La misma línea se trata como compartida al recibir mensajes');
 assert.ok(admin.includes('La línea <b>Central → principal</b>'));
-assert.ok(canal.includes("canal.sucursal_nombre?.trim().toLowerCase()!=='central'"),
-  'No puede elegirse por accidente un canal de otra sucursal');
+assert.ok(canal.includes("r.post('/:id/principal-global', requiere('admin')") && canal.includes('canal.activo'),
+  'Solo el administrador puede definir un WhatsApp activo como institucional');
 console.log('✔ IMPAR: un solo canal Central para todos, búsqueda global y sin duplicar negociaciones.');
