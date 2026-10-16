@@ -110,7 +110,7 @@ async function cambiarResponsableContacto(id,contacto) {
     </div>
     <div class="modal-f"><button class="btn ghost" data-cerrar>Cancelar</button>
       <button class="btn" id="c-confirmar-responsable" disabled>Guardar responsable</button></div>`);
-  $$$('[data-cerrar]').forEach(x=>x.onclick=cerrar);
+  $$('[data-cerrar]').forEach(x=>x.onclick=cerrar);
   const selector=$('#c-nuevo-responsable'),boton=$('#c-confirmar-responsable');
   const validar=()=>boton.disabled=!selector.value||selector.value===actual;
   selector.onchange=validar;validar();
@@ -142,7 +142,7 @@ function avisarActiva(n) {
       <p>${n.propia ? 'La negociación está a tu cargo. Podés ir al chat y a su ubicación en el tablero.' : 'No se creó otra negociación. La conversación continúa con su responsable.'}</p></div>
     <div class="modal-f"><button class="btn ghost" data-cerrar>Cerrar</button>
       ${n.propia ? '<button class="btn" id="c-ir-chat">Ir al chat y ubicación</button>' : ''}</div>`);
-  $$$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
   if ($('#c-ir-chat')) $('#c-ir-chat').onclick = async () => {
     try { await ubicarConversacion(n); } catch (e) { toast(e.message, 'bad'); }
   };
@@ -222,7 +222,7 @@ async function abrirConversacion(id) {
       <div class="err" role="alert" id="c-chat-error"></div></div>
       <div class="modal-f"><button type="button" class="btn ghost" data-cerrar>Cancelar</button>
         <button type="submit" class="btn" id="c-chat-send" ${c.canales.length ? '' : 'disabled'}>Enviar e iniciar negociación</button></div></form>`);
-  $$$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
   let enviando = false;
   conectarEmojis('#c-chat-texto');
   $('#c-chat-form').onsubmit = async e => {
@@ -262,7 +262,7 @@ function modalNuevo() {
    <div class="err" id="n-err"></div></div>
   <div class="modal-f"><button class="btn ghost" data-cerrar>Cancelar</button>
    <button class="btn" id="n-ok">Guardar</button></div>`);
-  $$$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
   let t;
   $('#n-tel').oninput = e => { clearTimeout(t); t = setTimeout(() => chequearDuplicado(e.target.value, '#n-dup'), 350); };
   $('#n-ok').onclick = async () => {
@@ -350,7 +350,7 @@ export async function ficha360(id) {
        || '<tr><td colspan="6" class="empty">Sin negociaciones</td></tr>'}</tbody></table></div></div>`, true);
 
   activarVisor($('.modal'));
-  $$$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
   $$('[data-neg]').forEach(b => b.onclick = () => { cerrar(); fichaNeg(b.dataset.neg); });
   const ab = $('[data-abrir]');
   if (ab) ab.onclick = () => { cerrar(); fichaNeg(abierta.id); };
