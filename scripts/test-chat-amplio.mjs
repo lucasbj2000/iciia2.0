@@ -20,6 +20,13 @@ assert.ok(ficha.includes('<details class="chat-tools"><summary>'),
   'Respuestas y acciones quedan accesibles, cerradas por defecto');
 assert.ok(!ficha.includes('chat-tools\" \${esMovil() ?'),
   'Respuestas rápidas no se expanden por defecto en PC');
+// La inicialización no depende del estado previo ni de estilos heredados.
+assert.ok(ficha.includes("querySelectorAll('details.ficha-contexto, details.ficha-transferencias, details.chat-tools')"));
+assert.ok(ficha.includes('panel.open = false;'), 'Paneles cerrados al entrar a cada conversación');
+for(const tipo of ['ficha-contexto','ficha-transferencias','chat-tools']){
+  assert.ok(css.includes('details.'+tipo+':not([open])'),tipo+' tiene regla cerrada');
+}
+assert.ok(css.includes('display:none!important;'),'Los hijos no se renderizan mientras está contraído');
 assert.ok(ficha.includes('id="chatbox"'));
 assert.ok(ficha.includes('id="msg"'));
 assert.ok(ficha.includes('id="remsg"'));
@@ -33,8 +40,8 @@ assert.ok(ficha.includes("$$('[data-bpers]').forEach"),'Acciones siguen activas'
 assert.ok(ficha.includes("conectarAdjuntos({ inputSel: '#msg'"),'Adjuntos manuales siguen activos');
 assert.ok(ficha.includes("post(\`/negociaciones/\${n.id}/mensajes\`"),'Envío de mensajes inalterado');
 
-assert.ok(index.includes('/chat-amplio.css?v=20261015-1'));
-assert.ok(index.includes('/js/app.js?v=impar-central-unica-20261016-1'));
+assert.ok(index.includes('/chat-amplio.css?v=20261016-cerrado2'));
+assert.ok(index.includes('/js/app.js?v=impar-acordeones-cerrados-20261016-1'));
 // La ampliación se conserva al renovar la versión JS por otras mejoras.
 assert.ok(css.includes('.modal.conversation-modal{'));
 assert.ok(css.includes('height:calc(var(--crm-viewport-height,100dvh) - 20px)'));
