@@ -44,7 +44,7 @@ export async function conversacionContacto(req, contactoId, envio = null) {
     const { rows: nuevas } = await db.query(`INSERT INTO negociaciones
       (empresa_id,contacto_id,titulo,etapa,origen,canal_id,agente_id,sucursal,linea,bot_activo)
       VALUES($1,$2,$3,'contactado','whatsapp',$4,$5,$6,$7,FALSE) RETURNING id`,
-      [req.empresaId,c.id,`Conversación · ${c.nombre}`,canal.id,u.id,u.sucursal || sucursal || '',canal.linea || u.linea || c.linea || '']);
+      [req.empresaId,c.id,`Conversación · ${c.nombre}`,canal.id,u.id,u.sucursal || c.sucursal || '',u.linea || c.linea || canal.linea || '']);
     const id = nuevas[0].id;
     await db.query(`INSERT INTO mensajes(empresa_id,negociacion_id,dir,txt,autor_id,estado)
       VALUES($1,$2,'out',$3,$4,'pendiente')`, [req.empresaId,id,texto,u.id]);
