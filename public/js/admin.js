@@ -80,6 +80,12 @@ async function aCanales() {
     || {url:'',verifyToken:'',tieneSecret:false,https:true,noDisponible:true};
   if (solicitud !== cargaCanalesSeq || TADM !== 'canales' || S.vista !== 'adm') return;
   sucursalesCache = data.sucursales;
+  // El canal único para iniciar conversaciones de IMPAR es siempre el de Central.
+  const central=data.sucursales.find(sc=>sc.nombre?.trim().toLowerCase()==='central');
+  const canalCentral=central?.canales.find(c=>c.activo &&
+    c.nombre?.trim().toLowerCase()==='principal' &&
+    ['whatsapp_qr','whatsapp_api'].includes(c.tipo));
+  const esPrincipal=c=>c.id===canalCentral?.id;
   const tarjeta = c => {
     const [cls, ico] = ICONOS[c.tipo] || ['otro', '📨'];
     const color = c.estado === 'conectado' ? 'var(--ok)' : ['pendiente','reconectando','conectando'].includes(c.estado) ? 'var(--warn)' : 'var(--bad)';
@@ -93,14 +99,14 @@ async function aCanales() {
             : c.estado === 'error' ? 'Error de conexión' : 'Desconectado'}</span>
           ${c.ultima_conexion ? ' · última ' + ago(c.ultima_conexion) + ' atrás' : ''}
           ${!c.activo ? ' · <span style="color:var(--warn)">pausado</span>' : ''}</small>
-        ${c.config?.principal_global ? '<small style="color:var(--ok);font-weight:700">★ Principal compartida · todos los usuarios</small>' : ''}
+        ${esPrincipal(c) ? '<small style="color:var(--ok);font-weight:700">★ Central · principal única para iniciar conversaciones</small>' : ''}
         ${c.ultimo_error ? `<small style="color:var(--bad)">${esc(String(c.ultimo_error).slice(0, 70))}</small>` : ''}</div>
       <div style="flex:none;display:flex;gap:6px;flex-wrap:wrap">
         ${c.tipo === 'whatsapp_qr'
           ? `<button class="btn sm" data-qr="${c.id}">${c.estado === 'conectado' ? '🔄 Estado' : '📷 Vincular'}</button>`
           : `<button class="btn ghost sm" data-probar="${c.id}">✓ Probar</button>`}
         <button class="btn ghost sm" data-editar="${c.id}">Editar</button>
-        ${c.activo && c.tipo.startsWith('whatsapp') && !c.config?.principal_global ?
+        ${esPrincipal(c) && !c.config?.principal_global ?
           `<button class="btn ghost sm" data-principal="${c.id}">Hacer principal</button>` : ''}
         <button class="btn danger sm" data-borrar="${c.id}">✕</button></div></div>`;
   };
@@ -110,10 +116,10 @@ async function aCanales() {
      <h3>📡 Canales por sucursal</h3>
      <button class="btn ghost sm" id="canales-actualizar" type="button">Actualizar estados</button>
      <div style="color:var(--muted);font-size:var(--fs-sm);line-height:1.7">
-       El canal marcado como <b>★ Principal compartida</b> está disponible para todos los usuarios
-       y se selecciona por defecto al iniciar conversaciones desde Contactos.
-       Su sucursal propietaria sigue siendo Central, sin cambiar las sucursales de los agentes.
-       Los demás canales conservan sus reglas de acceso. Los datos quedan en <b>${esc(S.empresa.nombre)}</b>.</div>
+       La línea <b>Central → principal</b> es la única habilitada para iniciar conversaciones nuevas
+       desde Contactos y está disponible para todos los usuarios, independientemente de su sucursal.
+       Las conversaciones que ya están abiertas conservan su canal y su responsable.
+       No es necesario cambiar la sucursal de los empleados.</div>
    </div>
 
    ${data.sucursales.map(s => `<div class="suc-bloque">
@@ -165,8 +171,8 @@ async function aCanales() {
   $$('[data-nuevo]').forEach(b => b.onclick = () => modalCanal(null, b.dataset.nuevo));
   $$('[data-nuevo-suc]').forEach(b => b.onclick = () => modalElegirTipo(b.dataset.nuevoSuc));
   const todos = [...data.sucursales.flatMap(s => s.canales), ...data.sinSucursal];
-  $('[data-editar]').forEach(b => b.onclick = () => modalCanal(todos.find(c => c.id === b.dataset.editar)));
-  $('[data-principal]').forEach(b=>b.onclick=async()=>{
+  $$('[data-editar]').forEach(b => b.onclick = () => modalCanal(todos.find(c => c.id === b.dataset.editar)));
+  $$('[data-principal]').forEach(b=>b.onclick=async()=>{
     const ca=todos.find(c=>c.id===b.dataset.principal);
     if(!ca)return;
     if(!await confirmar('Compartir WhatsApp como línea principal',
