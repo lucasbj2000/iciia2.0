@@ -1,4 +1,5 @@
 import { tx } from './db.mjs';
+import { consultarPrincipalCentral } from './principal-central-impar.mjs';
 
 const fallo = (status, mensaje) => { throw Object.assign(new Error(mensaje), { status }); };
 
@@ -9,14 +10,9 @@ export async function conversacionContacto(req, contactoId, envio = null) {
       'SELECT * FROM contactos WHERE id=$1 AND empresa_id=$2 FOR UPDATE', [contactoId, req.empresaId]);
     const c = contactos[0], u = req.user;
     if (!c) fallo(404, 'Contacto no encontrado.');
-    if (!['admin', 'gerente'].includes(u.rol)) {
-      const { rows } = await db.query(`SELECT 1 FROM usuarios owner WHERE owner.empresa_id=$1
-        AND (owner.id=$2 OR ($3='jefe' AND owner.equipo=$4))
-        AND (owner.id=$5 OR EXISTS(SELECT 1 FROM negociaciones n WHERE n.empresa_id=$1
-          AND n.contacto_id=$6 AND n.agente_id=owner.id)) LIMIT 1`,
-        [req.empresaId, u.id, u.rol, u.usuario, c.responsable_id, c.id]);
-      if (!rows.length && !(u.rol === 'jefe' && !c.responsable_id)) fallo(404, 'Contacto no encontrado.');
-    }
+    // Todos los usuarios activos de IMPAR pueden iniciar un chat con un
+    // contacto registrado, incluso si pertenece a otra sucursal. Si ya hay
+    // una negociación abierta, se respeta su responsable y no se duplica.
     const activas = (req.empresa.etapas || []).filter(e => e.activa).map(e => e.id);
     const { rows: abiertas } = await db.query(`SELECT n.id,n.etapa,n.agente_id,n.sucursal,n.linea,
       u.nombre AS responsable FROM negociaciones n LEFT JOIN usuarios u ON u.id=n.agente_id
@@ -27,20 +23,19 @@ export async function conversacionContacto(req, contactoId, envio = null) {
       return { activa: true, propia, id: propia ? n.id : null, etapa: n.etapa,
         sucursal: n.sucursal, linea: n.linea, responsable: n.responsable || 'Sin asignar' };
     }
-    const sucursal = ['admin', 'gerente'].includes(u.rol) ? (c.sucursal || u.sucursal) : u.sucursal;
-    const { rows: canales } = await db.query(`SELECT ca.id,ca.nombre,ca.linea,s.nombre AS sucursal,
-      (ca.config->>'principal_global')='true' AS principal_global
-      FROM canales ca LEFT JOIN sucursales s ON s.id=ca.sucursal_id
-      WHERE ca.empresa_id=$1 AND ca.activo AND ca.tipo IN('whatsapp_qr','whatsapp_api')
-      AND ((ca.config->>'principal_global')='true' OR (
-        (ca.sucursal_id IS NULL OR s.nombre=$2)
-        AND (COALESCE(ca.linea,'')='' OR COALESCE($3,'')='' OR ca.linea=$3)))
-      ORDER BY ((ca.config->>'principal_global')='true') DESC,ca.nombre`, [req.empresaId, sucursal || '', u.linea || c.linea || '']);
+    // ÚNICAMENTE la línea institucional de Central; no filtrar por
+    // sucursal ni por línea del empleado. La búsqueda es la misma para
+    // agentes, jefes, gerentes y administración.
+    const principal = await consultarPrincipalCentral(db,req.empresaId);
+    const canales=[principal];
     if (!envio) return { activa: false, nombre: c.nombre, tel: c.tel, canales };
     const texto = String(envio.texto || '').trim();
     if (!texto || texto.length > 10000) fallo(422, 'Escribí un mensaje de hasta 10.000 caracteres.');
-    const canal = canales.find(x => x.id === envio.canalId);
-    if (!canal) fallo(422, 'Seleccioná una línea WhatsApp habilitada para tu usuario.');
+    // Resolver siempre en el servidor la línea activa y correcta, incluso
+    // si el navegador conservó un selector desactualizado.
+    if(envio.canalId && envio.canalId!==principal.id)
+      fallo(409,'Esta conversación debe iniciarse desde la línea principal de Central. Actualizá la ventana.');
+    const canal=principal;
     let destino = String(c.tel || '').replace(/\D/g, '');
     if (destino.length === 10 && destino.startsWith('09')) destino = destino.slice(1);
     if (destino.length === 9 && destino.startsWith('9')) destino = '595' + destino;
