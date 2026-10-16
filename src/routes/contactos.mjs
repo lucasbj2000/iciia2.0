@@ -16,16 +16,16 @@ const r = Router();
 r.get('/buscar/registrado', requiere(), async(req,res)=>{
   const busca=String(req.query.q||'').trim().slice(0,90);
   if(busca.length<3)return res.status(422).json({error:'Escribí al menos 3 caracteres para buscar un cliente.'});
-  const patron='%'+busca.replace(/[\\%_]/g, m=>'\\'+m)+'%';
+  const termino=busca.toLowerCase();
   try{
     const {rows}=await q(
       `SELECT c.id,c.nombre,c.tel,c.sucursal,u.nombre AS responsable
          FROM contactos c LEFT JOIN usuarios u ON u.id=c.responsable_id
         WHERE c.empresa_id=$1 AND
-          (c.nombre ILIKE $2 ESCAPE '\\' OR c.tel ILIKE $2 ESCAPE '\\'
-          OR c.email ILIKE $2 ESCAPE '\\')
+          (strpos(lower(c.nombre),$2)>0 OR strpos(c.tel,$2)>0
+          OR strpos(lower(c.email),$2)>0)
         ORDER BY c.nombre LIMIT 25`,
-      [req.empresaId,patron]);
+      [req.empresaId,termino]);
     res.set('Cache-Control','no-store').json(rows);
   }catch(e){console.error('[impar] Buscar contacto registrado:',e.message);
     res.status(500).json({error:'No se pudo consultar la base de clientes.'});}
