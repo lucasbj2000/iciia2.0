@@ -44,6 +44,8 @@ jobs:
         run: node scripts/test-principal-contactos.mjs
       - name: Layout de chat amplio y desplegables para agentes
         run: node scripts/test-chat-amplio.mjs
+      - name: IMPAR Central única y clientes registrados de otras sucursales
+        run: node scripts/test-central-unica-impar.mjs
       - name: Validar script de despliegue
         run: bash -n scripts/actualizar.sh
 
