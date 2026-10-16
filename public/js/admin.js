@@ -81,11 +81,20 @@ async function aCanales() {
   if (solicitud !== cargaCanalesSeq || TADM !== 'canales' || S.vista !== 'adm') return;
   sucursalesCache = data.sucursales;
   // El canal único para iniciar conversaciones de IMPAR es siempre el de Central.
-  const central=data.sucursales.find(sc=>sc.nombre?.trim().toLowerCase()==='central');
-  const canalCentral=central?.canales.find(c=>c.activo &&
-    c.nombre?.trim().toLowerCase()==='principal' &&
-    ['whatsapp_qr','whatsapp_api'].includes(c.tipo));
-  const esPrincipal=c=>c.id===canalCentral?.id;
+  // Resolver igual que el servidor: etiqueta explícita, Central o línea única.
+  // No filtrar por la sucursal del empleado.
+  const waDisponibles=[
+    ...data.sucursales.flatMap(s=>s.canales.map(c=>({...c,sucursalVisible:s.nombre}))),
+    ...data.sinSucursal.map(c=>({...c,sucursalVisible:''}))
+  ].filter(c=>c.activo && ['whatsapp_qr','whatsapp_api'].includes(c.tipo));
+  const marcadas=waDisponibles.filter(c=>c.config?.principal_global===true);
+  const centrales=waDisponibles.filter(c=>c.sucursalVisible?.trim().toLowerCase()==='central');
+  const porNombre=centrales.filter(c=>c.nombre?.trim().toLowerCase()==='principal');
+  const oficial=marcadas.length===1 ? marcadas[0]
+    : marcadas.length>1 ? null : porNombre.length===1 ? porNombre[0]
+    : porNombre.length>1 ? null : centrales.length===1 ? centrales[0]
+    : waDisponibles.length===1 ? waDisponibles[0] : null;
+  const esPrincipal=c=>c.id===oficial?.id;
   const tarjeta = c => {
     const [cls, ico] = ICONOS[c.tipo] || ['otro', '📨'];
     const color = c.estado === 'conectado' ? 'var(--ok)' : ['pendiente','reconectando','conectando'].includes(c.estado) ? 'var(--warn)' : 'var(--bad)';
@@ -106,8 +115,8 @@ async function aCanales() {
           ? `<button class="btn sm" data-qr="${c.id}">${c.estado === 'conectado' ? '🔄 Estado' : '📷 Vincular'}</button>`
           : `<button class="btn ghost sm" data-probar="${c.id}">✓ Probar</button>`}
         <button class="btn ghost sm" data-editar="${c.id}">Editar</button>
-        ${esPrincipal(c) && !c.config?.principal_global ?
-          `<button class="btn ghost sm" data-principal="${c.id}">Hacer principal</button>` : ''}
+        ${c.activo && ['whatsapp_qr','whatsapp_api'].includes(c.tipo) && !c.config?.principal_global ?
+          `<button class="btn ghost sm" data-principal="${c.id}">Usar como principal</button>` : ''}
         <button class="btn danger sm" data-borrar="${c.id}">✕</button></div></div>`;
   };
 
