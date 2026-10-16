@@ -140,7 +140,7 @@ function avisarActiva(n) {
       <p>${n.propia ? 'La negociación está a tu cargo. Podés ir al chat y a su ubicación en el tablero.' : 'No se creó otra negociación. La conversación continúa con su responsable.'}</p></div>
     <div class="modal-f"><button class="btn ghost" data-cerrar>Cerrar</button>
       ${n.propia ? '<button class="btn" id="c-ir-chat">Ir al chat y ubicación</button>' : ''}</div>`);
-  $$$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
   if ($('#c-ir-chat')) $('#c-ir-chat').onclick = async () => {
     try { await ubicarConversacion(n); } catch (e) { toast(e.message, 'bad'); }
   };
@@ -151,16 +151,18 @@ async function abrirConversacion(id) {
   if (c.activa) return avisarActiva(c);
   modal(`<div class="modal-h"><h3>Conversación · ${esc(c.nombre)}</h3><button class="x" data-cerrar>✕</button></div>
     <form id="c-chat-form"><div class="modal-b"><p>${esc(c.tel || 'Sin teléfono')}</p>
-      <p>Al enviar el primer mensaje se creará una negociación en Contactado, a tu cargo.</p>
-      <div class="field"><label for="c-chat-canal">Línea WhatsApp</label><select required id="c-chat-canal">
-        ${c.canales.length === 1 || c.canales.some(ca=>ca.principal_global) ? '' : '<option value="">Seleccionar…</option>'}
-        ${c.canales.map(x => `<option value="${x.id}" ${x.principal_global?'selected':''}>${x.principal_global?'★ Principal · ':''}${esc(x.nombre)} · ${esc(x.sucursal || 'General')} · ${esc(x.linea || '')}</option>`).join('')}</select></div>
-      ${c.canales.length ? '' : '<p>No hay líneas WhatsApp habilitadas para tu sucursal. Consultá al administrador.</p>'}
+      <p>Se utilizará únicamente la línea WhatsApp «principal» de Central. Al enviar el primer mensaje se creará una negociación en Contactado, a tu cargo.</p>
+      <div class="field"><label>Línea WhatsApp de IMPAR</label>
+        ${c.canales.length ? `<div class="pill" style="display:flex;align-items:center;gap:8px">
+          📱 <b>Central · principal</b><span style="color:var(--ok)">Compartida para todos los empleados</span>
+          </div><input type="hidden" id="c-chat-canal" value="${esc(c.canales[0].id)}">`
+          : '<p role="alert">La línea principal de Central no está disponible. Consultá a Administración → Canales.</p>'}
+      </div>
       <div class="field"><label for="c-chat-texto">Mensaje inicial</label><textarea required maxlength="10000" rows="4" id="c-chat-texto"></textarea></div>
       <div class="err" role="alert" id="c-chat-error"></div></div>
       <div class="modal-f"><button type="button" class="btn ghost" data-cerrar>Cancelar</button>
         <button type="submit" class="btn" id="c-chat-send" ${c.canales.length ? '' : 'disabled'}>Enviar e iniciar negociación</button></div></form>`);
-  $$$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
   let enviando = false;
   conectarEmojis('#c-chat-texto');
   $('#c-chat-form').onsubmit = async e => {
@@ -200,7 +202,7 @@ function modalNuevo() {
    <div class="err" id="n-err"></div></div>
   <div class="modal-f"><button class="btn ghost" data-cerrar>Cancelar</button>
    <button class="btn" id="n-ok">Guardar</button></div>`);
-  $$$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
   let t;
   $('#n-tel').oninput = e => { clearTimeout(t); t = setTimeout(() => chequearDuplicado(e.target.value, '#n-dup'), 350); };
   $('#n-ok').onclick = async () => {
@@ -288,7 +290,7 @@ export async function ficha360(id) {
        || '<tr><td colspan="6" class="empty">Sin negociaciones</td></tr>'}</tbody></table></div></div>`, true);
 
   activarVisor($('.modal'));
-  $$$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
   $$('[data-neg]').forEach(b => b.onclick = () => { cerrar(); fichaNeg(b.dataset.neg); });
   const ab = $('[data-abrir]');
   if (ab) ab.onclick = () => { cerrar(); fichaNeg(abierta.id); };
