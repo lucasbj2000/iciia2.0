@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import { elegirPrincipalImpar, consultarPrincipalCentral } from '../src/principal-central-impar.mjs';
 
 const leer=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=leer('src/migrations/016_canal_principal_impar.sql');
@@ -90,4 +91,48 @@ const bajo={...req,user:{id:'id-agente',rol:'agente',nombre:'Agente'}};
 await assert.rejects(()=>fn.cambiarResponsable(bajo,contactoId,nuevoId),/permiso/);
 const intruso={...req,user:{id:'jefe',rol:'jefe',usuario:'jefe.otro',sucursal:'Otro',nombre:'Jefe'}};
 await assert.rejects(()=>fn.cambiarResponsable(intruso,contactoId,nuevoId),/equipo/);
+
+/* El único número activo de IMPAR debe servir para cualquier sucursal,
+   aunque el administrador lo haya llamado de otra forma. */
+const ejemplo=(id,nombre,sucursal='',config={},activo=true)=>({
+  id,nombre,sucursal,config,activo,tipo:'whatsapp_qr',linea:'Única línea'
+});
+const unico=ejemplo('canal-unico','WhatsApp Central','Central');
+const segundo=ejemplo('canal-otro','Sucursal CDE','Ciudad del Este');
+assert.equal(elegirPrincipalImpar([unico]).id,'canal-unico');
+assert.equal(elegirPrincipalImpar([ejemplo('solo','Número activo sin sucursal')]).id,'solo');
+assert.equal(elegirPrincipalImpar([unico,segundo]).id,'canal-unico',
+  'Si hay un solo WhatsApp en Central se ofrece a todos, incluso CDE');
+assert.equal(elegirPrincipalImpar([segundo,{...unico,config:{principal_global:true}}]).id,'canal-unico');
+assert.equal(elegirPrincipalImpar([ejemplo('p','principal','Central'),segundo]).id,'p');
+assert.throws(()=>elegirPrincipalImpar([]),/No hay una línea WhatsApp activa/);
+assert.throws(()=>elegirPrincipalImpar([unico,ejemplo('otra','Otras','Central')]),/varias líneas/i);
+assert.throws(()=>elegirPrincipalImpar([
+  {...unico,config:{principal_global:true}},{...segundo,config:{principal_global:true}}
+]),/dos canales marcados/i);
+const llamadasLinea=[];
+const dbLinea={query:async(sql,args)=>{
+  llamadasLinea.push({sql,args});
+  return {rows:[unico]};
+}};
+const respuestaLinea=await consultarPrincipalCentral(dbLinea,'empresa-impar');
+assert.equal(respuestaLinea.id,'canal-unico');
+assert.equal(respuestaLinea.principal_global,true);
+assert.deepEqual([...llamadasLinea[0].args],['empresa-impar']);
+assert.ok(llamadasLinea[0].sql.includes('ca.empresa_id=$1'),
+  'El canal nunca se consulta fuera de IMPAR');
+assert.ok(!llamadasLinea[0].sql.includes('u.sucursal') &&
+  !llamadasLinea[0].sql.includes('u.linea'),'No restringe canales por preferencias del empleado');
+const migracion017=leer('src/migrations/017_activar_whatsapp_unico_impar.sql');
+assert.ok(migracion017.includes("config->>'principal_global'='true'"),
+  'La migración respeta canales ya marcados');
+assert.ok(migracion017.includes('n_total<>1'),
+  'No selecciona un WhatsApp arbitrariamente si hay varios');
+assert.ok(!/UPDATE\s+(usuarios|contactos|negociaciones)\b/i.test(migracion017));
+assert.ok(canal.includes("r.post('/:id/principal-global', requiere('admin')"),
+  'Solo el administrador define el canal cuando hay más de uno');
+assert.ok(front.includes('type="hidden" id="c-chat-canal"'),
+  'El nuevo formulario no necesita elegir línea por sucursal');
+assert.ok(!front.includes('<select required id="c-chat-canal"'),
+  'El desplegable antiguo no puede reaparecer en la versión nueva');
 console.log('✔ IMPAR: canal de Central compartido y responsable editable con transferencia segura.');
