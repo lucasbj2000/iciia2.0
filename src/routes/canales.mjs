@@ -128,10 +128,8 @@ r.post('/:id/principal-global', requiere('admin'), async(req,res)=>{
     "WHERE c.id=$1 AND c.empresa_id=$2",
     [req.params.id,req.empresaId]);
   const canal=rows[0];
-  if(!canal||!canal.activo||!['whatsapp_qr','whatsapp_api'].includes(canal.tipo) ||
-     canal.nombre?.trim().toLowerCase()!=='principal' ||
-     canal.sucursal_nombre?.trim().toLowerCase()!=='central')
-    return res.status(422).json({error:'Solamente la línea «principal» de Central puede ser principal de IMPAR.'});
+  if(!canal||!canal.activo||!['whatsapp_qr','whatsapp_api'].includes(canal.tipo))
+    return res.status(422).json({error:'Seleccioná una línea WhatsApp activa de IMPAR.'});
   // Solo una línea principal para toda IMPAR; preservar los tokens y el resto de
   // configuración, así como su sucursal, credenciales y el número conectado.
   await q(
