@@ -169,6 +169,19 @@
 .conversation-modal #t-his:not(.hidden),
 .conversation-modal #t-notas:not(.hidden){flex:1 1 0;min-height:0;overflow:auto}
 
+/* Datos, transferencias y acciones realmente ocultos al contraerlos. */
+.conversation-modal details.ficha-contexto:not([open]) > :not(summary),
+.conversation-modal details.ficha-transferencias:not([open]) > :not(summary),
+.conversation-modal details.chat-tools:not([open]) > :not(summary){
+  display:none!important;
+}
+.conversation-modal details.ficha-contexto:not([open]),
+.conversation-modal details.ficha-transferencias:not([open]),
+.conversation-modal details.chat-tools:not([open]){
+  flex:0 0 auto;
+  max-height:none;
+  overflow:hidden;
+}
 /* Móvil: controles siempre accesibles, texto a tamaño normal y teclado respetado. */
 @media(max-width:900px){
   .modal.conversation-modal{
