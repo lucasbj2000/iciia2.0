@@ -19,7 +19,7 @@ export async function drenarInbox() {
   try {
     const { rows } = await q(
       `SELECT i.*, c.sucursal_id, c.linea AS canal_linea, s.nombre AS canal_sucursal,
-                (c.config->>'principal_global')='true' AS canal_compartido
+                ((c.config->>'principal_global')='true' OR (lower(trim(c.nombre))='principal' AND lower(trim(s.nombre))='central')) AS canal_compartido
          FROM inbox i
          LEFT JOIN canales c ON c.id = i.canal_id
          LEFT JOIN sucursales s ON s.id = c.sucursal_id
