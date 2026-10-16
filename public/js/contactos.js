@@ -29,6 +29,7 @@ export async function vistaContactos() {
        style="padding:10px 13px;background:var(--surface2);border:1px solid var(--line);border-radius:10px">
      <div style="flex:none;display:flex;gap:8px;flex-wrap:wrap">
        <button class="btn" id="c-nuevo">+ Nuevo contacto</button>
+       <button class="btn ghost" id="c-buscar-registrado" title="Buscar cliente de cualquier sucursal para iniciar conversación">Buscar registrado en IMPAR</button>
        ${(esAdmin() || S.usuario.rol === 'gerente') && fx('exportar') ? `<button class="btn ghost" id="c-export">⭳ Exportar</button>` : ''}
        ${(esAdmin() || S.usuario.rol === 'gerente') && fx('importar') ? `<button class="btn ghost" id="c-import">⭱ Importar</button>
        <input id="c-file" type="file" accept=".csv" class="hidden">` : ''}</div></div>
@@ -52,6 +53,7 @@ export async function vistaContactos() {
   let t;
   $('#c-buscar').oninput = e => { clearTimeout(t); QC = e.target.value; t = setTimeout(vistaContactos, 320); };
   $('#c-nuevo').onclick = modalNuevo;
+  $('#c-buscar-registrado').onclick=buscarContactoImpar;
   $$('[data-360]').forEach(b => b.onclick = () => ficha360(b.dataset['360']));
   $$('[data-cambiar-responsable]').forEach(b=>b.onclick=()=>cambiarResponsableContacto(
     b.dataset.cambiarResponsable,cs.find(c=>c.id===b.dataset.cambiarResponsable)));
@@ -144,6 +146,64 @@ function avisarActiva(n) {
   if ($('#c-ir-chat')) $('#c-ir-chat').onclick = async () => {
     try { await ubicarConversacion(n); } catch (e) { toast(e.message, 'bad'); }
   };
+}
+
+/** Busca en toda la empresa sin acceder a fichas e historiales ajenos. */
+function buscarContactoImpar(){
+  modal(`<div class="modal-h"><h3>Buscar cliente registrado · IMPAR</h3>
+    <button class="x" data-cerrar>✕</button></div>
+    <div class="modal-b">
+      <p class="sub">Encontrá un cliente de cualquier sucursal y abrí una conversación con la línea única «principal» de Central. Si ya tiene una negociación abierta, se conservará su responsable.</p>
+      <div class="row" style="gap:8px;align-items:end">
+        <div class="field" style="flex:1;min-width:0">
+          <label for="busqueda-impar-global">Nombre, teléfono o correo</label>
+          <input id="busqueda-impar-global" placeholder="Escribí al menos 3 caracteres…" autocomplete="off" maxlength="90"></div>
+        <button class="btn sm" id="busqueda-impar-ejecutar">Buscar</button>
+      </div>
+      <div id="busqueda-impar-resultados" role="status" style="margin-top:12px">
+        <p class="sub">Los datos del cliente no se modificarán al buscar.</p>
+      </div>
+    </div>
+    <div class="modal-f"><button class="btn ghost" data-cerrar>Cerrar</button></div>`);
+  $('[data-cerrar]').forEach(b=>b.onclick=cerrar);
+  const input=$('#busqueda-impar-global');
+  const enviar=$('#busqueda-impar-ejecutar');
+  let secuencia=0;
+  const ejecutar=async()=>{
+    const termino=input.value.trim();
+    if(termino.length<3){
+      $('#busqueda-impar-resultados').textContent='Escribí al menos 3 caracteres para buscar.';
+      return;
+    }
+    const solicitud=++secuencia;
+    enviar.disabled=true;enviar.textContent='Buscando…';
+    try{
+      const resultados=await get('/contactos/buscar/registrado?q='+encodeURIComponent(termino));
+      if(solicitud!==secuencia||!$('#busqueda-impar-resultados'))return;
+      const contenedor=$('#busqueda-impar-resultados');
+      contenedor.innerHTML=resultados.length
+        ? resultados.map(c=>`<div class="card-box" style="margin:6px 0;padding:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <div style="min-width:0"><b>${esc(c.nombre)}</b>
+            <small style="display:block;color:var(--muted)">${esc(c.tel||'Sin número')} · ${esc(c.sucursal||'IMPAR')} · Responsable: ${esc(c.responsable||'Sin asignar')}</small></div>
+          <button class="btn sm" type="button" data-abrir-impar="${esc(c.id)}">Conversación</button>
+        </div>`).join('')
+        : '<p class="sub">No encontramos clientes con esos datos. Podés crear uno desde «Nuevo contacto».</p>';
+      $('[data-abrir-impar]').forEach(b=>b.onclick=async()=>{
+        b.disabled=true;
+        try{await abrirConversacion(b.dataset.abrirImpar);}
+        catch(e){toast(e.message,'bad','Conversación');b.disabled=false;}
+      });
+    }catch(e){
+      if(solicitud===secuencia && $('#busqueda-impar-resultados'))
+        $('#busqueda-impar-resultados').textContent=e.message;
+    }finally{
+      if(solicitud===secuencia && enviar.isConnected){
+        enviar.disabled=false;enviar.textContent='Buscar';
+      }
+    }
+  };
+  enviar.onclick=ejecutar;
+  input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();ejecutar();}};
 }
 
 async function abrirConversacion(id) {
