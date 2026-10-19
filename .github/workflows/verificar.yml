@@ -50,6 +50,8 @@ jobs:
         run: node scripts/test-ficha360-cierre.mjs
       - name: Layout de chat amplio y desplegables para agentes
         run: node scripts/test-chat-amplio.mjs
+      - name: Enlaces clicables y seguros en conversaciones e historial
+        run: node scripts/test-enlaces-chat.mjs
       - name: IMPAR Central única y clientes registrados de otras sucursales
         run: node scripts/test-central-unica-impar.mjs
       - name: Verificar formulario único y chequeo público
