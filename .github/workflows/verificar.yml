@@ -50,8 +50,12 @@ jobs:
         run: |
           node scripts/test-publicacion-central.mjs
           bash -n scripts/verificar-publicacion-central.sh
-      - name: Validar script de despliegue
-        run: bash -n scripts/actualizar.sh
+      - name: Validar script de despliegue y Protocolo 002
+        run: |
+          bash -n scripts/actualizar.sh
+          bash -n scripts/backup.sh
+          bash -n scripts/verificar-publicacion.sh
+          node scripts/test-protocolo-002.mjs
 
   migraciones_postgres:
     name: Migraciones de línea Central en PostgreSQL real
