@@ -166,7 +166,7 @@ function buscarContactoImpar(){
       </div>
     </div>
     <div class="modal-f"><button class="btn ghost" data-cerrar>Cerrar</button></div>`);
-  $$$('[data-cerrar]').forEach(b=>b.onclick=cerrar);
+  $('[data-cerrar]').forEach(b=>b.onclick=cerrar);
   const input=$('#busqueda-impar-global');
   const enviar=$('#busqueda-impar-ejecutar');
   let secuencia=0;
