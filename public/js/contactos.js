@@ -1,6 +1,6 @@
 /* ============ Contactos y ficha 360° ============ */
 import {
-  $, $$, esc, S, get, post, patch, gs, fd, fdate, toast, modal, cerrar,
+  $, $, esc, S, api, get, post, patch, del, gs, fd, fdate, toast, modal, cerrar,
   fx, esAdmin, etapa, bajar, vacio, skeleton
 } from './core.js';
 import { fichaNeg } from './ficha.js';
@@ -9,6 +9,7 @@ import { activarVisor } from './adjuntos.js';
 import { conectarEmojis } from './emojis.js';
 
 let QC = '';
+let ultimaCargaFicha=0;
 
 export async function vistaContactos() {
   $('#view').innerHTML = `<div class="section">${skeleton(5)}</div>`;
@@ -210,7 +211,12 @@ async function abrirConversacion(id) {
   const c = await get(`/contactos/${id}/conversacion`);
   if (c.activa) return avisarActiva(c);
   modal(`<div class="modal-h"><h3>Conversación · ${esc(c.nombre)}</h3><button class="x" data-cerrar>✕</button></div>
-    <form id="c-chat-form"><div class="modal-b"><p>${esc(c.tel || 'Sin teléfono')}</p>
+    <form id="c-chat-form"><div class="modal-b"><p>${esc(c.nombre)} · Cliente IMPAR</p>
+      <div class="field"><label for="c-chat-numero">Número destinatario del cliente</label>
+      <select id="c-chat-numero">${(c.telefonos||[]).map(t=>
+        `<option value="${esc(t.numero)}">${esc(t.numero)} · ${esc(t.etiqueta)}</option>`).join('') ||
+        `<option value="${esc(c.tel||'')}">${esc(c.tel||'Sin número')}</option>`}</select>
+      <small>Los números están vinculados a la misma ficha; elegí a cuál escribir.</small></div>
       <p>Se utilizará únicamente la línea WhatsApp «principal» de Central. Al enviar el primer mensaje se creará una negociación en Contactado, a tu cargo.</p>
       <div class="field"><label>Línea WhatsApp de IMPAR</label>
         ${c.canales.length ? `<div class="pill" style="display:flex;align-items:center;gap:8px">
@@ -231,7 +237,8 @@ async function abrirConversacion(id) {
     if (!texto || !canalId) return;
     enviando = true; $('#c-chat-send').disabled = true;
     try {
-      const n = await post(`/contactos/${id}/conversacion`, { texto, canalId });
+      const n = await post(`/contactos/${id}/conversacion`, { texto, canalId,
+        telefono:$('#c-chat-numero').value });
       if (n.activa) return avisarActiva(n);
       toast('Negociación creada · mensaje en cola de envío', 'ok');
       await ubicarConversacion(n);
@@ -289,8 +296,26 @@ function modalNuevo() {
 }
 
 export async function ficha360(id) {
-  modal(`<div class="modal-b" style="text-align:center;padding:48px"><span class="spin lg"></span></div>`, true);
-  const c = await get(`/contactos/${id}`);
+  const turno=++ultimaCargaFicha;
+  modal(`<div class="modal-h"><h3>Ficha 360°</h3><button class="x" data-cerrar>✕</button></div>
+    <div class="modal-b" style="text-align:center;padding:35px" data-ficha-cargando="${esc(id)}">
+      <span class="spin lg"></span><p>Consultando información del cliente…</p></div>`,true);
+  $('[data-cerrar]').forEach(b=>b.onclick=cerrar);
+  let c;
+  try{
+    c=await api(`/contactos/${id}`,{cache:'no-store',signal:AbortSignal.timeout(16000)});
+  }catch(e){
+    if(turno!==ultimaCargaFicha || !$('[data-ficha-cargando]'))return;
+    modal(`<div class="modal-h"><h3>No se pudo cargar la ficha 360°</h3><button class="x" data-cerrar>✕</button></div>
+      <div class="modal-b"><p role="alert">${esc(e.message)}</p>
+      <p class="sub">Si el problema continúa, revisá permisos y conexión del CRM. No se modificó ningún dato.</p></div>
+      <div class="modal-f"><button class="btn ghost" data-cerrar>Cerrar</button>
+      <button class="btn" id="f-reintentar">Reintentar</button></div>`,true);
+    $('[data-cerrar]').forEach(b=>b.onclick=cerrar);
+    $('#f-reintentar').onclick=()=>ficha360(id);
+    return;
+  }
+  if(turno!==ultimaCargaFicha || !$('[data-ficha-cargando]'))return;
   const r = c.resumen;
   const porOrigen = {};
   c.negociaciones.forEach(n => porOrigen[n.origen] = (porOrigen[n.origen] || 0) + 1);
@@ -313,7 +338,7 @@ export async function ficha360(id) {
    <div class="grid g2">
      <div class="card-box"><h3>Datos personales</h3>
       <div class="row"><div class="field"><label>Nombre</label><input id="f-nom" value="${esc(c.nombre)}"></div>
-       <div class="field"><label>Teléfono</label><input id="f-tel" value="${esc(c.tel || '')}"></div></div>
+       <div class="field"><label>Teléfono principal</label><input id="f-tel" readonly value="${esc(c.tel || '')}" title="Agregá otros teléfonos desde el apartado correspondiente"></div></div>
       <div class="row"><div class="field"><label>Email</label><input id="f-mail" value="${esc(c.email || '')}"></div>
        <div class="field"><label>Documento</label><input id="f-doc" value="${esc(c.doc || '')}"></div></div>
       <div class="row"><div class="field"><label>Ciudad</label><input id="f-ciu" value="${esc(c.ciudad || '')}"></div>
@@ -324,7 +349,8 @@ export async function ficha360(id) {
         <input id="f-dir" value="${esc(c.direccion || '')}"></div>
       <div class="field"><label>Primer alta</label><input value="${fdate(c.creado)}" disabled></div>
       <div class="field"><label>Notas</label><textarea id="f-not" rows="2">${esc(c.notas || '')}</textarea></div>
-      <button class="btn sm" id="f-guardar">Guardar cambios</button>
+      ${c.editable?'<button class="btn sm" id="f-guardar">Guardar cambios</button>'
+        :'<p class="sub">Esta ficha es de solo lectura. Solicitá su asignación para editarla.</p>'}
       ${c.lat != null ? `<a class="btn ghost sm" href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lon}"
         target="_blank" rel="noopener">🗺 Ver en el mapa</a>` : ''}</div>
      <div class="card-box"><h3>Canales de ingreso</h3>
@@ -332,6 +358,22 @@ export async function ficha360(id) {
         <div style="display:flex;justify-content:space-between;font-size:var(--fs-sm)"><span>${o}</span><b>${v}</b></div>
         <div class="bar"><i style="width:${Math.round(v / r.total * 100)}%"></i></div></div>`).join('')
         || '<div class="empty">Sin datos</div>'}
+      <h3 style="margin-top:14px">Teléfonos vinculados</h3>
+      <p class="sub">Un cliente puede tener varios números, manteniendo su responsable e historial.</p>
+      <div id="f-telefonos">${(c.telefonos||[]).map(t=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">
+          <span><b>${esc(t.numero)}</b> <small>· ${esc(t.etiqueta)}</small></span>
+          ${c.editable && t.tel_norm!==c.tel_norm
+            ? `<button class="btn ghost sm" data-eliminar-telefono="${esc(t.id)}">Quitar</button>` : ''}
+        </div>`).join('')||`<div>${esc(c.tel||'Sin teléfono principal')}</div>`}</div>
+      ${c.editable?`<div class="row" style="margin-top:10px">
+        <div class="field"><label>Agregar otro número (con código de país)</label>
+        <input id="f-telefono-adicional" inputmode="tel" placeholder="5959XXXXXXXX"></div>
+        <div class="field"><label>Tipo</label><select id="f-telefono-etiqueta">
+          <option>Secundario</option><option>Trabajo</option><option>Personal</option><option>Familiar</option>
+        </select></div></div>
+        <button class="btn ghost sm" id="f-vincular-telefono">+ Vincular teléfono</button>
+        <p class="err" id="f-error-telefono" role="alert"></p>`:''}
       <h3 style="margin-top:14px">Identidades vinculadas</h3>
       <div class="mono" style="color:var(--muted);line-height:1.8">
         ${Object.entries(c.externos || {}).map(([k, v]) => `${k}: ${esc(v)}`).join('<br>') || '—'}</div>
@@ -356,14 +398,40 @@ export async function ficha360(id) {
   if (ab) ab.onclick = () => { cerrar(); fichaNeg(abierta.id); };
   if($('#f-cambiar-responsable'))$('#f-cambiar-responsable').onclick=()=>
     cambiarResponsableContacto(c.id,c);
-  $('#f-guardar').onclick = async () => {
-    await patch(`/contactos/${c.id}`, {
-      nombre: $('#f-nom').value.trim(), tel: $('#f-tel').value.trim(), email: $('#f-mail').value.trim(),
-      doc: $('#f-doc').value.trim(), ciudad: $('#f-ciu').value.trim(),
-      direccion: $('#f-dir').value.trim(), notas: $('#f-not').value
+  if(!c.editable){
+    ['f-nom','f-mail','f-doc','f-ciu','f-dir','f-not'].forEach(x=>{
+      const elem=$('#'+x);if(elem)elem.disabled=true;
     });
-    toast('Ficha actualizada', 'ok'); cerrar(); vistaContactos();
-  };
+  }else{
+    $('#f-guardar').onclick=async()=>{
+      const boton=$('#f-guardar');boton.disabled=true;
+      try{
+        await patch(`/contactos/${c.id}`,{
+          nombre:$('#f-nom').value.trim(),email:$('#f-mail').value.trim(),
+          doc:$('#f-doc').value.trim(),ciudad:$('#f-ciu').value.trim(),
+          direccion:$('#f-dir').value.trim(),notas:$('#f-not').value
+        });
+        toast('Ficha actualizada','ok');cerrar();vistaContactos();
+      }catch(e){toast(e.message,'bad','Ficha 360');boton.disabled=false;}
+    };
+    if($('#f-vincular-telefono'))$('#f-vincular-telefono').onclick=async()=>{
+      const boton=$('#f-vincular-telefono');boton.disabled=true;
+      try{
+        await post(`/contactos/${c.id}/telefonos`,{
+          numero:$('#f-telefono-adicional').value,etiqueta:$('#f-telefono-etiqueta').value
+        });
+        toast('Número vinculado a la misma ficha','ok');ficha360(id);
+      }catch(e){if($('#f-error-telefono'))$('#f-error-telefono').textContent=e.message;
+        boton.disabled=false;}
+    };
+    $('[data-eliminar-telefono]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('¿Desvincular este teléfono secundario? No se borrarán los mensajes del cliente.'))return;
+      b.disabled=true;
+      try{await del(`/contactos/${c.id}/telefonos/${b.dataset.eliminarTelefono}`);
+        toast('Número desvinculado','ok');ficha360(id);}
+      catch(e){toast(e.message,'bad');b.disabled=false;}
+    });
+  }
 }
 
 function importar(e) {
