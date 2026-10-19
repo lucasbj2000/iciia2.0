@@ -124,13 +124,16 @@ export async function cambiarTelefonoPrincipal(db,empresaId,contacto,nuevoNumero
       await db.query(
         'DELETE FROM contacto_telefonos WHERE empresa_id=$1 AND contacto_id=$2 AND tel_norm=$3',
         [empresaId,contacto.id,claveAnterior]);
-      // Si era un número incorrecto, no dejar su alias numérico WhatsApp
-      // apuntando a este cliente por la ruta de identidad externa.
-      // Identificadores @lid reales NO se modifican.
+      // No dejar el alias numérico WhatsApp apuntando a un teléfono corregido.
+      // Los identificadores LID no numéricos se conservan.
       await db.query(
         "UPDATE contactos SET externos=COALESCE(externos,'{}'::jsonb)-'whatsapp' "+
         "WHERE id=$1 AND empresa_id=$2 "+
-        "AND COALESCE(externos->>'whatsapp','') ~ '^[0-9]{10,15}
+        "AND COALESCE(externos->>'whatsapp','') ~ '^[0-9]+$' "+
+        "AND length(externos->>'whatsapp') BETWEEN 10 AND 15 "+
+        "AND right(externos->>'whatsapp',8)=$3",
+        [contacto.id,empresaId,claveAnterior]);
+    }
   }
   await db.query(
     "INSERT INTO contacto_telefonos(empresa_id,contacto_id,numero,tel_norm,etiqueta) "+
