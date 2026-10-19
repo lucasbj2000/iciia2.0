@@ -44,6 +44,8 @@ jobs:
         run: node scripts/test-principal-contactos.mjs
       - name: Ficha 360, permisos y teléfonos múltiples
         run: node scripts/test-telefonos-impar.mjs
+      - name: Búsqueda de clientes y edición del teléfono principal
+        run: node scripts/test-busqueda-contactos.mjs
       - name: Ficha 360 abre y cierra durante carga y error
         run: node scripts/test-ficha360-cierre.mjs
       - name: Layout de chat amplio y desplegables para agentes
