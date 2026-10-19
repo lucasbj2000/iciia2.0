@@ -1,4 +1,5 @@
 import { q, telNorm } from './db.mjs';
+import { buscarPorTelefono } from './telefonos-impar.mjs';
 import { emitir } from './realtime.mjs';
 import * as ubi from './ubicaciones.mjs';
 import { programarBot } from './bot.mjs';
@@ -142,12 +143,13 @@ export async function negActivaDeContacto(empresa, contactoId, excluir = null) {
   return rows[0] || null;
 }
 export async function negActivaPorTel(empresa, tel, excluir = null) {
-  const t = telNorm(tel); if (!t) return null;
+  const c = await buscarPorTelefono({query:q},empresa.id,tel);
+  if (!c) return null;
   const { rows } = await q(
-    `SELECT n.* FROM negociaciones n JOIN contactos c ON c.id = n.contacto_id
-      WHERE n.empresa_id=$1 AND c.tel_norm=$2 AND n.etapa = ANY($3)
+    `SELECT * FROM negociaciones n
+      WHERE n.empresa_id=$1 AND n.contacto_id=$2 AND n.etapa = ANY($3)
         AND ($4::uuid IS NULL OR n.id <> $4) ORDER BY n.creado ASC LIMIT 1`,
-    [empresa.id, t, etapasActivas(empresa), excluir]);
+    [empresa.id, c.id, etapasActivas(empresa), excluir]);
   return rows[0] || null;
 }
 
@@ -171,8 +173,8 @@ export async function buscarContacto(empresa, { tel, externoTipo, externoId }) {
   }
   const t = telNorm(tel);
   if (t) {
-    const { rows } = await q('SELECT * FROM contactos WHERE empresa_id=$1 AND tel_norm=$2 LIMIT 1', [empresa.id, t]);
-    if (rows[0]) return rows[0];
+    const hallado=await buscarPorTelefono({query:q},empresa.id,t);
+    if(hallado)return hallado;
   }
   return null;
 }
@@ -253,6 +255,12 @@ export async function ingresarMensaje(empresa, {
        VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING`,
       [empresa.id, abierta.id, texto || '', mediaUrl || null, mediaTipo || null, mediaNombre || null,
        archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando]);
+    // El número al que se responde es el último número que escribió en esta
+    // negociación; no sobrescribir el teléfono principal del cliente.
+    if(origen==='whatsapp' && telefonoWhatsApp){
+      await q('UPDATE negociaciones SET telefono_destino=$3 WHERE id=$1 AND empresa_id=$2',
+        [abierta.id,empresa.id,telefonoWhatsApp]);
+    }
     if (abierta.etapa !== 'espera') {
       await q(`UPDATE negociaciones SET etapa='espera', entrada_etapa=now(), actualizado=now(), aviso_sla=FALSE WHERE id=$1`, [abierta.id]);
       await historial(empresa.id, abierta.id, `Cliente respondió por ${origen} → Cliente espera una respuesta`, 'Sistema');
@@ -290,11 +298,12 @@ export async function ingresarMensaje(empresa, {
   }
   const { rows } = await q(
     `INSERT INTO negociaciones
-       (empresa_id,contacto_id,titulo,etapa,origen,canal_id,agente_id,sucursal,linea,marcadores,bot_activo,creado,actualizado,entrada_etapa)
-     VALUES ($1,$2,'Contacto entrante','nuevo',$3,$4,$5,$6,$7,$8,$9,$10,now(),now()) RETURNING *`,
+       (empresa_id,contacto_id,titulo,etapa,origen,canal_id,agente_id,sucursal,linea,marcadores,bot_activo,creado,actualizado,entrada_etapa,telefono_destino)
+     VALUES ($1,$2,'Contacto entrante','nuevo',$3,$4,$5,$6,$7,$8,$9,$10,now(),now(),$11) RETURNING *`,
     [empresa.id, contacto.id, origen, canalId || null, agente,
      owner[0]?.sucursal || canalSucursal || contacto.sucursal, canalLinea || contacto.linea,
-     JSON.stringify(marcadores), !!(empresa.flags?.bot && empresa.bot?.activo), cuando]);
+     JSON.stringify(marcadores), !!(empresa.flags?.bot && empresa.bot?.activo), cuando,
+     origen==='whatsapp'?telefonoWhatsApp:null]);
   const neg = rows[0];
 
   await q(
