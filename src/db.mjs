@@ -126,14 +126,20 @@ export const flagsDefault = () => Object.fromEntries(FLAGS_DEF.map(f => [f.k, f.
 export async function migrar() {
   const dir = join(__dirname, 'migrations');
   const files = readdirSync(dir).filter(f => f.endsWith('.sql')).sort();
-  await q(`CREATE TABLE IF NOT EXISTS _migraciones (nombre TEXT PRIMARY KEY, ts TIMESTAMPTZ NOT NULL DEFAULT now())`);
-  for (const f of files) {
-    const { rows } = await q('SELECT 1 FROM _migraciones WHERE nombre=$1', [f]);
-    if (rows.length) continue;
-    console.log('› migrando', f);
-    await q(readFileSync(join(dir, f), 'utf8'));
-    await q('INSERT INTO _migraciones(nombre) VALUES($1)', [f]);
-  }
+  // Cada migración + su marcador se confirma de forma atómica. Si SQL falla,
+  // PostgreSQL revierte ambos y el siguiente arranque puede reintentarlo.
+  // El lock evita dos actualizadores/PM2 aplicando la misma migración a la vez.
+  await tx(async c => {
+    await c.query("SELECT pg_advisory_xact_lock(hashtext('impar-migraciones-v2'))");
+    await c.query(`CREATE TABLE IF NOT EXISTS _migraciones (nombre TEXT PRIMARY KEY, ts TIMESTAMPTZ NOT NULL DEFAULT now())`);
+    for (const f of files) {
+      const { rows } = await c.query('SELECT 1 FROM _migraciones WHERE nombre=$1', [f]);
+      if (rows.length) continue;
+      console.log('› migrando', f);
+      await c.query(readFileSync(join(dir, f), 'utf8'));
+      await c.query('INSERT INTO _migraciones(nombre) VALUES($1)', [f]);
+    }
+  });
 }
 
 /* ================= SEMILLA ================= */
