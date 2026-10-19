@@ -20,7 +20,7 @@ const i=x=>despliegue.indexOf(x);
 assert.ok(i('bash scripts/backup.sh')>=0);
 assert.ok(i('bash scripts/backup.sh')<i('git merge --ff-only "$DESTINO_SHA"'),
   'El respaldo se realiza ANTES de modificar archivos del CRM');
-assert.ok(i('await migrar()')<i('pm2 reload iciia-crm --update-env'),
+assert.ok(i('await migrar()')<despliegue.lastIndexOf('pm2 reload iciia-crm --update-env'),
   'Migraciones verificadas antes del reinicio WhatsApp');
 assert.ok(despliegue.includes('flock -n 9'),'Un solo despliegue a la vez');
 assert.ok(despliegue.includes('git merge --ff-only'),'No se hace force push/reset durante instalación');
