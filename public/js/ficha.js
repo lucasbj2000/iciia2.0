@@ -246,8 +246,8 @@ async function cargarTelefonosChat(id){
       selector.innerHTML='<option value="">Sin teléfonos válidos</option>';
       selector.disabled=true;return;
     }
-    const actualNorm=String(r.destino||'').replace(/\\D/g,'').slice(-8);
-    const seleccionado=nums.find(x=>x.tel_norm===actualNorm) || nums[0];
+    const actualNorm=String(r.destino||'').replace(/\D/g,'').slice(-8);
+    let seleccionado=nums.find(x=>x.tel_norm===actualNorm) || nums[0];
     selector.value=seleccionado.numero;
     selector.disabled=nums.length===1;
     selector.onchange=async()=>{
@@ -257,6 +257,7 @@ async function cargarTelefonosChat(id){
       try{
         const r=await patch(`/negociaciones/${id}/telefono-destino`,{telefono:numero});
         if(actual?.id===id)actual.telefono_destino=r.destino;
+        seleccionado=nums.find(x=>x.numero===numero)||seleccionado;
         toast('El próximo mensaje se enviará al número seleccionado.','ok','WhatsApp');
       }catch(e){
         if(error)error.textContent=e.message;
