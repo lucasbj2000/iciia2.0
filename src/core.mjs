@@ -1,4 +1,4 @@
-import { q, telNorm } from './db.mjs';
+import { q, tx, telNorm } from './db.mjs';
 import { buscarPorTelefono } from './telefonos-impar.mjs';
 import { emitir } from './realtime.mjs';
 import * as ubi from './ubicaciones.mjs';
@@ -179,15 +179,39 @@ export async function buscarContacto(empresa, { tel, externoTipo, externoId }) {
   return null;
 }
 
-export async function crearContacto(empresa, d) {
-  const suc = d.sucursal || (await sucursalPorDefecto(empresa));
-  const { rows } = await q(
-    `INSERT INTO contactos (empresa_id,nombre,tel,tel_norm,email,doc,ciudad,direccion,sucursal,linea,responsable_id,notas,externos)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-    [empresa.id, d.nombre, d.tel || '', telNorm(d.tel), d.email || '', d.doc || '', d.ciudad || '',
-     d.direccion || '', suc, d.linea || (empresa.lineas || [])[0] || '', d.responsable_id || null,
-     d.notas || '', JSON.stringify(d.externos || {})]);
-  return rows[0];
+export async function crearContacto(empresa,d) {
+  const suc=d.sucursal||(await sucursalPorDefecto(empresa));
+  const tel=String(d.tel||'');
+  const clave=telNorm(tel);
+  const digitos=tel.replace(/\D/g,'');
+  return tx(async db=>{
+    // Impedir dos altas concurrentes del mismo número en IMPAR.
+    if(clave){
+      await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[empresa.id+':'+clave]);
+      const {rows:existentes}=await db.query(
+        'SELECT DISTINCT c.* FROM contactos c '+
+        'LEFT JOIN contacto_telefonos t ON t.contacto_id=c.id AND t.empresa_id=c.empresa_id '+
+        'WHERE c.empresa_id=$1 AND (c.tel_norm=$2 OR t.tel_norm=$2) LIMIT 2',
+        [empresa.id,clave]);
+      if(existentes.length>1)
+        throw Object.assign(new Error('Este teléfono coincide con varios contactos existentes. Revisar antes de crear otra ficha.'),{status:409});
+      if(existentes.length===1)return existentes[0];
+    }
+    const {rows}=await db.query(
+      `INSERT INTO contactos (empresa_id,nombre,tel,tel_norm,email,doc,ciudad,direccion,sucursal,linea,responsable_id,notas,externos)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      [empresa.id,d.nombre,tel,clave,d.email||'',d.doc||'',d.ciudad||'',
+       d.direccion||'',suc,d.linea||(empresa.lineas||[])[0]||'',
+       d.responsable_id||null,d.notas||'',JSON.stringify(d.externos||{})]);
+    // Registrar la identidad primaria sólo si es un número internacional válido.
+    if(digitos.length>=10 && digitos.length<=15 && clave.length===8){
+      await db.query(
+        'INSERT INTO contacto_telefonos (empresa_id,contacto_id,numero,tel_norm,etiqueta) '+
+        "VALUES($1,$2,$3,$4,'Principal') ON CONFLICT(empresa_id,tel_norm) DO NOTHING",
+        [empresa.id,rows[0].id,tel,clave]);
+    }
+    return rows[0];
+  });
 }
 async function sucursalPorDefecto(empresa) {
   const { rows } = await q('SELECT nombre FROM sucursales WHERE empresa_id=$1 AND activa ORDER BY nombre LIMIT 1', [empresa.id]);
