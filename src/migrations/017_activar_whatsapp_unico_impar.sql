@@ -19,14 +19,14 @@ BEGIN
     RAISE NOTICE 'IMPAR: la línea principal ya fue configurada; se mantiene sin cambios';
     RETURN;
   END IF;
-  SELECT count(*)::int,min(c.id) INTO n_cent,elegida
+  SELECT count(*)::int,min(c.id::text)::uuid INTO n_cent,elegida
     FROM canales c JOIN sucursales s
       ON s.id=c.sucursal_id AND s.empresa_id=c.empresa_id
    WHERE c.empresa_id=emp AND c.activo
      AND c.tipo IN('whatsapp_qr','whatsapp_api')
      AND lower(trim(s.nombre))='central';
   IF n_cent<>1 THEN
-    SELECT count(*)::int,min(id) INTO n_total,elegida
+    SELECT count(*)::int,min(id::text)::uuid INTO n_total,elegida
       FROM canales WHERE empresa_id=emp AND activo
         AND tipo IN('whatsapp_qr','whatsapp_api');
     IF n_total<>1 THEN
