@@ -8,7 +8,9 @@ También había responsables de contactos sin negociaciones que recibían un rec
 - Ficha 360 con carga máxima de 16 segundos, error comprensible y botón Reintentar.
 - El responsable o agente de una negociación activa puede editar nombre, email, documento, ciudad, dirección y notas.
 - No se puede editar libremente el responsable desde esos campos; permanece la acción específica de transferencia.
-- El teléfono principal queda visible pero no se sobrescribe al editar. Los teléfonos secundarios se agregan o desvinculan desde **Teléfonos vinculados**.
+- El teléfono principal vuelve a ser editable por los agentes autorizados. El usuario puede conservar el número anterior como secundario o, si corrige un dato erróneo, reemplazarlo sin conservarlo; nunca se crea otra ficha.
+- Los teléfonos secundarios se agregan o desvinculan desde **Teléfonos vinculados**. Si un número ya pertenece a otro cliente se rechaza la modificación.
+- Las búsquedas por nombre, teléfono principal, teléfono secundario, correo y dirección son parametrizadas y no bloquean la pantalla; si la API falla, se muestra el error y se puede reintentar.
 
 ## Número único por identidad
 - Nueva tabla `contacto_telefonos`, índice único por `empresa_id,tel_norm`.
