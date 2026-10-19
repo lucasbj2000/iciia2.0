@@ -5,7 +5,7 @@ import {
   vacio, confeti, vibrar
 } from './core.js';
 import { vistaNegociaciones, patchTarjeta, quitarTarjetas } from './negociaciones.js';
-import { vistaContactos } from './contactos.js?v=impar-ficha360-cierre-20261019-2';
+import { vistaContactos } from './contactos.js?v=impar-busqueda-principal-20261019-3';
 import { vistaComunicacion, vistaCalendario, vistaReportes, vistaConfig, refrescarChat } from './modulos.js';
 import { fichaNeg, refrescarFicha, confirmarEnvio } from './ficha.js';
 import { vistaAdmin, actualizarEstadoCanal } from './admin.js';
