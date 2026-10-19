@@ -41,7 +41,8 @@ assert.ok(ficha.includes("conectarAdjuntos({ inputSel: '#msg'"),'Adjuntos manual
 assert.ok(ficha.includes("post(\`/negociaciones/\${n.id}/mensajes\`"),'Envío de mensajes inalterado');
 
 assert.ok(index.includes('/chat-amplio.css?v=20261016-cerrado2'));
-assert.match(index,/\/js\/app\.js\?v=impar-(?:acordeones-cerrados-20261016-1|central-compartida-20261016-3)/);
+assert.ok(index.includes('/js/app.js?v=impar-central-unica-20261019-1'));
+assert.ok(index.includes('name="impar-ui-build" content="central-unica-20261019-1"'));
 // La ampliación se conserva al renovar la versión JS por otras mejoras.
 assert.ok(css.includes('.modal.conversation-modal{'));
 assert.ok(css.includes('height:calc(var(--crm-viewport-height,100dvh) - 20px)'));
