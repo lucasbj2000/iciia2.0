@@ -60,7 +60,7 @@ console.log(`\n· Verificando ${archivos.length} archivos (${ejecutables.length}
     const src = readFileSync(f, 'utf8');
 
     for (const m of src.matchAll(/(?:^|\s)(?:import|export)[^'"]*from\s+['"](\.[^'"]+)['"]/g)) {
-      const destino = resolve(dirname(f), m[1]);
+      const destino = resolve(dirname(f), m[1].split(/[?#]/,1)[0]);
       try {
         statSync(destino);
       } catch {
@@ -70,7 +70,7 @@ console.log(`\n· Verificando ${archivos.length} archivos (${ejecutables.length}
     }
 
     for (const m of src.matchAll(/import\(\s*['"](\.[^'"]+)['"]\s*\)/g)) {
-      const destino = resolve(dirname(f), m[1]);
+      const destino = resolve(dirname(f), m[1].split(/[?#]/,1)[0]);
       try {
         statSync(destino);
       } catch {
@@ -105,7 +105,7 @@ const exportsDe = f => {
     const src = readFileSync(f, 'utf8');
 
     for (const m of src.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"](\.[^'"]+)['"]/g)) {
-      const destino = resolve(dirname(f), m[2]);
+      const destino = resolve(dirname(f), m[2].split(/[?#]/,1)[0]);
       let ex;
 
       try {
