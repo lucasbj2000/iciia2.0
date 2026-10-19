@@ -94,6 +94,7 @@ node scripts/test-historial-chat.mjs
 node scripts/test-wa-reintentos.mjs
 node scripts/test-principal-contactos.mjs
 node scripts/test-telefonos-impar.mjs
+node scripts/test-ficha360-cierre.mjs
 node scripts/test-chat-amplio.mjs
 node scripts/test-central-unica-impar.mjs
 node scripts/test-publicacion-central.mjs
