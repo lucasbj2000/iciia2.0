@@ -166,7 +166,7 @@ function buscarContactoImpar(){
       </div>
     </div>
     <div class="modal-f"><button class="btn ghost" data-cerrar>Cerrar</button></div>`);
-  $('[data-cerrar]').forEach(b=>b.onclick=cerrar);
+  $$('[data-cerrar]').forEach(b=>b.onclick=cerrar);
   const input=$('#busqueda-impar-global');
   const enviar=$('#busqueda-impar-ejecutar');
   let secuencia=0;
@@ -424,7 +424,7 @@ export async function ficha360(id) {
       }catch(e){if($('#f-error-telefono'))$('#f-error-telefono').textContent=e.message;
         boton.disabled=false;}
     };
-    $('[data-eliminar-telefono]').forEach(b=>b.onclick=async()=>{
+    $$('[data-eliminar-telefono]').forEach(b=>b.onclick=async()=>{
       if(!confirm('¿Desvincular este teléfono secundario? No se borrarán los mensajes del cliente.'))return;
       b.disabled=true;
       try{await del(`/contactos/${c.id}/telefonos/${b.dataset.eliminarTelefono}`);
