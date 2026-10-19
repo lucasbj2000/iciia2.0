@@ -83,8 +83,7 @@ export async function cambiarTelefonoPrincipal(db,empresaId,contacto,nuevoNumero
   if(!conservarAnterior && claveAnterior && claveAnterior!==clave){
     const {rows:activas}=await db.query(
       "SELECT 1 FROM negociaciones WHERE empresa_id=$1 AND contacto_id=$2 "+
-      "AND right(regexp_replace(COALESCE(telefono_destino,''),'[^0-9]','','g'),8)=$3 "+
-      "AND etapa NOT IN ('ganado','perdido','cerrado') LIMIT 1",
+      "AND right(regexp_replace(COALESCE(telefono_destino,''),'[^0-9]','','g'),8)=$3 LIMIT 1",
       [empresaId,contacto.id,claveAnterior]);
     if(activas.length)throw errorTelefono(409,
       'Existen conversaciones que utilizan el número anterior. Activá «Conservar como secundario» antes de guardar.');
@@ -92,10 +91,16 @@ export async function cambiarTelefonoPrincipal(db,empresaId,contacto,nuevoNumero
   if(conservarAnterior && claveAnterior!==clave){
     // El registro antiguo puede ser incompleto. No creamos una identidad
     // secundaria inválida silenciosamente.
-    const digitos=anterior.replace(/\\D/g,'');
+    const digitos=anterior.replace(/\D/g,'');
     if(digitos.length<10 || digitos.length>15 || claveAnterior.length!==8)
       throw errorTelefono(422,
         'El número antiguo no se puede conservar como secundario porque está incompleto. Desmarcá esa opción.');
+    const {rows:ocupados}=await db.query(
+      'SELECT contacto_id FROM contacto_telefonos WHERE empresa_id=$1 AND tel_norm=$2 FOR UPDATE',
+      [empresaId,claveAnterior]);
+    if(ocupados.some(x=>x.contacto_id!==contacto.id))
+      throw errorTelefono(409,
+        'El número anterior está vinculado a otro cliente y no puede conservarse como secundario.');
   }
   // La numeración nueva puede estar ya asociada a este contacto como secundaria.
   // En ese caso se promociona a principal, sin crear registros duplicados.
