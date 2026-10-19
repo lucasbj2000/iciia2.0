@@ -124,6 +124,45 @@ export async function cambiarTelefonoPrincipal(db,empresaId,contacto,nuevoNumero
       await db.query(
         'DELETE FROM contacto_telefonos WHERE empresa_id=$1 AND contacto_id=$2 AND tel_norm=$3',
         [empresaId,contacto.id,claveAnterior]);
+      // Si era un número incorrecto, no dejar su alias numérico WhatsApp
+      // apuntando a este cliente por la ruta de identidad externa.
+      // Identificadores @lid reales NO se modifican.
+      await db.query(
+        "UPDATE contactos SET externos=COALESCE(externos,'{}'::jsonb)-'whatsapp' "+
+        "WHERE id=$1 AND empresa_id=$2 "+
+        "AND COALESCE(externos->>'whatsapp','') ~ '^[0-9]{10,15}
+  }
+  await db.query(
+    "INSERT INTO contacto_telefonos(empresa_id,contacto_id,numero,tel_norm,etiqueta) "+
+    "VALUES($1,$2,$3,$4,'Principal') ON CONFLICT(empresa_id,tel_norm) DO UPDATE "+
+    "SET etiqueta='Principal',numero=EXCLUDED.numero "+
+    "WHERE contacto_telefonos.contacto_id=EXCLUDED.contacto_id",
+    [empresaId,contacto.id,numero,clave]);
+  return {anterior,nuevo:numero,conservado:!!conservarAnterior && clave!==claveAnterior,sinCambios:false};
+}
+
+export async function buscarPorTelefono(db,empresaId,numero) {
+  const t=telNorm(numero);
+  if(!t)return null;
+  const {rows}=await db.query(
+    'SELECT DISTINCT c.* FROM contactos c '+
+    'LEFT JOIN contacto_telefonos t ON t.contacto_id=c.id AND t.empresa_id=c.empresa_id '+
+    'WHERE c.empresa_id=$1 AND (c.tel_norm=$2 OR t.tel_norm=$2) LIMIT 2',
+    [empresaId,t]);
+  if(rows.length>1)throw errorTelefono(409,'El teléfono está asociado a varias fichas preexistentes. Revisalo desde Administración antes de continuar.');
+  return rows[0]||null;
+}
+export function puedeEditarContacto(user,contacto,negociaciones=[]) {
+  if(!user||!contacto)return false;
+  if(['admin','gerente'].includes(user.rol))return true;
+  if(contacto.responsable_id===user.id)return true;
+  if(user.rol==='agente')return negociaciones.some(n=>n.agente_id===user.id);
+  if(user.rol==='jefe')return negociaciones.some(n=>n.agente_id===user.id);
+  return false;
+}
+ "+
+        "AND right(externos->>'whatsapp',8)=$3",
+        [contacto.id,empresaId,claveAnterior]);
     }
   }
   await db.query(
