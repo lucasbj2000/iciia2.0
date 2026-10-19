@@ -97,6 +97,7 @@ node scripts/test-telefonos-impar.mjs
 node scripts/test-busqueda-contactos.mjs
 node scripts/test-ficha360-cierre.mjs
 node scripts/test-chat-amplio.mjs
+node scripts/test-enlaces-chat.mjs
 node scripts/test-central-unica-impar.mjs
 node scripts/test-publicacion-central.mjs
 bash -n scripts/verificar-publicacion-central.sh
