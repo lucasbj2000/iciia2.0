@@ -5,7 +5,7 @@ import {
   vacio, confeti, vibrar
 } from './core.js';
 import { vistaNegociaciones, patchTarjeta, quitarTarjetas } from './negociaciones.js';
-import { vistaContactos } from './contactos.js?v=impar-central-unica-20261019-1';
+import { vistaContactos } from './contactos.js?v=impar-ficha360-multitel-20261019-1';
 import { vistaComunicacion, vistaCalendario, vistaReportes, vistaConfig, refrescarChat } from './modulos.js';
 import { fichaNeg, refrescarFicha, confirmarEnvio } from './ficha.js';
 import { vistaAdmin, actualizarEstadoCanal } from './admin.js';
