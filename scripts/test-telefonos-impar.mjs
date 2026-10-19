@@ -71,7 +71,7 @@ assert.ok(routes.includes("r.post('/:id/telefonos', requiere()"));
 assert.ok(routes.includes("r.delete('/:id/telefonos/:telefonoId', requiere()"));
 assert.ok(routes.includes('await editarPermitido(db,req,rows[0])'));
 assert.ok(routes.includes('const editable=await editarPermitido('));
-assert.ok(routes.includes("if (!await editarPermitido(db,req,c))"));
+assert.ok(routes.includes("if(!await editarPermitido(db,req,c))"));
 assert.ok(routes.includes('b.tel=normalizarNumero(b.tel).numero'));
 assert.ok(routes.includes('buscarPorTelefono({query:q},req.empresaId,b.tel)'));
 assert.ok(routes.includes('Este número ya está registrado en IMPAR'));
