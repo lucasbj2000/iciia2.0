@@ -9,6 +9,7 @@ import { emitir } from '../realtime.mjs';
 import { obtener as obtenerArchivo } from '../archivos.mjs';
 import * as ubi from '../ubicaciones.mjs';
 import { obtenerHistorialContacto } from '../historial-contacto-impar.mjs';
+import { telefonosContacto, normalizarNumero } from '../telefonos-impar.mjs';
 
 const r = Router();
 
@@ -176,6 +177,35 @@ r.patch('/:id/bot', requiere(), async (req, res) => {
   await historial(req.empresaId, req.params.id, `Bot ${activo ? 'reactivado' : 'desactivado'} manualmente`, req.user.nombre);
   emitir(req.empresaId, 'neg:patch', { id: req.params.id });
   res.json({ ok: true });
+});
+
+/** Ver y elegir el número de WhatsApp para ESTA negociación, sin crear clientes. */
+r.get('/:id/telefonos', requiere(), async(req,res)=>{
+  try{
+    const n=await obtenerNegociacionVisible(req,req.params.id);
+    if(!n)return res.status(404).json({error:'Negociación no encontrada.'});
+    const telefonos=await telefonosContacto({query:q},req.empresaId,n.contacto_id);
+    res.set('Cache-Control','no-store').json({
+      telefonos,destino:n.telefono_destino||n.tel||''
+    });
+  }catch(e){console.error('[negociaciones] teléfonos:',e.message);
+    res.status(500).json({error:'No se pudo consultar los teléfonos del cliente.'});}
+});
+r.patch('/:id/telefono-destino', requiere(), async(req,res)=>{
+  try{
+    const n=await obtenerNegociacionVisible(req,req.params.id);
+    if(!n)return res.status(404).json({error:'Negociación no encontrada.'});
+    if(!etapaActiva(req.empresa,n.etapa))return res.status(409).json({error:'Esta negociación está cerrada.'});
+    const {numero,clave}=normalizarNumero(req.body?.telefono);
+    const telefonos=await telefonosContacto({query:q},req.empresaId,n.contacto_id);
+    if(!telefonos.some(t=>t.tel_norm===clave))
+      return res.status(409).json({error:'Ese número no está registrado en la ficha del cliente.'});
+    await q('UPDATE negociaciones SET telefono_destino=$3 WHERE id=$1 AND empresa_id=$2',
+      [n.id,req.empresaId,numero]);
+    await auditar(req.empresaId,req.user.nombre,'Número destino','Cambio de teléfono seleccionado para negociación',req.ip);
+    res.json({ok:true,destino:numero});
+  }catch(e){if(!e.status)console.error('[negociaciones] cambiar teléfono:',e.message);
+    res.status(e.status||500).json({error:e.status?e.message:'No se pudo cambiar el número de destino.'});}
 });
 
 /* ---------- MENSAJES ---------- */
