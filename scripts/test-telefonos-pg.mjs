@@ -20,7 +20,7 @@ try{
   await client.query('CREATE SCHEMA "'+schema+'"');
   await client.query('SET search_path TO "'+schema+'",public');
   await client.query('CREATE TABLE empresas(id uuid PRIMARY KEY)');
-  await client.query('CREATE TABLE contactos(id uuid PRIMARY KEY,empresa_id uuid REFERENCES empresas(id),tel text,tel_norm text)');
+  await client.query("CREATE TABLE contactos(id uuid PRIMARY KEY,empresa_id uuid REFERENCES empresas(id),tel text,tel_norm text,externos jsonb DEFAULT '{}'::jsonb)");
   await client.query('CREATE TABLE negociaciones(id uuid PRIMARY KEY,empresa_id uuid,contacto_id uuid,etapa text,creado timestamptz DEFAULT now())');
   await client.query('CREATE TABLE mensajes(id bigserial PRIMARY KEY)');
   await client.query('INSERT INTO empresas(id) VALUES($1)',[E]);
@@ -80,8 +80,15 @@ try{
     'SELECT tel_norm,count(*)::int AS n FROM contacto_telefonos WHERE contacto_id=$1 GROUP BY tel_norm',
     [ONE]);
   assert.ok(registros.every(x=>x.n===1),'No repite números durante promociones');
+  await client.query("UPDATE contactos SET externos=$2::jsonb WHERE id=$1",
+    [ONE,JSON.stringify({whatsapp:'595983333333',crm_id:'legado-ejemplo'})]);
   await editar('595985555555',false);
   assert.equal((await principal()).tel,'595985555555');
+  const aliasFinal=(await client.query('SELECT externos FROM contactos WHERE id=$1',[ONE])).rows[0].externos;
+  assert.equal(aliasFinal.whatsapp,undefined,
+    'No conservar alias WhatsApp del número viejo que el empleado corrigió');
+  assert.equal(aliasFinal.crm_id,'legado-ejemplo',
+    'No eliminar otras identidades de CRM');
   assert.equal((await client.query(
     "SELECT count(*)::int AS n FROM contacto_telefonos WHERE contacto_id=$1 AND tel_norm='83333333'",
     [ONE])).rows[0].n,0,'Corrige número erróneo sin conservarlo cuando se desmarca');
