@@ -41,8 +41,8 @@ assert.ok(ficha.includes("conectarAdjuntos({ inputSel: '#msg'"),'Adjuntos manual
 assert.ok(ficha.includes("post(\`/negociaciones/\${n.id}/mensajes\`"),'Envío de mensajes inalterado');
 
 assert.ok(index.includes('/chat-amplio.css?v=20261016-cerrado2'));
-assert.ok(index.includes('/js/app.js?v=impar-ficha360-cierre-20261019-2'));
-assert.ok(index.includes('name="impar-ui-build" content="ficha360-cierre-20261019-2"'));
+assert.ok(index.includes('/js/app.js?v=impar-busqueda-principal-20261019-3'));
+assert.ok(index.includes('name="impar-ui-build" content="busqueda-principal-20261019-3"'));
 // La ampliación se conserva al renovar la versión JS por otras mejoras.
 assert.ok(css.includes('.modal.conversation-modal{'));
 assert.ok(css.includes('height:calc(var(--crm-viewport-height,100dvh) - 20px)'));
