@@ -20,6 +20,7 @@ try{
   await client.query('CREATE TABLE empresas(id uuid PRIMARY KEY)');
   await client.query('CREATE TABLE contactos(id uuid PRIMARY KEY,empresa_id uuid REFERENCES empresas(id),tel text,tel_norm text)');
   await client.query('CREATE TABLE negociaciones(id uuid PRIMARY KEY)');
+  await client.query('CREATE TABLE mensajes(id bigserial PRIMARY KEY)');
   await client.query('INSERT INTO empresas(id) VALUES($1)',[E]);
   await client.query(
     'INSERT INTO contactos(id,empresa_id,tel,tel_norm) VALUES '+
@@ -37,6 +38,10 @@ try{
     "SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name='negociaciones' AND column_name='telefono_destino'",
     [schema]);
   assert.equal(col.rowCount,1);
+  const remitente=await client.query(
+    "SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name='mensajes' AND column_name='remitente_numero'",
+    [schema]);
+  assert.equal(remitente.rowCount,1);
   await client.query(sql);
   const after=await client.query('SELECT count(*)::int AS n FROM contacto_telefonos');
   assert.equal(after.rows[0].n,1,'La migración puede ejecutarse otra vez sin duplicar datos');
