@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import pg from 'pg';
+import { cambiarTelefonoPrincipal } from '../src/telefonos-impar.mjs';
 if(!process.env.TEST_DATABASE_URL)throw Error('Solo para base de pruebas; TEST_DATABASE_URL obligatorio.');
 const client=new pg.Client({connectionString:process.env.TEST_DATABASE_URL});
 const schema='impar_tel_'+randomUUID().replaceAll('-','');
@@ -19,7 +20,7 @@ try{
   await client.query('SET search_path TO "'+schema+'",public');
   await client.query('CREATE TABLE empresas(id uuid PRIMARY KEY)');
   await client.query('CREATE TABLE contactos(id uuid PRIMARY KEY,empresa_id uuid REFERENCES empresas(id),tel text,tel_norm text)');
-  await client.query('CREATE TABLE negociaciones(id uuid PRIMARY KEY)');
+  await client.query('CREATE TABLE negociaciones(id uuid PRIMARY KEY,empresa_id uuid,contacto_id uuid,etapa text,creado timestamptz DEFAULT now())');
   await client.query('CREATE TABLE mensajes(id bigserial PRIMARY KEY)');
   await client.query('INSERT INTO empresas(id) VALUES($1)',[E]);
   await client.query(
@@ -49,7 +50,42 @@ try{
   await assert.rejects(
     ()=>client.query("INSERT INTO contacto_telefonos(empresa_id,contacto_id,numero,tel_norm) VALUES($1,$2,'595983333333','83333333')",[E,TWO]),
     e=>e.code==='23505','Unique index impide registrar número en dos clientes');
-  console.log('✔ PostgreSQL: migración 018 atómica, backfill seguro y anti-duplicación.');
+  // Editar principal NO debe crear otro contacto ni borrar los históricos.
+  const principal=async()=> (await client.query('SELECT * FROM contactos WHERE id=$1',[ONE])).rows[0];
+  const editar=async(numero,conservar)=>{
+    await client.query('BEGIN');
+    try{
+      const c=await principal();
+      const resultado=await cambiarTelefonoPrincipal(client,E,c,numero,conservar);
+      await client.query('COMMIT');
+      return resultado;
+    }catch(e){await client.query('ROLLBACK');throw e;}
+  };
+  const resultado=await editar('595989999999',true);
+  assert.equal(resultado.conservado,true);
+  assert.equal((await principal()).tel,'595989999999');
+  assert.equal((await client.query(
+    "SELECT count(*)::int AS n FROM contacto_telefonos WHERE contacto_id=$1 AND tel_norm IN ('81111111','89999999')",
+    [ONE])).rows[0].n,2,'El anterior pasa a secundario');
+  assert.equal((await client.query('SELECT count(*)::int AS n FROM contactos')).rows[0].n,3,
+    'No crea un cuarto cliente al editar un número');
+  await assert.rejects(()=>editar('595982222222',true),
+    /otro cliente/,'No se puede usar el principal que está repetido en otras fichas');
+  assert.equal((await principal()).tel,'595989999999','El conflicto revierte la edición');
+  await editar('595983333333',true);
+  assert.equal((await principal()).tel,'595983333333',
+    'Promociona al principal un número secundario ya vinculado al mismo cliente');
+  const {rows:registros}=await client.query(
+    'SELECT tel_norm,count(*)::int AS n FROM contacto_telefonos WHERE contacto_id=$1 GROUP BY tel_norm',
+    [ONE]);
+  assert.ok(registros.every(x=>x.n===1),'No repite números durante promociones');
+  await editar('595985555555',false);
+  assert.equal((await principal()).tel,'595985555555');
+  assert.equal((await client.query(
+    "SELECT count(*)::int AS n FROM contacto_telefonos WHERE contacto_id=$1 AND tel_norm='83333333'",
+    [ONE])).rows[0].n,0,'Corrige número erróneo sin conservarlo cuando se desmarca');
+
+  console.log('✔ PostgreSQL: migración 018, cambio de principal, conservación opcional y duplicados bloqueados.');
 }finally{
   await client.query('DROP SCHEMA IF EXISTS "'+schema+'" CASCADE').catch(()=>{});
   await client.end();
