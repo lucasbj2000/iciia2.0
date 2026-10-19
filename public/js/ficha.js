@@ -175,7 +175,7 @@ function mensajeHTML(m) {
               · ${fd(m.creado_negociacion)}${m.titulo_negociacion?' · '+esc(m.titulo_negociacion):''}</div>` : '';
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
           ${tramo}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${esc(m.txt)}</div>` : ''}${mapaUbi}
-          <small>${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}
+          <small>${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ' · 📱 '+esc(m.remitente_numero) : ''}
           ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}</small></div>`;
 }
 
