@@ -36,6 +36,8 @@ assert.ok(migra.indexOf("await c.query(readFileSync(")<migra.indexOf("await c.qu
   'Registrar únicamente migración SQL exitosa');
 assert.ok(respaldo.includes('gzip -t "$TEMP"'),'Validar gzip de respaldo');
 assert.ok(respaldo.includes('umask 077'),'Archivos de respaldo privados');
+assert.ok(respaldo.includes('cp -- .env'), 'Respalda .env sin publicarlo');
+assert.ok(respaldo.includes('chmod 600 "$DIR/env_'), 'Respaldo de secretos solo para el usuario del servidor');
 assert.ok(respaldo.includes('tar czf "$DIR/auth_'),'Sesiones WhatsApp respaldadas');
 assert.ok(respaldo.includes('tar czf "$DIR/media_'),'Archivos adjuntos respaldados');
 assert.ok(publicacion.includes('cmp -s "$LOCAL" "$TEMP/respuesta"'),'Compara contenido real');
