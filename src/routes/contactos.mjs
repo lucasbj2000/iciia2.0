@@ -96,9 +96,9 @@ r.get('/', requiere(), async (req, res) => {
   if (busca) {
     params.push(`%${busca}%`);
     cond.push(`(lower(c.nombre) LIKE $${params.length} OR c.tel LIKE $${params.length}
-      OR lower(c.email) LIKE ${params.length} OR lower(c.direccion) LIKE ${params.length}
+      OR lower(c.email) LIKE $${params.length} OR lower(c.direccion) LIKE $${params.length}
       OR EXISTS(SELECT 1 FROM contacto_telefonos t WHERE t.contacto_id=c.id
-        AND t.empresa_id=c.empresa_id AND t.numero LIKE ${params.length}))`);
+        AND t.empresa_id=c.empresa_id AND t.numero LIKE $${params.length}))`);
   }
 
   const activas = (req.empresa.etapas || []).filter(e => e.activa).map(e => e.id);
