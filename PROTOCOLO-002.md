@@ -183,12 +183,14 @@ de `git reset`, `npm ci`, `pm2 reload` o respaldo para una actualización normal
 1. validar que el repositorio es `lucasbj2000/iciia2.0`, rama `main` y working tree sin cambios;
 2. tomar bloqueo exclusivo para impedir dos despliegues simultáneos;
 3. consultar `origin/main` y verificar avance **fast-forward** (admite fijar `IMPAR_OBJETIVO_SHA`);
-4. crear respaldo íntegro de PostgreSQL, `auth/` y `media/` **antes de tocar el código**;
+4. crear respaldo verificado de PostgreSQL y `auth/` antes de tocar PM2 o la base; `media/` se copia en vivo, se reintenta ante cambios concurrentes y, si persisten, se guarda con nombre `media_en_vivo_*` indicando expresamente que es una copia parcial que no reemplaza a un respaldo íntegro anterior;
 5. aplicar el commit y ejecutar dependencias y pruebas obligatorias;
 6. aplicar migraciones en una **transacción PostgreSQL** (SQL y marcador juntos) con advisory lock; **si falla, no reiniciar PM2**;
 7. reiniciar una sola instancia `iciia-crm`; verificar build exacto en health, base de datos, login y estado de PM2;
 8. comprobar mediante `scripts/verificar-publicacion.sh` que el dominio público devuelve la revisión correcta y el mismo HTML/JS que hay en el VPS; informar explícitamente diferencias de caché/proxy;
 9. confirmar mediante una prueba funcional con un agente si el cambio toca mensajería o permisos.
+
+**Archivos multimedia activos:** una foto/audio puede cambiar mientras `tar` lo lee. Sólo esa advertencia, con un archivo comprimido legible, permite continuar; se informa que la copia multimedia no es íntegra y se mantienen los respaldos completos anteriores. Errores de permisos, fallos de compresión o imposibilidad de respaldar credenciales de WhatsApp siguen bloqueando la actualización. Nunca se deben borrar `media/` ni `auth/` para eludir el aviso.
 
 **Reglas de protección:** nunca borrar `auth/`, `media/`, `.env` ni reiniciar la vinculación de WhatsApp como parte de la instalación.
 Un error anterior al reinicio restaura el código sin reiniciar el proceso que ya funciona.
