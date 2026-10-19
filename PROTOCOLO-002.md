@@ -115,6 +115,7 @@ Los cambios estructurales deben agregarse como una nueva migración dentro de:
 
 Las migraciones deben:
 
+- ejecutarse dentro de transacciones PostgreSQL y registrar su marcador en la misma transacción;
 - poder ejecutarse una sola vez;
 - preservar los datos existentes;
 - incluir valores por defecto cuando sean necesarios;
@@ -168,28 +169,45 @@ Directorio de producción recomendado:
 /opt/iciia-crm
 ```
 
-Antes de una actualización importante se debe realizar un respaldo:
+**Flujo permanente simplificado:**
 
 ```bash
-cd /opt/iciia-crm
-bash scripts/backup.sh
+cd /opt/iciia-crm && bash scripts/actualizar.sh
 ```
 
-Para actualizaciones normales desde GitHub:
+El script incluye automáticamente el respaldo. No hace falta ejecutar comandos separados
+de `git reset`, `npm ci`, `pm2 reload` o respaldo para una actualización normal.
 
+**Orden obligatorio desde octubre de 2026 (incidente PostgreSQL MIN(UUID)):**
+
+1. validar que el repositorio es `lucasbj2000/iciia2.0`, rama `main` y working tree sin cambios;
+2. tomar bloqueo exclusivo para impedir dos despliegues simultáneos;
+3. consultar `origin/main` y verificar avance **fast-forward** (admite fijar `IMPAR_OBJETIVO_SHA`);
+4. crear respaldo íntegro de PostgreSQL, `auth/` y `media/` **antes de tocar el código**;
+5. aplicar el commit y ejecutar dependencias y pruebas obligatorias;
+6. aplicar migraciones en una **transacción PostgreSQL** (SQL y marcador juntos) con advisory lock; **si falla, no reiniciar PM2**;
+7. reiniciar una sola instancia `iciia-crm`; verificar build exacto en health, base de datos, login y estado de PM2;
+8. comprobar mediante `scripts/verificar-publicacion.sh` que el dominio público devuelve la revisión correcta y el mismo HTML/JS que hay en el VPS; informar explícitamente diferencias de caché/proxy;
+9. confirmar mediante una prueba funcional con un agente si el cambio toca mensajería o permisos.
+
+**Reglas de protección:** nunca borrar `auth/`, `media/`, `.env` ni reiniciar la vinculación de WhatsApp como parte de la instalación.
+Un error anterior al reinicio restaura el código sin reiniciar el proceso que ya funciona.
+Un error de salud tras el reinicio intenta restaurar el código anterior y PM2.
+Las migraciones PostgreSQL ya confirmadas **no se deshacen con `git reset`**; para cambios incompatibles o destructivos es obligatorio un plan de restauración validado antes del despliegue.
+Si el servicio local funciona pero falla la comparación pública (caché/CDN), se informa el error y **no se derriba un servidor saludable por un problema de publicación**.
+
+**Primera incorporación del nuevo actualizador** (una sola vez, desde una copia que aún tiene el script antiguo):
 ```bash
-cd /opt/iciia-crm
-bash scripts/actualizar.sh
+cd /opt/iciia-crm &&
+git diff --quiet &&
+git diff --cached --quiet &&
+git fetch origin main &&
+bash scripts/backup.sh &&
+BASE="$(git rev-parse HEAD)" &&
+git merge --ff-only origin/main &&
+IMPAR_BASE_SHA="$BASE" bash scripts/actualizar.sh
 ```
-
-El script debe:
-
-1. descargar únicamente cambios fast-forward;
-2. instalar dependencias;
-3. verificar el código;
-4. reiniciar/reload mediante PM2;
-5. conservar las variables del entorno;
-6. permitir que las migraciones pendientes se ejecuten al arrancar.
+Después de esa instalación se usa únicamente el comando simplificado.
 
 ---
 
