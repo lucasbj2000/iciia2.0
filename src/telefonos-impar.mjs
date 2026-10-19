@@ -20,6 +20,12 @@ export async function telefonosContacto(db,empresaId,contactoId) {
     'SELECT id,numero,tel_norm,etiqueta FROM contacto_telefonos '+
     'WHERE empresa_id=$1 AND contacto_id=$2 ORDER BY (etiqueta=$3) DESC,creado,id',
     [empresaId,contactoId,'Principal']);
+  const {rows:cs}=await db.query('SELECT tel,tel_norm FROM contactos WHERE empresa_id=$1 AND id=$2',
+    [empresaId,contactoId]);
+  const principal=cs[0];
+  if(principal?.tel && !rows.some(r=>r.tel_norm===principal.tel_norm)){
+    rows.unshift({id:null,numero:principal.tel,tel_norm:principal.tel_norm,etiqueta:'Principal'});
+  }
   return rows;
 }
 export async function agregarTelefono(db,empresaId,contactoId,entrada,etiqueta='Secundario'){
