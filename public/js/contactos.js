@@ -166,7 +166,7 @@ function buscarContactoImpar(){
       </div>
     </div>
     <div class="modal-f"><button class="btn ghost" data-cerrar>Cerrar</button></div>`);
-  $$('[data-cerrar]').forEach(b=>b.onclick=cerrar);
+  $$$('[data-cerrar]').forEach(b=>b.onclick=cerrar);
   const input=$('#busqueda-impar-global');
   const enviar=$('#busqueda-impar-ejecutar');
   let secuencia=0;
@@ -300,7 +300,7 @@ export async function ficha360(id) {
   modal(`<div class="modal-h"><h3>Ficha 360°</h3><button class="x" data-cerrar>✕</button></div>
     <div class="modal-b" style="text-align:center;padding:35px" data-ficha-cargando="${esc(id)}">
       <span class="spin lg"></span><p>Consultando información del cliente…</p></div>`,true);
-  $('[data-cerrar]').forEach(b=>b.onclick=cerrar);
+  $$('[data-cerrar]').forEach(b=>b.onclick=cerrar);
   let c;
   try{
     c=await api(`/contactos/${id}`,{cache:'no-store',signal:AbortSignal.timeout(16000)});
@@ -311,7 +311,7 @@ export async function ficha360(id) {
       <p class="sub">Si el problema continúa, revisá permisos y conexión del CRM. No se modificó ningún dato.</p></div>
       <div class="modal-f"><button class="btn ghost" data-cerrar>Cerrar</button>
       <button class="btn" id="f-reintentar">Reintentar</button></div>`,true);
-    $('[data-cerrar]').forEach(b=>b.onclick=cerrar);
+    $$('[data-cerrar]').forEach(b=>b.onclick=cerrar);
     $('#f-reintentar').onclick=()=>ficha360(id);
     return;
   }
