@@ -275,10 +275,11 @@ export async function ingresarMensaje(empresa, {
 
   if (abierta) {
     await q(
-      `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts)
-       VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING`,
+      `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero)
+       VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING`,
       [empresa.id, abierta.id, texto || '', mediaUrl || null, mediaTipo || null, mediaNombre || null,
-       archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando]);
+       archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando,
+      telefonoWhatsApp || null]);
     // El número al que se responde es el último número que escribió en esta
     // negociación; no sobrescribir el teléfono principal del cliente.
     if(origen==='whatsapp' && telefonoWhatsApp){
@@ -331,10 +332,11 @@ export async function ingresarMensaje(empresa, {
   const neg = rows[0];
 
   await q(
-    `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts)
-     VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING`,
+    `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero)
+     VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING`,
     [empresa.id, neg.id, texto || '', mediaUrl || null, mediaTipo || null, mediaNombre || null,
-     archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando]);
+     archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando,
+      telefonoWhatsApp || null]);
 
   if (empresa.flags?.bot && empresa.bot?.activo) programarBot(empresa,neg.id);
   await historial(empresa.id, neg.id,
