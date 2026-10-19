@@ -42,6 +42,8 @@ jobs:
         run: node scripts/test-wa-reintentos.mjs
       - name: Canal principal compartido y responsables de Contactos
         run: node scripts/test-principal-contactos.mjs
+      - name: Ficha 360, permisos y teléfonos múltiples
+        run: node scripts/test-telefonos-impar.mjs
       - name: Layout de chat amplio y desplegables para agentes
         run: node scripts/test-chat-amplio.mjs
       - name: IMPAR Central única y clientes registrados de otras sucursales
