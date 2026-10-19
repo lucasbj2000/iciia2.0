@@ -288,7 +288,7 @@ async function encolarSalida(req, n, texto, adjunto) {
     [req.empresaId, n.canal_id]);
   const canal = canales[0] || null;
   const destino = canal
-    ? (canal.tipo.startsWith('whatsapp') ? (n.telefono_destino || c.externos?.whatsapp || c.tel)
+    ? (canal.tipo.startsWith('whatsapp') ? (n.telefono_destino || c.tel || c.externos?.whatsapp)
       : (c.externos?.[canal.tipo === 'messenger' ? 'messenger' : 'instagram'] || ''))
     : '';
   const estado = canal && destino ? 'pendiente' : 'ok';
