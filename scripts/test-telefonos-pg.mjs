@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
+import vm from 'node:vm';
 import pg from 'pg';
 import { cambiarTelefonoPrincipal } from '../src/telefonos-impar.mjs';
 if(!process.env.TEST_DATABASE_URL)throw Error('Solo para base de pruebas; TEST_DATABASE_URL obligatorio.');
@@ -85,7 +86,47 @@ try{
     "SELECT count(*)::int AS n FROM contacto_telefonos WHERE contacto_id=$1 AND tel_norm='83333333'",
     [ONE])).rows[0].n,0,'Corrige número erróneo sin conservarlo cuando se desmarca');
 
-  console.log('✔ PostgreSQL: migración 018, cambio de principal, conservación opcional y duplicados bloqueados.');
+  // Ejecutar la consulta real del listado Contactos, no una copia escrita a mano.
+  await client.query('ALTER TABLE contactos ADD COLUMN nombre text');
+  await client.query('ALTER TABLE contactos ADD COLUMN email text');
+  await client.query('ALTER TABLE contactos ADD COLUMN direccion text');
+  await client.query('ALTER TABLE contactos ADD COLUMN responsable_id uuid');
+  await client.query('ALTER TABLE contactos ADD COLUMN creado timestamptz DEFAULT now()');
+  await client.query('ALTER TABLE negociaciones ADD COLUMN agente_id uuid');
+  await client.query('CREATE TABLE usuarios(id uuid PRIMARY KEY,nombre text)');
+  await client.query(
+    "UPDATE contactos SET nombre='Cliente Simulado',email='cliente.simulado@ejemplo.test',direccion='Barrio Norte' WHERE id=$1",
+    [ONE]);
+  const ruta=readFileSync(new URL('../src/routes/contactos.mjs',import.meta.url),'utf8');
+  const inicio=ruta.indexOf("r.get('/', requiere(), async (req, res) => {");
+  const final=ruta.indexOf("\nr.get('/chequeo'",inicio);
+  assert.ok(inicio>=0&&final>inicio);
+  let handler;
+  vm.runInNewContext(ruta.slice(inicio,final),{
+    r:{get:(_path,_middleware,cb)=>{handler=cb;}},
+    requiere:()=>()=>{},
+    q:(sql,params)=>client.query(sql,params)
+  });
+  async function encontrar(termino) {
+    let filas;
+    await handler({
+      query:{q:termino},
+      empresaId:E,
+      user:{rol:'admin',id:ONE},
+      empresa:{etapas:[{id:'contactado',activa:true}]}
+    },{json:rows=>{filas=rows;}});
+    return filas;
+  }
+  for(const termino of ['cliente simulado','cliente.simulado@ejemplo.test',
+    'barrio norte','595985555555','595981111111']){
+    const resultados=await encontrar(termino);
+    assert.equal(resultados.length,1,'Buscar '+termino+' debe devolver una ficha');
+    assert.equal(resultados[0].id,ONE);
+  }
+  assert.equal((await encontrar('inexistente')).length,0);
+  console.log('✓ Búsqueda real por nombre, email, dirección, principal y secundario');
+
+  console.log('✔ PostgreSQL: edición del principal, búsqueda operativa y duplicados bloqueados.');
 }finally{
   await client.query('DROP SCHEMA IF EXISTS "'+schema+'" CASCADE').catch(()=>{});
   await client.end();
