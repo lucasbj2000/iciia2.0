@@ -65,6 +65,16 @@ node scripts/test-central-unica-impar.mjs
 node scripts/test-publicacion-central.mjs
 bash -n scripts/verificar-publicacion-central.sh
 
+# Comprobar migraciones CONTRA PostgreSQL REAL antes de reiniciar PM2.
+# Si falla SQL se revierte el código sin interrumpir el CRM anterior.
+echo '› Validando y aplicando migraciones con PostgreSQL antes de reiniciar…'
+node --input-type=module -e '
+  import "dotenv/config";
+  import {migrar,pool} from "./src/db.mjs";
+  try { await migrar(); console.log("✔ Migraciones PostgreSQL aplicadas"); }
+  finally { await pool.end(); }
+'
+
 echo '› Reiniciando el CRM…'
 REINICIADO=1
 pm2 reload iciia-crm --update-env
