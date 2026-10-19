@@ -58,7 +58,10 @@ const tx=async f=>f(db);
 const fuenteConversacion=conversacion
   .replace(/^import[^\n]*\n/gm,'').replace(/^export /gm,'');
 const fn=vm.runInNewContext(fuenteConversacion+';conversacionContacto',
-  {tx,consultarPrincipalCentral:consultar});
+  {tx,consultarPrincipalCentral:consultar,
+    telefonosContacto:async()=>[{id:'telefono-principal',numero:cliente.tel,
+      tel_norm:cliente.tel.slice(-8),etiqueta:'Principal'}],
+    normalizarNumero:valor=>({numero:String(valor),clave:String(valor).slice(-8)})});
 const req={empresaId:'empresa-impar',
   user:{id:idAgente,usuario:'agente.otro',nombre:'Empleado de CDE',rol:'agente',
     sucursal:'Ciudad del Este',linea:'CDE'},
