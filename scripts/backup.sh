@@ -29,6 +29,9 @@ gzip -t "$TEMP"
 [[ -s "$TEMP" ]] || { echo '✖ Respaldo vacío; abortando actualización.' >&2; exit 1; }
 mv "$TEMP" "$ARCHIVO"
 chmod 600 "$ARCHIVO"
+# Variables de producción: copia privada en VPS; nunca se suben a GitHub.
+cp -- .env "$DIR/env_${FECHA}.backup"
+chmod 600 "$DIR/env_${FECHA}.backup"
 
 if [[ -d auth ]]; then
   tar czf "$DIR/auth_${FECHA}.tar.gz" auth
@@ -39,6 +42,6 @@ if [[ -d media ]]; then
   chmod 600 "$DIR/media_${FECHA}.tar.gz"
 fi
 # Conservar respaldo al menos 14 días. Borrar antiguos solo al completar uno nuevo.
-find "$DIR" -type f \( -name 'db_*.sql.gz' -o -name 'auth_*.tar.gz' -o -name 'media_*.tar.gz' \) -mtime +14 -delete
+find "$DIR" -type f \( -name 'db_*.sql.gz' -o -name 'auth_*.tar.gz' -o -name 'media_*.tar.gz' -o -name 'env_*.backup' \) -mtime +14 -delete
 
 echo "✔ Respaldo íntegro y verificado: $ARCHIVO"
