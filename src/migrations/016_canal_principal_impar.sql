@@ -6,7 +6,7 @@ DECLARE
   canal UUID;
   cantidad INT;
 BEGIN
-  SELECT count(*)::int, min(c.id) INTO cantidad, canal
+  SELECT count(*)::int, min(c.id::text)::uuid INTO cantidad, canal
     FROM canales c
     JOIN sucursales s ON s.id=c.sucursal_id AND s.empresa_id=c.empresa_id
     JOIN empresas e ON e.id=c.empresa_id
