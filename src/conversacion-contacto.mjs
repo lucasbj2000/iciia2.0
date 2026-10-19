@@ -1,4 +1,5 @@
 import { tx } from './db.mjs';
+import { normalizarNumero, telefonosContacto } from './telefonos-impar.mjs';
 import { consultarPrincipalCentral } from './principal-central-impar.mjs';
 
 const fallo = (status, mensaje) => { throw Object.assign(new Error(mensaje), { status }); };
@@ -28,7 +29,9 @@ export async function conversacionContacto(req, contactoId, envio = null) {
     // agentes, jefes, gerentes y administración.
     const principal = await consultarPrincipalCentral(db,req.empresaId);
     const canales=[principal];
-    if (!envio) return { activa: false, nombre: c.nombre, tel: c.tel, canales };
+    const numeros=await telefonosContacto(db,req.empresaId,c.id);
+    const lista=numeros.length?numeros:[{id:null,numero:c.tel,etiqueta:'Principal'}];
+    if (!envio) return { activa: false, nombre: c.nombre, tel: c.tel, canales, telefonos:lista };
     const texto = String(envio.texto || '').trim();
     if (!texto || texto.length > 10000) fallo(422, 'Escribí un mensaje de hasta 10.000 caracteres.');
     // Resolver siempre en el servidor la línea activa y correcta, incluso
@@ -36,15 +39,18 @@ export async function conversacionContacto(req, contactoId, envio = null) {
     if(envio.canalId && envio.canalId!==principal.id)
       fallo(409,'Esta conversación debe iniciarse desde la línea principal de Central. Actualizá la ventana.');
     const canal=principal;
-    let destino = String(c.tel || '').replace(/\D/g, '');
-    if (destino.length === 10 && destino.startsWith('09')) destino = destino.slice(1);
-    if (destino.length === 9 && destino.startsWith('9')) destino = '595' + destino;
-    if (destino.startsWith('0') || destino.length < 10 || destino.length > 15) fallo(422, 'Revisá el teléfono del contacto e incluí el código de país.');
+    const solicitado=String(envio.telefono || c.tel || '');
+    const {numero:destino,clave}=normalizarNumero(solicitado);
+    // El cliente puede tener varios números: elegir únicamente uno vinculado
+    // a esta MISMA ficha, nunca otro contacto del CRM.
+    const incluido=lista.some(t=>String(t.numero).replace(/\D/g,'').slice(-8)===clave)
+      || String(c.tel||'').replace(/\D/g,'').slice(-8)===clave;
+    if(!incluido)fallo(409,'El teléfono seleccionado no está vinculado a este contacto. Actualizá su ficha.');
     if (!activas.includes('contactado')) fallo(422, 'La etapa Contactado debe estar activa.');
     const { rows: nuevas } = await db.query(`INSERT INTO negociaciones
-      (empresa_id,contacto_id,titulo,etapa,origen,canal_id,agente_id,sucursal,linea,bot_activo)
-      VALUES($1,$2,$3,'contactado','whatsapp',$4,$5,$6,$7,FALSE) RETURNING id`,
-      [req.empresaId,c.id,`Conversación · ${c.nombre}`,canal.id,u.id,u.sucursal || c.sucursal || '',u.linea || c.linea || canal.linea || '']);
+      (empresa_id,contacto_id,titulo,etapa,origen,canal_id,agente_id,sucursal,linea,bot_activo,telefono_destino)
+      VALUES($1,$2,$3,'contactado','whatsapp',$4,$5,$6,$7,FALSE,$8) RETURNING id`,
+      [req.empresaId,c.id,`Conversación · ${c.nombre}`,canal.id,u.id,u.sucursal || c.sucursal || '',u.linea || c.linea || canal.linea || '',destino]);
     const id = nuevas[0].id;
     await db.query(`INSERT INTO mensajes(empresa_id,negociacion_id,dir,txt,autor_id,estado)
       VALUES($1,$2,'out',$3,$4,'pendiente')`, [req.empresaId,id,texto,u.id]);
