@@ -17,6 +17,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_impar_telefono_secundario
 CREATE INDEX IF NOT EXISTS idx_impar_telefonos_contacto
   ON contacto_telefonos(empresa_id,contacto_id);
 ALTER TABLE negociaciones ADD COLUMN IF NOT EXISTS telefono_destino TEXT;
+ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS remitente_numero TEXT;
 
 -- Registrar los primarios que tienen una sola coincidencia; dejar cualquier
 -- conflicto preexistente SIN tocar y sin bloquear el arranque del CRM.
