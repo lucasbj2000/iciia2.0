@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { q, tx, telNorm } from '../db.mjs';
-import { buscarPorTelefono, agregarTelefono, telefonosContacto, puedeEditarContacto, errorTelefono } from '../telefonos-impar.mjs';
+import { buscarPorTelefono, agregarTelefono, telefonosContacto, puedeEditarContacto, errorTelefono, normalizarNumero } from '../telefonos-impar.mjs';
 import { requiere, alcanceSQL } from '../auth.mjs';
 import { notificar, auditar, historial, nombreEtapa, negActivaPorTel, crearContacto } from '../core.mjs';
 import { emitir } from '../realtime.mjs';
@@ -24,7 +24,10 @@ r.get('/buscar/registrado', requiere(), async(req,res)=>{
          FROM contactos c LEFT JOIN usuarios u ON u.id=c.responsable_id
         WHERE c.empresa_id=$1 AND
           (strpos(lower(c.nombre),$2)>0 OR strpos(c.tel,$2)>0
-          OR strpos(lower(c.email),$2)>0)
+          OR strpos(lower(c.email),$2)>0
+          OR EXISTS(SELECT 1 FROM contacto_telefonos t
+             WHERE t.contacto_id=c.id AND t.empresa_id=c.empresa_id
+               AND (strpos(t.numero,$2)>0 OR strpos(t.tel_norm,$2)>0)))
         ORDER BY c.nombre LIMIT 25`,
       [req.empresaId,termino]);
     res.set('Cache-Control','no-store').json(rows);
@@ -93,7 +96,9 @@ r.get('/', requiere(), async (req, res) => {
   if (busca) {
     params.push(`%${busca}%`);
     cond.push(`(lower(c.nombre) LIKE $${params.length} OR c.tel LIKE $${params.length}
-      OR lower(c.email) LIKE $${params.length} OR lower(c.direccion) LIKE $${params.length})`);
+      OR lower(c.email) LIKE ${params.length} OR lower(c.direccion) LIKE ${params.length}
+      OR EXISTS(SELECT 1 FROM contacto_telefonos t WHERE t.contacto_id=c.id
+        AND t.empresa_id=c.empresa_id AND t.numero LIKE ${params.length}))`);
   }
 
   const activas = (req.empresa.etapas || []).filter(e => e.activa).map(e => e.id);
@@ -241,6 +246,8 @@ r.get('/:id', requiere(), async (req, res) => {
 r.post('/', requiere(), async (req, res) => {
   const emp = req.empresa, b = req.body || {};
   if (!b.nombre || !b.tel) return res.status(422).json({ error: 'Nombre y teléfono son obligatorios.' });
+  try { b.tel=normalizarNumero(b.tel).numero; }
+  catch(e){return res.status(e.status||422).json({error:e.message});}
   if (b.iniciarNegociacion && emp.flags?.antiDuplicado) {
     const dup = await negActivaPorTel(emp, b.tel);
     if (dup) return res.status(409).json({ error: 'duplicado', negociacionId: dup.id,
