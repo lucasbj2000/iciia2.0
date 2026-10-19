@@ -9,6 +9,7 @@ import { conectarEmojis } from './emojis.js';
 import { notasHTML,conectarNotas,cargarNotas,cargarCambiosNeg } from './colaboracion.js';
 import { actualizarMensajes, mostrarMensajePendiente, confirmarIdPendiente } from './chat-mensajes.js';
 import { combinarHistorial } from './historial-chat.js';
+import { enlazarTexto } from './enlaces.js';
 
 let actual = null, usuarios = [], rapidas = { equipo: [], personales: [] }, adj = null;
 let historialVista = null;
@@ -174,7 +175,7 @@ function mensajeHTML(m) {
          ? `<div class="historial-tramo ${m.anterior?'anterior':''}">${m.anterior?'↶ Conversación anterior':'Conversación actual'}
               · ${fd(m.creado_negociacion)}${m.titulo_negociacion?' · '+esc(m.titulo_negociacion):''}</div>` : '';
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
-          ${tramo}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${esc(m.txt)}</div>` : ''}${mapaUbi}
+          ${tramo}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${mapaUbi}
           <small>${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ' · 📱 '+esc(m.remitente_numero) : ''}
           ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}</small></div>`;
 }
