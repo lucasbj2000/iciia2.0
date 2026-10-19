@@ -1,6 +1,6 @@
 /* ============ Contactos y ficha 360° ============ */
 import {
-  $, $, esc, S, api, get, post, patch, del, gs, fd, fdate, toast, modal, cerrar,
+  $, $$, esc, S, api, get, post, patch, del, gs, fd, fdate, toast, modal, cerrar,
   fx, esAdmin, etapa, bajar, vacio, skeleton
 } from './core.js';
 import { fichaNeg } from './ficha.js';
