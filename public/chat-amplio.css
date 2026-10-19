@@ -231,3 +231,16 @@
   .conversation-modal .ficha-acordeon>summary{font-size:11px}
   .conversation-modal .historial-barra small{font-size:10px}
 }
+
+/* Enlaces compartidos en el chat con clientes y en comunicación interna. */
+.msg a.enlace-chat{
+  color:#9bd0ff;
+  text-decoration:underline;
+  text-underline-offset:2px;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  cursor:pointer;
+}
+[data-tema="claro"] .msg a.enlace-chat{color:#145e9b}
+.msg a.enlace-chat:hover{text-decoration-thickness:2px}
+.msg a.enlace-chat:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:2px}
