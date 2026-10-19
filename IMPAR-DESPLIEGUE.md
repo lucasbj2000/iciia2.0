@@ -2,6 +2,57 @@
 
 Versión 3.0.0: una empresa, ingreso directo, identidad verde/gris/blanco y microanimaciones de hojas de papel. Conserva sucursales, canales, agentes, roles, negociaciones, mensajería, reportes, calendario y configuración. El catálogo apunta al sitio oficial; no representa una integración de stock.
 
+
+## Actualizaciones habituales (Protocolo 002, versión reforzada)
+
+**No ejecutar** `preparar-impar.sh`, `reset-impar.mjs` ni scripts de conversión inicial al actualizar un sistema ya operativo.
+
+### Primera instalación del actualizador reforzado
+
+El VPS que tenga todavía el actualizador anterior lo incorpora UNA SOLA VEZ usando:
+
+```bash
+cd /opt/iciia-crm &&
+git diff --quiet &&
+git diff --cached --quiet &&
+git fetch origin main &&
+bash scripts/backup.sh &&
+BASE="$(git rev-parse HEAD)" &&
+git merge --ff-only origin/main &&
+IMPAR_BASE_SHA="$BASE" bash scripts/actualizar.sh
+```
+
+### Todas las actualizaciones siguientes
+
+```bash
+cd /opt/iciia-crm && bash scripts/actualizar.sh
+```
+
+El script hace automáticamente un backup completo verificado, adquiere un lock,
+confirma avance fast-forward, ejecuta la suite de pruebas, aplica las migraciones
+SQL en una transacción antes de tocar PM2, comprueba la autenticación y la revisión
+exacta del servidor y compara los bytes de HTML y JS publicados en el dominio.
+
+Si fallan las pruebas o PostgreSQL, **no reinicia el CRM operativo**.
+Si falla el reinicio o el login, restaura la versión anterior del código e
+intenta restaurar PM2. Si solamente falla la comparación pública, informa el
+error y conserva el backend nuevo si sigue sano.
+
+**Limitación:** confirmar una migración SQL no equivale a que pueda deshacerse con
+`git reset`. Para cambios que borren/transformen datos, se requiere una
+estrategia específica de reversión antes de desplegar. Ninguna actualización
+normal debe eliminar `auth/`, `media/`, `.env`, usuarios o conversaciones.
+
+Para consultar la publicación sin hacer cambios:
+
+```bash
+cd /opt/iciia-crm && bash scripts/verificar-publicacion.sh
+```
+
+La coincidencia de código y autenticación **no demuestra** que los mensajes
+WhatsApp se estén entregando; probar recepción/envío con un agente real cuando
+se cambien canales o chat.
+
 ## Conversión inicial autorizada
 
 Ejecutar únicamente en `/opt/iciia-crm`, repositorio `lucasbj2000/iciia2.0`, con PostgreSQL propio de esta instancia. El script valida el remoto, pero el operador debe comprobar que DATABASE_URL corresponde a ICIIA 2.0.
