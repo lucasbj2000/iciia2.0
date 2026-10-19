@@ -92,6 +92,13 @@ function pintar() {
        <small>Conversación continua del cliente · incluye negociaciones anteriores</small>
        <button class="btn ghost sm" id="f-mas-mensajes" type="button" ${historialVista?.hayAnteriores?'':'hidden'}>↑ Cargar mensajes anteriores</button>
      </div>
+     ${!cerrada?`<div class="historial-barra" style="margin-top:8px">
+       <small>📞 Número del cliente al que responderá esta negociación</small>
+       <select id="f-telefono-chat" aria-label="Número de destino del chat" disabled>
+         <option>Consultando números…</option>
+       </select>
+       <small id="f-telefono-chat-error" role="alert"></small>
+     </div>`:''}
      <div class="chat" id="chatbox"></div>
 
      ${cerrada ? `<div class="card-box chat-compose" style="margin:12px 0 0;border-color:var(--warn)">
@@ -227,6 +234,38 @@ async function cargarMensajesAnteriores(id){
   finally{if(boton.isConnected){boton.disabled=false;boton.textContent='↑ Cargar mensajes anteriores';}}
 }
 
+async function cargarTelefonosChat(id){
+  const selector=$('#f-telefono-chat'),error=$('#f-telefono-chat-error');
+  if(!selector)return;
+  try{
+    const r=await get(`/negociaciones/${id}/telefonos`);
+    if(!selector.isConnected || actual?.id!==id)return;
+    const nums=r.telefonos||[];
+    selector.innerHTML=nums.map(t=>`<option value="${esc(t.numero)}">${esc(t.numero)} · ${esc(t.etiqueta)}</option>`).join('');
+    if(!nums.length){
+      selector.innerHTML='<option value="">Sin teléfonos válidos</option>';
+      selector.disabled=true;return;
+    }
+    const actualNorm=String(r.destino||'').replace(/\\D/g,'').slice(-8);
+    const seleccionado=nums.find(x=>x.tel_norm===actualNorm) || nums[0];
+    selector.value=seleccionado.numero;
+    selector.disabled=nums.length===1;
+    selector.onchange=async()=>{
+      const numero=selector.value;
+      selector.disabled=true;
+      if(error)error.textContent='';
+      try{
+        const r=await patch(`/negociaciones/${id}/telefono-destino`,{telefono:numero});
+        if(actual?.id===id)actual.telefono_destino=r.destino;
+        toast('El próximo mensaje se enviará al número seleccionado.','ok','WhatsApp');
+      }catch(e){
+        if(error)error.textContent=e.message;
+        selector.value=seleccionado.numero;
+      }finally{if(selector.isConnected)selector.disabled=nums.length===1;}
+    };
+  }catch(e){if(error)error.textContent='No se pudieron consultar números: '+e.message;}
+}
+
 function herramientasHTML(campo) {
   const html = botonesHTML(campo) + rapidasHTML(campo);
   return html ? `<details class="chat-tools"><summary>⚡ Respuestas y acciones <span class="ficha-acordeon-ayuda">Desplegar</span></summary><div class="chat-tools-contenido">${html}</div></details>` : '';
@@ -262,6 +301,7 @@ function rapidasHTML(campo) {
 }
 
 function conectar(n) {
+  if($('#f-telefono-chat'))cargarTelefonosChat(n.id);
   if($('#f-mas-mensajes'))$('#f-mas-mensajes').onclick=()=>cargarMensajesAnteriores(n.id);
   conectarNotas(n.id);
   conectarEmojis('#msg');
