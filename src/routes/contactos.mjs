@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { q, tx, telNorm } from '../db.mjs';
-import { buscarPorTelefono, agregarTelefono, telefonosContacto, puedeEditarContacto, errorTelefono, normalizarNumero } from '../telefonos-impar.mjs';
+import { buscarPorTelefono, agregarTelefono, telefonosContacto, puedeEditarContacto, errorTelefono, normalizarNumero, cambiarTelefonoPrincipal } from '../telefonos-impar.mjs';
 import { requiere, alcanceSQL } from '../auth.mjs';
 import { notificar, auditar, historial, nombreEtapa, negActivaPorTel, crearContacto } from '../core.mjs';
 import { emitir } from '../realtime.mjs';
@@ -286,14 +286,15 @@ r.post('/', requiere(), async (req, res) => {
 r.patch('/:id', requiere(), async (req,res)=>{
   try{
     const b=req.body||{};
-    await tx(async db=>{
+    const cambio=await tx(async db=>{
       const {rows}=await db.query(
         'SELECT * FROM contactos WHERE id=$1 AND empresa_id=$2 FOR UPDATE',[req.params.id,req.empresaId]);
       const c=rows[0];
       if(!await editarPermitido(db,req,c))
         throw errorTelefono(403,'Solo el responsable o un agente asignado puede modificar esta ficha.');
-      if(b.tel!==undefined && telNorm(b.tel)!==c.tel_norm)
-        throw errorTelefono(422,'Para evitar duplicados, agregá otro número en «Teléfonos vinculados».');
+      const cambioTelefono=b.tel!==undefined
+        ? await cambiarTelefonoPrincipal(db,req.empresaId,c,b.tel,b.conservarAnterior===true)
+        : null;
       const valores=['nombre','email','doc','ciudad','direccion','notas'];
       const campos=[];const params=[req.params.id,req.empresaId];
       for(const key of valores)if(Object.prototype.hasOwnProperty.call(b,key)){
@@ -306,9 +307,12 @@ r.patch('/:id', requiere(), async (req,res)=>{
       }
       if(campos.length)await db.query(
         'UPDATE contactos SET '+campos.join(',')+' WHERE id=$1 AND empresa_id=$2',params);
+      return cambioTelefono;
     });
-    auditar(req.empresaId,req.user.nombre,'Ficha 360','Datos de contacto actualizados',req.ip).catch(()=>{});
-    res.json({ok:true});
+    auditar(req.empresaId,req.user.nombre,'Ficha 360',
+      cambio && !cambio.sinCambios ? 'Actualización de ficha y teléfono principal' : 'Datos de contacto actualizados',
+      req.ip).catch(()=>{});
+    res.json({ok:true,telefonoPrincipal:cambio});
   }catch(e){if(!e.status)console.error('[contactos] ficha editar:',e.message);
     res.status(e.status||500).json({error:e.status?e.message:'No se pudo guardar la ficha.'});}
 });
