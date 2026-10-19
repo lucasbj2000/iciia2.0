@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { q, telNorm } from '../db.mjs';
+import { q, tx, telNorm } from '../db.mjs';
+import { buscarPorTelefono, agregarTelefono, telefonosContacto, puedeEditarContacto, errorTelefono } from '../telefonos-impar.mjs';
 import { requiere, alcanceSQL } from '../auth.mjs';
 import { notificar, auditar, historial, nombreEtapa, negActivaPorTel, crearContacto } from '../core.mjs';
 import { emitir } from '../realtime.mjs';
@@ -151,6 +152,61 @@ r.get('/export/csv', requiere('admin', 'gerente'), async (req, res) => {
   res.send('\ufeff' + csv);
 });
 
+/** Edición de ficha por responsable o agente de negociación activa.
+ * El servidor aplica el permiso; ocultar botones en UI no lo sustituye.
+ */
+async function editarPermitido(db,req,c) {
+  if (!c) throw errorTelefono(404,'Contacto no encontrado.');
+  if (['admin','gerente'].includes(req.user.rol) || c.responsable_id===req.user.id) return true;
+  const activas=(req.empresa.etapas||[]).filter(e=>e.activa).map(e=>e.id);
+  const {rows}=await db.query(
+    'SELECT agente_id FROM negociaciones WHERE empresa_id=$1 AND contacto_id=$2 AND etapa=ANY($3)',
+    [req.empresaId,c.id,activas]);
+  return puedeEditarContacto(req.user,c,rows);
+}
+
+r.post('/:id/telefonos', requiere(), async(req,res)=>{
+  try{
+    const numero=String(req.body?.numero||'');
+    const nuevo=await tx(async db=>{
+      const {rows}=await db.query(
+        'SELECT * FROM contactos WHERE id=$1 AND empresa_id=$2 FOR UPDATE',[req.params.id,req.empresaId]);
+      if(!await editarPermitido(db,req,rows[0]))
+        throw errorTelefono(403,'Solo el responsable o un agente asignado puede agregar teléfonos.');
+      return agregarTelefono(db,req.empresaId,req.params.id,numero,req.body?.etiqueta);
+    });
+    auditar(req.empresaId,req.user.nombre,'Número adicional','Vinculación de teléfono a contacto',req.ip).catch(()=>{});
+    res.json({ok:true,telefono:nuevo});
+  }catch(e){if(!e.status)console.error('[contactos] agregar teléfono:',e.message);
+    res.status(e.status||500).json({error:e.status?e.message:'No se pudo vincular el número.'});}
+});
+r.delete('/:id/telefonos/:telefonoId', requiere(), async(req,res)=>{
+  try{
+    await tx(async db=>{
+      const {rows}=await db.query(
+        'SELECT * FROM contactos WHERE id=$1 AND empresa_id=$2 FOR UPDATE',[req.params.id,req.empresaId]);
+      const contacto=rows[0];
+      if(!await editarPermitido(db,req,contacto))
+        throw errorTelefono(403,'No tenés permiso para modificar este contacto.');
+      const {rows:nums}=await db.query(
+        'SELECT * FROM contacto_telefonos WHERE id=$1 AND empresa_id=$2 AND contacto_id=$3 FOR UPDATE',
+        [req.params.telefonoId,req.empresaId,contacto.id]);
+      const telefono=nums[0];
+      if(!telefono)throw errorTelefono(404,'Número no encontrado.');
+      if(telefono.tel_norm===contacto.tel_norm)
+        throw errorTelefono(409,'El número principal no se puede eliminar. Agregá uno secundario.');
+      const {rows:uso}=await db.query(
+        'SELECT 1 FROM negociaciones WHERE empresa_id=$1 AND contacto_id=$2 AND telefono_destino=$3 AND etapa=ANY($4) LIMIT 1',
+        [req.empresaId,contacto.id,telefono.numero,(req.empresa.etapas||[]).filter(x=>x.activa).map(x=>x.id)]);
+      if(uso.length)throw errorTelefono(409,'Este teléfono se utiliza en una conversación activa; no se puede desvincular.');
+      await db.query('DELETE FROM contacto_telefonos WHERE id=$1 AND empresa_id=$2',[telefono.id,req.empresaId]);
+    });
+    auditar(req.empresaId,req.user.nombre,'Número desvinculado','Teléfono secundario retirado de contacto',req.ip).catch(()=>{});
+    res.json({ok:true});
+  }catch(e){if(!e.status)console.error('[contactos] quitar teléfono:',e.message);
+    res.status(e.status||500).json({error:e.status?e.message:'No se pudo desvincular el número.'});}
+});
+
 r.get('/:id', requiere(), async (req, res) => {
   const { rows } = await q(
     `SELECT c.*, u.nombre AS responsable FROM contactos c LEFT JOIN usuarios u ON u.id=c.responsable_id
@@ -168,12 +224,13 @@ r.get('/:id', requiere(), async (req, res) => {
          ORDER BY ub.ts DESC LIMIT 20`,
       [c.id, req.empresaId, ...params])
   ]);
-  if (req.user.rol === 'agente' && !negs.rows.length) {
-    return res.status(404).json({ error: 'no encontrado' });
-  }
+  const editable=await editarPermitido({query:q},req,c);
+  if (req.user.rol==='agente' && !negs.rows.length && !editable)
+    return res.status(403).json({error:'No tenés acceso a esta ficha.'});
   const ganadas = negs.rows.filter(n => n.etapa === 'ganado');
-  res.json({
-    ...c, negociaciones: negs.rows,
+  const telefonos=await telefonosContacto({query:q},req.empresaId,c.id);
+  res.set('Cache-Control','no-store').json({
+    ...c, editable, telefonos, negociaciones: negs.rows,
     ubicaciones: ubis.rows.map(u => ({ ...u, mapa: ubi.linkMapa(u.lat, u.lon, u.direccion || u.texto) })),
     resumen: { total: negs.rows.length, ganadas: ganadas.length,
       monto: ganadas.reduce((s, n) => s + Number(n.monto_cierre || n.valor || 0), 0),
@@ -189,9 +246,11 @@ r.post('/', requiere(), async (req, res) => {
     if (dup) return res.status(409).json({ error: 'duplicado', negociacionId: dup.id,
       mensaje: `Ese cliente ya tiene una negociación abierta en ${nombreEtapa(emp, dup.etapa)}.` });
   }
-  const { rows: dups } = await q('SELECT * FROM contactos WHERE empresa_id=$1 AND tel_norm=$2 LIMIT 1',
-    [req.empresaId, telNorm(b.tel)]);
-  let c = dups[0];
+  let c;
+  try { c=await buscarPorTelefono({query:q},req.empresaId,b.tel); }
+  catch(e){return res.status(e.status||500).json({error:e.message});}
+  if(c) return res.status(409).json({error:'duplicado',contactoId:c.id,
+    mensaje:'Este número ya está registrado en IMPAR. Abrí la ficha existente; no se creó otro contacto.'});
   if (emp.flags?.solicitudContacto && c && c.responsable_id && c.responsable_id !== req.user.id
       && c.sucursal === b.sucursal && c.linea === b.linea && req.user.rol !== 'admin') {
     const { rows: rs } = await q('SELECT nombre FROM usuarios WHERE id=$1', [c.responsable_id]);
@@ -217,17 +276,34 @@ r.post('/', requiere(), async (req, res) => {
   res.json({ ok: true, id: c.id, negociacionId: negId });
 });
 
-r.patch('/:id', requiere(), async (req, res) => {
-  const b = req.body || {};
-  const { rowCount } = await q(
-    `UPDATE contactos SET nombre=COALESCE($3,nombre), tel=COALESCE($4,tel), tel_norm=COALESCE($5,tel_norm),
-       email=COALESCE($6,email), doc=COALESCE($7,doc), ciudad=COALESCE($8,ciudad),
-       direccion=COALESCE($9,direccion), notas=COALESCE($10,notas)
-     WHERE id=$1 AND empresa_id=$2`,
-    [req.params.id, req.empresaId, b.nombre, b.tel, b.tel ? telNorm(b.tel) : null,
-     b.email, b.doc, b.ciudad, b.direccion, b.notas]);
-  if (!rowCount) return res.status(404).json({ error: 'no encontrado' });
-  res.json({ ok: true });
+r.patch('/:id', requiere(), async (req,res)=>{
+  try{
+    const b=req.body||{};
+    await tx(async db=>{
+      const {rows}=await db.query(
+        'SELECT * FROM contactos WHERE id=$1 AND empresa_id=$2 FOR UPDATE',[req.params.id,req.empresaId]);
+      const c=rows[0];
+      if(!await editarPermitido(db,req,c))
+        throw errorTelefono(403,'Solo el responsable o un agente asignado puede modificar esta ficha.');
+      if(b.tel!==undefined && telNorm(b.tel)!==c.tel_norm)
+        throw errorTelefono(422,'Para evitar duplicados, agregá otro número en «Teléfonos vinculados».');
+      const valores=['nombre','email','doc','ciudad','direccion','notas'];
+      const campos=[];const params=[req.params.id,req.empresaId];
+      for(const key of valores)if(Object.prototype.hasOwnProperty.call(b,key)){
+        const valor=String(b[key]??'').trim();
+        if(valor.length>(key==='notas'?4000:250))
+          throw errorTelefono(422,'El campo '+key+' supera el límite permitido.');
+        if(key==='nombre' && !valor)
+          throw errorTelefono(422,'El nombre no puede estar vacío.');
+        params.push(valor);campos.push(key+'=$'+params.length);
+      }
+      if(campos.length)await db.query(
+        'UPDATE contactos SET '+campos.join(',')+' WHERE id=$1 AND empresa_id=$2',params);
+    });
+    auditar(req.empresaId,req.user.nombre,'Ficha 360','Datos de contacto actualizados',req.ip).catch(()=>{});
+    res.json({ok:true});
+  }catch(e){if(!e.status)console.error('[contactos] ficha editar:',e.message);
+    res.status(e.status||500).json({error:e.status?e.message:'No se pudo guardar la ficha.'});}
 });
 
 r.post('/:id/solicitar', requiere(), async (req, res) => {
