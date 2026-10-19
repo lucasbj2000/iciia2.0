@@ -7,6 +7,7 @@ import {
 import { fichaNeg, modalRapidas } from './ficha.js';
 import { conectarEmojis } from './emojis.js';
 import { actualizarMensajes } from './chat-mensajes.js';
+import { enlazarTexto } from './enlaces.js';
 
 /* ================= COMUNICACIÓN ================= */
 let CHAT = null, resumenCom = { grupos: [], usuarios: [] };
@@ -58,7 +59,7 @@ async function pintarChat(suave = false, seguir = false) {
   if ($('#ci-main') !== box || `${CHAT?.tipo}:${CHAT?.id}` !== clave || box._revision !== revision) return;
   const render = m => `<div class="msg ${m.de_id === S.usuario.id ? 'out' : 'in'}">
     ${chat.tipo === 'grupo' && m.de_id !== S.usuario.id ? `<b style="font-size:var(--fs-xs);color:var(--brand);display:block">${esc(m.autor)}</b>` : ''}
-    <div class="message-text">${esc(m.txt)}</div><small>${fdate(m.ts)}</small></div>`;
+    <div class="message-text">${enlazarTexto(m.txt)}</div><small>${fdate(m.ts)}</small></div>`;
   if (actualizar) { actualizarMensajes($('#ci-body'), msgs, render, seguir); return; }
   box.dataset.chatKey = clave;
   const esGrupo = CHAT.tipo === 'grupo';
