@@ -10,15 +10,47 @@ import { conectarEmojis } from './emojis.js';
 
 let QC = '';
 let ultimaCargaFicha=0;
+let ultimaConsultaContactos=0;
 
 export async function vistaContactos() {
-  $('#view').innerHTML = `<div class="section">${skeleton(5)}</div>`;
-  const [cs, pend] = await Promise.all([
-    get(`/contactos?q=${encodeURIComponent(QC)}`),
-    get('/contactos/solicitudes/pendientes').catch(() => [])
-  ]);
-
-  $('#view').innerHTML = `<div class="section fx-vista">
+  const revision=++ultimaConsultaContactos;
+  const vista=$('#view');
+  const inputAntes=$('#c-buscar');
+  const teniaFoco=!!inputAntes && document.activeElement===inputAntes;
+  const inicio=teniaFoco ? inputAntes.selectionStart : null;
+  const fin=teniaFoco ? inputAntes.selectionEnd : null;
+  const busqueda=QC;
+  // No sustituir el buscador por un skeleton al escribir: antes quedaba
+  // permanentemente cargando cuando PostgreSQL rechazaba la búsqueda.
+  if(!inputAntes)vista.innerHTML=`<div class="section">${skeleton(5)}</div>`;
+  else {
+    const estado=$('#c-busqueda-estado');
+    if(estado)estado.textContent='Buscando…';
+  }
+  let cs,pend;
+  try{
+    [cs,pend]=await Promise.all([
+      get(`/contactos?q=${encodeURIComponent(busqueda)}`),
+      get('/contactos/solicitudes/pendientes').catch(()=>[])
+    ]);
+  }catch(e){
+    if(revision!==ultimaConsultaContactos || S.vista!=='con')return;
+    if(inputAntes && inputAntes.isConnected){
+      const estado=$('#c-busqueda-estado');
+      if(estado)estado.textContent='No se pudo buscar. Reintentá.';
+      toast('La búsqueda falló: '+e.message,'bad','Contactos');
+    }else{
+      vista.innerHTML=`<div class="section card-box">
+        <h3>No se pudo cargar Contactos</h3>
+        <p role="alert">${esc(e.message)}</p>
+        <button class="btn" id="c-reintentar-lista">Reintentar</button>
+      </div>`;
+      $('#c-reintentar-lista').onclick=vistaContactos;
+    }
+    return;
+  }
+  if(revision!==ultimaConsultaContactos || S.vista!=='con')return;
+  vista.innerHTML = `<div class="section fx-vista">
    ${pend.length ? `<div class="card-box fx-pop" style="border-color:var(--warn)">
      <h3>Solicitudes de contacto pendientes (${pend.length})</h3>
      ${pend.map(s => `<div class="row" style="align-items:center;margin-bottom:8px">
@@ -28,6 +60,7 @@ export async function vistaContactos() {
    <div class="row" style="margin-bottom:12px;align-items:center">
      <input id="c-buscar" placeholder="Buscar por nombre, teléfono, email o dirección…" value="${esc(QC)}"
        style="padding:10px 13px;background:var(--surface2);border:1px solid var(--line);border-radius:10px">
+     <small id="c-busqueda-estado" aria-live="polite" style="color:var(--muted)">${busqueda ? cs.length+' resultado(s)' : ''}</small>
      <div style="flex:none;display:flex;gap:8px;flex-wrap:wrap">
        <button class="btn" id="c-nuevo">+ Nuevo contacto</button>
        <button class="btn ghost" id="c-buscar-registrado" title="Buscar cliente de cualquier sucursal para iniciar conversación">Buscar registrado en IMPAR</button>
@@ -51,8 +84,18 @@ export async function vistaContactos() {
      || `<tr><td colspan="7">${vacio('◎', 'Sin contactos', 'Los que ingresen por los canales aparecerán acá')}</td></tr>`}
    </tbody></table></div></div>`;
 
+  if(teniaFoco && $('#c-buscar')){
+    const nuevoInput=$('#c-buscar');
+    nuevoInput.focus({preventScroll:true});
+    if(inicio!==null && fin!==null)nuevoInput.setSelectionRange(inicio,fin);
+  }
   let t;
-  $('#c-buscar').oninput = e => { clearTimeout(t); QC = e.target.value; t = setTimeout(vistaContactos, 320); };
+  $('#c-buscar').oninput = e => {
+    clearTimeout(t);
+    QC=e.target.value;
+    ++ultimaConsultaContactos; // descarta consultas antiguas antes del debounce
+    t=setTimeout(vistaContactos,320);
+  };
   $('#c-nuevo').onclick = modalNuevo;
   $('#c-buscar-registrado').onclick=buscarContactoImpar;
   $$('[data-360]').forEach(b => b.onclick = () => ficha360(b.dataset['360']));
@@ -338,7 +381,14 @@ export async function ficha360(id) {
    <div class="grid g2">
      <div class="card-box"><h3>Datos personales</h3>
       <div class="row"><div class="field"><label>Nombre</label><input id="f-nom" value="${esc(c.nombre)}"></div>
-       <div class="field"><label>Teléfono principal</label><input id="f-tel" readonly value="${esc(c.tel || '')}" title="Agregá otros teléfonos desde el apartado correspondiente"></div></div>
+       <div class="field"><label for="f-tel">Teléfono principal</label>
+         <input id="f-tel" inputmode="tel" value="${esc(c.tel || '')}"
+           title="Modificá el número principal sin crear otro cliente">
+         ${c.editable?`<label style="font-size:11px;display:flex;align-items:center;gap:7px;margin-top:6px">
+           <input type="checkbox" id="f-conservar-anterior" checked style="width:auto">
+           Conservar el número anterior como secundario al cambiarlo
+         </label><small>Desmarcá la casilla si estás corrigiendo un número incorrecto. Los mensajes históricos permanecen intactos.</small>`:''}
+       </div></div>
       <div class="row"><div class="field"><label>Email</label><input id="f-mail" value="${esc(c.email || '')}"></div>
        <div class="field"><label>Documento</label><input id="f-doc" value="${esc(c.doc || '')}"></div></div>
       <div class="row"><div class="field"><label>Ciudad</label><input id="f-ciu" value="${esc(c.ciudad || '')}"></div>
@@ -399,7 +449,7 @@ export async function ficha360(id) {
   if($('#f-cambiar-responsable'))$('#f-cambiar-responsable').onclick=()=>
     cambiarResponsableContacto(c.id,c);
   if(!c.editable){
-    ['f-nom','f-mail','f-doc','f-ciu','f-dir','f-not'].forEach(x=>{
+    ['f-nom','f-tel','f-mail','f-doc','f-ciu','f-dir','f-not'].forEach(x=>{
       const elem=$('#'+x);if(elem)elem.disabled=true;
     });
   }else{
@@ -407,6 +457,8 @@ export async function ficha360(id) {
       const boton=$('#f-guardar');boton.disabled=true;
       try{
         await patch(`/contactos/${c.id}`,{
+          tel:$('#f-tel').value.trim(),
+          conservarAnterior:$('#f-conservar-anterior')?.checked===true,
           nombre:$('#f-nom').value.trim(),email:$('#f-mail').value.trim(),
           doc:$('#f-doc').value.trim(),ciudad:$('#f-ciu').value.trim(),
           direccion:$('#f-dir').value.trim(),notas:$('#f-not').value
