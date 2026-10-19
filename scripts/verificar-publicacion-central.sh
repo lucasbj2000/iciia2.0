@@ -9,8 +9,8 @@ fi
 
 SHA="$(git rev-parse --short=12 HEAD)"
 RUTA="https://crm.iciia.tech"
-MARCA='name="impar-ui-build" content="ficha360-multitel-20261019-1"'
-IMPORT="import { vistaContactos } from './contactos.js?v=impar-ficha360-multitel-20261019-1';"
+MARCA='name="impar-ui-build" content="ficha360-cierre-20261019-2"'
+IMPORT="import { vistaContactos } from './contactos.js?v=impar-ficha360-cierre-20261019-2';"
 ANTIGUO="No hay líneas WhatsApp habilitadas para tu sucursal"
 AVISO="Seleccionar..."
 CHECK_DIR="$(mktemp -d)"
@@ -48,13 +48,13 @@ if ! grep -Fq "$MARCA" "$CHECK_DIR/index"; then
   echo "✖ La web pública entrega un index.html ANTIGUO aunque la API esté actualizada."
   echo "  Revisá caché de Hostinger/CDN/Nginx o el root de la web."; exit 1
 fi
-if ! curl "${CURL_ARGS[@]}" "$RUTA/js/app.js?v=impar-ficha360-multitel-20261019-1" > "$CHECK_DIR/app"; then
+if ! curl "${CURL_ARGS[@]}" "$RUTA/js/app.js?v=impar-ficha360-cierre-20261019-2" > "$CHECK_DIR/app"; then
   echo "✖ No está accesible el módulo JS público."; exit 1
 fi
 if ! grep -Fq "$IMPORT" "$CHECK_DIR/app"; then
   echo "✖ app.js servido al público es ANTIGUO. Revisá caché/CDN."; exit 1
 fi
-if ! curl "${CURL_ARGS[@]}" "$RUTA/js/contactos.js?v=impar-ficha360-multitel-20261019-1" > "$CHECK_DIR/contactos"; then
+if ! curl "${CURL_ARGS[@]}" "$RUTA/js/contactos.js?v=impar-ficha360-cierre-20261019-2" > "$CHECK_DIR/contactos"; then
   echo "✖ No está accesible el módulo Contactos."; exit 1
 fi
 if ! grep -Fq 'type="hidden" id="c-chat-canal"' "$CHECK_DIR/contactos" ||
