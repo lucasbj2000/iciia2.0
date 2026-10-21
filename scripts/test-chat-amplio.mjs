@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 const leer=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const ficha=leer('public/js/ficha.js');
 const css=leer('public/chat-amplio.css');
@@ -9,7 +10,7 @@ const index=leer('public/index.html');
 const anterior=leer('public/impar.css');
 
 // Node analiza el JS real, con todos los template literals del formulario.
-execFileSync(process.execPath,['--check',new URL('../public/js/ficha.js',import.meta.url).pathname],{stdio:'pipe'});
+execFileSync(process.execPath,['--check',fileURLToPath(new URL('../public/js/ficha.js',import.meta.url))],{stdio:'pipe'});
 
 assert.ok(ficha.includes('<details class="ficha-contexto ficha-acordeon"><summary>'));
 assert.ok(!ficha.includes("ficha-contexto\" \${esMovil() ? '' : 'open'}"),

@@ -974,14 +974,15 @@ async function aBot() {
       <b style="color:${pausado?'var(--warn)':'var(--ok)'}">${pausado?'Automatización pausada · atención manual':'Bot habilitado para nuevos contactos'}</b>
       <p class="sub" style="margin:9px 0">${pausado
         ? 'IMPAR recibe mensajes y los agentes pueden responder normalmente. No se envían saludos, solicitudes de nombre/ciudad ni respuestas automáticas del bot. Los mensajes de bot que estaban pendientes se cancelaron.'
-        : 'El sistema puede responder automáticamente a contactos nuevos. Las conversaciones previamente atendidas de forma manual se conservan sin bot hasta reactivarlas individualmente.'}</p>
+        : 'Da la bienvenida a Papelerías IMPAR solo a clientes nuevos sin ficha previa ni responsable. Ofrece sucursales con agentes activos, excluye Central y asigna a la sucursal elegida. Sin elección durante 2 horas, deriva a Matriz. Los clientes existentes conservan atención manual.'}</p>
       <button class="btn ${pausado?'':'danger'}" id="b-pausa">${pausado?'Activar respuestas automáticas':'Pausar respuestas automáticas'}</button>
     </div>
     <p class="sub">Esta configuración afecta únicamente IMPAR y no modifica números de WhatsApp, mensajes entrantes ni respuestas escritas por empleados.</p>
-    <div class="field"><label>Instrucciones del bot (se conservan mientras está pausado)</label>
+    <p class="sub">La recepción usa el flujo de sucursales. No solicita nombre ni ciudad. Al asignar un responsable o responder una persona, el bot se silencia.</p>
+    <div class="field"><label>Instrucciones generales guardadas (no modifican el flujo de recepción)</label>
       <textarea id="b-ins" rows="7">${esc(b.instrucciones || '')}</textarea></div>
     <button class="btn ghost sm" id="b-ok">Guardar instrucciones</button>
-    ${pausado?'':'<button class="btn ghost sm" id="b-react">Reactivar bot en conversaciones existentes (opcional)</button>'}
+    ${pausado?'':'<button class="btn ghost sm" id="b-react">Reanudar recepciones pendientes de clientes nuevos</button>'}
   </div>`;
   $('#b-pausa').onclick = async () => {
     const aviso = pausado
@@ -1003,8 +1004,8 @@ async function aBot() {
     }catch(e){toast(e.message,'bad');}
   };
   if($('#b-react'))$('#b-react').onclick = async () => {
-    if(!await confirmar('Reactivar bot en negociaciones abiertas',
-      'El bot podría comenzar a responder automáticamente en conversaciones ya iniciadas. Hacelo solo cuando el equipo esté preparado.', 'Reactivar'))return;
+    if(!await confirmar('Reanudar recepciones pendientes',
+      'Solo se reanudarán clientes nuevos sin responsable y sin atención manual. Se mantiene el vencimiento original de 2 horas.', 'Reanudar'))return;
     try{const r=await post('/admin/bot/reactivar',{});
       toast('Bot habilitado en '+r.reactivadas+' conversaciones.','ok');}catch(e){toast(e.message,'bad');}
   };

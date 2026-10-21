@@ -119,7 +119,11 @@ r.post('/bot/reactivar', requiere('admin'), async (req, res) => {
     return res.status(409).json({error:'La automatización está pausada para IMPAR. Reactivala primero desde Administración → Bot.'});
   const activas = (req.empresa.etapas || []).filter(e => e.activa).map(e => e.id);
   const { rowCount } = await q(
-    'UPDATE negociaciones SET bot_activo=TRUE WHERE empresa_id=$1 AND etapa = ANY($2) AND bot_activo=FALSE',
+    `UPDATE negociaciones n SET bot_activo=TRUE WHERE empresa_id=$1 AND etapa = ANY($2) AND bot_activo=FALSE
+      AND bot_recepcion->>'elegible'='true' AND bot_recepcion->>'version'='2'
+      AND COALESCE(bot_recepcion->>'fase','')<>'finalizado' AND agente_id IS NULL
+      AND EXISTS(SELECT 1 FROM contactos c WHERE c.id=n.contacto_id AND c.empresa_id=n.empresa_id AND c.responsable_id IS NULL)
+      AND NOT EXISTS(SELECT 1 FROM mensajes m WHERE m.negociacion_id=n.id AND m.empresa_id=n.empresa_id AND m.dir='out' AND m.bot=FALSE)`,
     [req.empresaId, activas]);
   emitir(req.empresaId, 'neg:recargar', {});
   res.json({ ok: true, reactivadas: rowCount });

@@ -1,84 +1,160 @@
-import { tx } from './db.mjs';
+import { q, tx } from './db.mjs';
 import { emitir } from './realtime.mjs';
-import { detectarCiudad,nombreDelMensaje,masCercanas,sucursalDe,SUCURSALES,normalizar } from './geografia-impar.mjs';
-const pideUbicacion=t=>/\b(ubicacion|direccion|maps|donde (estan|queda|quedan|se encuentran))\b/.test(normalizar(t));
-const destino=n=>!n.canal_activo?'':String(n.canal_tipo).startsWith('whatsapp')?((n.canal_tipo==='whatsapp_qr'&&n.externos?.wa_jid)||n.tel||n.externos?.whatsapp||''):(n.externos?.[n.canal_tipo==='messenger'?'messenger':'instagram']||'');
-export async function responderRecepcionImpar(empresaId,negId){
- const resultado=await tx(async db=>{
-  const {rows}=await db.query(`SELECT n.*,c.nombre AS cliente,c.tel,c.externos,c.responsable_id,c.ciudad,
-    ca.tipo AS canal_tipo,ca.activo AS canal_activo,ca.bot_activo AS canal_bot,e.bot AS empresa_bot,e.flags,e.codigo,
-    u.nombre AS responsable_nombre,u.activo AS responsable_activo,u.oculto AS responsable_oculto
-    FROM negociaciones n JOIN contactos c ON c.id=n.contacto_id AND c.empresa_id=n.empresa_id
-    JOIN empresas e ON e.id=n.empresa_id AND e.activa
-    LEFT JOIN canales ca ON ca.id=n.canal_id AND ca.empresa_id=n.empresa_id
-    LEFT JOIN usuarios u ON u.id=n.agente_id AND u.empresa_id=n.empresa_id
-    WHERE n.id=$1 AND n.empresa_id=$2 FOR UPDATE OF n`,[negId,empresaId]);
-  const n=rows[0];
-  if(!n||n.codigo!=='impar'||!n.flags?.bot||!n.empresa_bot?.activo||n.empresa_bot?.recepcionImpar===false||!n.bot_activo||n.canal_bot===false||['ganado','cerrado'].includes(n.etapa))return null;
-  const a=destino(n);if(!a)return null;
-  if(n.agente_id&&(!n.responsable_activo||n.responsable_oculto)){
-   await db.query('UPDATE contactos SET responsable_id=NULL WHERE id=$1 AND empresa_id=$2 AND responsable_id=$3',[n.contacto_id,empresaId,n.agente_id]);
-   await db.query('UPDATE negociaciones SET agente_id=NULL WHERE id=$1 AND empresa_id=$2',[negId,empresaId]);
-   n.agente_id=null;
+import { normalizar, sucursalDe } from './geografia-impar.mjs';
+
+const central = nombre => /\bcentral\b/.test(normalizar(nombre));
+const matriz = nombre => /\bmatriz\b/.test(normalizar(nombre));
+const destino = n => !n.canal_activo ? '' : String(n.canal_tipo).startsWith('whatsapp')
+  ? ((n.canal_tipo === 'whatsapp_qr' && n.externos?.wa_jid) || n.telefono_destino || n.tel || n.externos?.whatsapp || '')
+  : (n.externos?.[n.canal_tipo === 'messenger' ? 'messenger' : 'instagram'] || '');
+
+export function elegirSucursal(texto, opciones) {
+  const t = normalizar(texto);
+  if (central(t)) return null;
+  const numero = t.match(/^(?:(?:opcion|sucursal) )?(\d+)$/);
+  if (numero) return opciones[Number(numero[1]) - 1] || null;
+  const halladas = opciones.filter(s => {
+    const alias = [normalizar(s.nombre), ...(matriz(s.nombre) ? ['matriz', 'casa matriz']
+      : (sucursalDe(s.nombre)?.alias || []).filter(a => !central(a) && !matriz(a)))];
+    return alias.some(a => a && (` ${t} `).includes(` ${a} `));
+  });
+  return halladas.length === 1 ? halladas[0] : null;
+}
+
+async function opcionesDisponibles(db, empresaId) {
+  const { rows } = await db.query(`SELECT s.id,s.nombre FROM sucursales s
+    WHERE s.empresa_id=$1 AND s.activa AND EXISTS (
+      SELECT 1 FROM usuarios u WHERE u.empresa_id=s.empresa_id AND u.sucursal=s.nombre
+        AND u.activo AND NOT u.oculto AND u.rol='agente') ORDER BY s.nombre,s.id`, [empresaId]);
+  return rows.filter(s => !central(s.nombre));
+}
+
+async function cancelarPendientes(db, n) {
+  await db.query(`UPDATE outbox SET estado='cancelado',error='Recepción finalizada o atención manual'
+    WHERE empresa_id=$1 AND negociacion_id=$2 AND automatico=TRUE AND estado IN ('pendiente','error')`, [n.empresa_id,n.id]);
+  await db.query(`UPDATE mensajes SET estado='cancelado' WHERE empresa_id=$1 AND negociacion_id=$2
+    AND bot=TRUE AND dir='out' AND estado IN ('pendiente','error')`, [n.empresa_id,n.id]);
+}
+
+async function asignar(db, n, sucursal, motivo) {
+  // Serializa el reparto por carga, incluso entre conversaciones distintas.
+  await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [n.empresa_id+'-recepcion-asignacion']);
+  const { rows } = await db.query(`SELECT u.id,u.nombre,u.sucursal,
+    COUNT(ng.id) FILTER(WHERE ng.etapa NOT IN ('ganado','cerrado'))::int AS carga,MAX(ng.creado) AS ultima
+    FROM usuarios u JOIN sucursales s ON s.empresa_id=u.empresa_id AND s.nombre=u.sucursal AND s.activa
+    LEFT JOIN negociaciones ng ON ng.agente_id=u.id AND ng.empresa_id=u.empresa_id
+    WHERE u.empresa_id=$1 AND s.id=$2 AND u.activo AND NOT u.oculto AND u.rol='agente'
+    GROUP BY u.id ORDER BY carga,ultima ASC NULLS FIRST,u.id LIMIT 1`, [n.empresa_id,sucursal.id]);
+  const agente = rows[0];
+  if (!agente) return null;
+  await db.query('UPDATE contactos SET responsable_id=$3,sucursal=$4 WHERE id=$1 AND empresa_id=$2 AND responsable_id IS NULL',
+    [n.contacto_id,n.empresa_id,agente.id,agente.sucursal]);
+  await db.query(`UPDATE negociaciones SET agente_id=$3,sucursal=$4,bot_activo=FALSE,recepcion_vence=NULL,
+    bot_recepcion=$5,actualizado=now() WHERE id=$1 AND empresa_id=$2 AND agente_id IS NULL`,
+    [n.id,n.empresa_id,agente.id,agente.sucursal,JSON.stringify({...n.bot_recepcion,fase:'finalizado',sucursal:agente.sucursal,motivo})]);
+  await cancelarPendientes(db,n);
+  await db.query(`INSERT INTO historial(empresa_id,negociacion_id,txt,por) VALUES($1,$2,$3,'Bot')`,
+    [n.empresa_id,n.id,`Recepción: ${motivo} → ${agente.sucursal} · ${agente.nombre}`]);
+  if (n.flags.notificaciones !== false) await db.query(`INSERT INTO notificaciones(empresa_id,usuario_id,tipo,titulo,msg,tono,ref)
+    VALUES($1,$2,'nuevo','Cliente asignado por recepción',$3,'ok',$4)`, [n.empresa_id,agente.id,`${n.cliente} · ${agente.sucursal}`,n.id]);
+  return agente;
+}
+
+export async function responderRecepcionImpar(empresaId, negId, { porVencimiento = false } = {}) {
+  const resultado = await tx(async db => {
+    const { rows } = await db.query(`SELECT n.*,c.nombre AS cliente,c.tel,c.externos,c.responsable_id,
+      ca.tipo AS canal_tipo,ca.activo AS canal_activo,ca.bot_activo AS canal_bot,e.bot AS empresa_bot,e.flags,e.codigo
+      FROM negociaciones n JOIN contactos c ON c.id=n.contacto_id AND c.empresa_id=n.empresa_id
+      JOIN empresas e ON e.id=n.empresa_id AND e.activa
+      LEFT JOIN canales ca ON ca.id=n.canal_id AND ca.empresa_id=n.empresa_id
+      WHERE n.id=$1 AND n.empresa_id=$2 FOR UPDATE OF n,c`, [negId,empresaId]);
+    const n = rows[0];
+    if (!n || n.codigo !== 'impar' || !n.flags?.bot || !n.empresa_bot?.activo || n.empresa_bot?.recepcionImpar === false
+      || !n.bot_activo || n.canal_bot === false || ['ganado','cerrado'].includes(n.etapa)) return null;
+    const st = { ...n.bot_recepcion };
+    const { rows: humanos } = await db.query(`SELECT 1 FROM mensajes WHERE empresa_id=$1 AND negociacion_id=$2
+      AND dir='out' AND bot=FALSE LIMIT 1`, [empresaId,negId]);
+    // Una ficha previa nunca adquiere elegibilidad por reactivar el bot manualmente.
+    if (st.elegible !== true || st.version !== 2 || n.agente_id || n.responsable_id || humanos.length || st.fase === 'finalizado') {
+      await db.query('UPDATE negociaciones SET bot_activo=FALSE,recepcion_vence=NULL WHERE id=$1 AND empresa_id=$2', [negId,empresaId]);
+      await cancelarPendientes(db,n);
+      return { silenciado: true };
+    }
+    if (!destino(n)) return null;
+    const opciones = await opcionesDisponibles(db,empresaId);
+    const { rows: hist } = await db.query(`SELECT id,dir,txt,bot,ts FROM mensajes WHERE negociacion_id=$1 AND empresa_id=$2
+      ORDER BY ts DESC,id DESC LIMIT 30`, [negId,empresaId]);
+    const entradas = hist[0]?.dir === 'in'
+      ? hist.filter(m => m.dir === 'in' && Number(m.id) > Number(st.ultimo || 0)) : [];
+    if (entradas.length) st.ultimo = Math.max(...entradas.map(m => Number(m.id)));
+    // Una elección recibida dentro del plazo gana aunque el worker la procese después.
+    if (st.fase === 'sucursal' && entradas.length) {
+      const oportunas = entradas.filter(m => !n.recepcion_vence
+        || new Date(m.ts || Date.now()).getTime() <= new Date(n.recepcion_vence).getTime());
+      const texto = oportunas.map(m => String(m.txt || '').slice(0,1000)).reverse().join('\n');
+      const elegida = elegirSucursal(texto,st.opciones || []);
+      const disponible = elegida && opciones.find(s => s.id === elegida.id);
+      if (disponible) {
+        n.bot_recepcion=st;
+        const agente = await asignar(db,n,disponible,'sucursal elegida por el cliente');
+        if (agente) return { asignado: agente, notificar: n.flags.notificaciones !== false };
+      }
+    }
+    const vencido = n.recepcion_vence && new Date(n.recepcion_vence).getTime() <= Date.now();
+    if (vencido) {
+      // Usar solamente Matriz, nunca Central ni otra sucursal como sustituto.
+      const matrices = opciones.filter(s => matriz(s.nombre));
+      const agente = matrices.length === 1 ? await asignar(db,n,matrices[0],'sin elección durante 2 horas') : null;
+      if (agente) return { asignado: agente, notificar: n.flags.notificaciones !== false };
+      if (!st.avisoMatriz) {
+        await db.query(`INSERT INTO historial(empresa_id,negociacion_id,txt,por) VALUES($1,$2,$3,'Bot')`,
+          [empresaId,negId,'Recepción vencida: falta una sucursal Matriz única con agentes activos. Se reintentará sin asignar a otra sucursal.']);
+        await db.query(`INSERT INTO notificaciones(empresa_id,usuario_id,tipo,titulo,msg,tono,ref)
+          SELECT $1,u.id,'nuevo','Recepción pendiente en Matriz',$3,'alerta',$2 FROM usuarios u
+          WHERE u.empresa_id=$1 AND u.activo AND NOT u.oculto AND u.rol='admin'`, [empresaId,negId,'No hay una Matriz única con agentes activos para derivar al cliente.']);
+        await db.query('UPDATE negociaciones SET bot_recepcion=$3 WHERE id=$1 AND empresa_id=$2',
+          [negId,empresaId,JSON.stringify({...st,avisoMatriz:true})]);
+      }
+      return null;
+    }
+    if (porVencimiento) return null;
+    if (!entradas.length) return null;
+    if (st.fase === 'sucursal') {
+      // No repetir el menú por cada mensaje ajeno a la selección ni extender las 2 horas.
+      await db.query('UPDATE negociaciones SET bot_recepcion=$3 WHERE id=$1 AND empresa_id=$2', [negId,empresaId,JSON.stringify(st)]);
+      return null;
+    }
+    st.fase='sucursal'; st.opciones=opciones;
+    let respuesta='¡Hola! Te damos la bienvenida a Papelerías IMPAR. ¿Con qué sucursal querés hablar?';
+    respuesta += opciones.length ? '\n'+opciones.map((s,i) => `${i+1}. ${s.nombre}`).join('\n')+'\nRespondé con el número o el nombre de la sucursal.'
+      : '\nTu consulta será derivada a Matriz.';
+    await db.query(`UPDATE negociaciones SET bot_recepcion=$3,recepcion_vence=now()+interval '2 hours'
+      WHERE id=$1 AND empresa_id=$2`, [negId,empresaId,JSON.stringify(st)]);
+    await db.query(`INSERT INTO mensajes(empresa_id,negociacion_id,dir,txt,bot,estado) VALUES($1,$2,'out',$3,true,'pendiente')`, [empresaId,negId,respuesta]);
+    await db.query(`INSERT INTO outbox(empresa_id,canal_id,negociacion_id,destino,txt,automatico) VALUES($1,$2,$3,$4,$5,TRUE)`,
+      [empresaId,n.canal_id,negId,destino(n),respuesta]);
+    return { respondio: true };
+  });
+  if (resultado) {
+    emitir(empresaId,'neg:patch',{id:negId});
+    if (resultado.asignado) {
+      emitir(empresaId,'neg:recargar',{});
+      if (resultado.notificar) emitir(empresaId,'noti',{tipo:'nuevo',titulo:'Cliente asignado por recepción',msg:'Tenés un nuevo cliente asignado.',tono:'ok',ref:negId},[resultado.asignado.id]);
+    }
   }
-  const st={...n.bot_recepcion};
-  const {rows:hist}=await db.query(`SELECT id,dir,txt,bot FROM mensajes WHERE negociacion_id=$1 AND empresa_id=$2 ORDER BY ts DESC,id DESC LIMIT 14`,[negId,empresaId]);
-  if(!hist.length||hist[0].dir!=='in')return null;
-  const entradas=hist.filter(m=>m.dir==='in'&&Number(m.id)>Number(st.ultimo||0));
-  if(!entradas.length)return null;
-  const texto=entradas.reverse().map(m=>String(m.txt||'').slice(0,1000)).join('\n');
-  st.ultimo=Math.max(...entradas.map(m=>Number(m.id)));
-  let respuesta='',apagar=false,asignado=null;
-  const lugar=detectarCiudad(texto);
-  const solicitada=SUCURSALES.find(s=>s.alias.some(alias=>(' '+normalizar(texto)+' ').includes(' '+alias+' ')));
-  const ubicacion=pideUbicacion(texto)?(solicitada||sucursalDe(n.sucursal)|| (lugar?masCercanas(lugar)[0]:null)):null;
-  if(st.fase==='derivado'||st.fase==='retorno'){
-   st.producto=texto.slice(0,500);st.fase='finalizado';apagar=true;
-   if(pideUbicacion(texto))respuesta=ubicacion?`${ubicacion.nombre}: ${ubicacion.url}`:'¿De qué sucursal necesitás la ubicación? Tu asesor te ayudará.';
-  }else if(n.agente_id&&n.responsable_activo&&!n.responsable_oculto){
-   respuesta=`${n.responsable_nombre.split(' ')[0]}, tu agente responsable, te dará retorno en un momento. ¿Qué producto necesitás?`;
-   st.fase='retorno';
-  }else{
-   const estabaPidiendoDatos=st.fase==='datos';
-   const nombre=nombreDelMensaje(texto,lugar,estabaPidiendoDatos&&!st.nombre);
-   if(nombre)st.nombre=nombre;
-   if(lugar)st.ciudad={nombre:lugar.nombre,lat:lugar.lat,lon:lugar.lon};
-   if(st.nombre)await db.query('UPDATE contactos SET nombre=$3 WHERE id=$1 AND empresa_id=$2',[n.contacto_id,empresaId,st.nombre]);
-   if(st.ciudad)await db.query('UPDATE contactos SET ciudad=$3 WHERE id=$1 AND empresa_id=$2',[n.contacto_id,empresaId,st.ciudad.nombre]);
-   if(st.nombre&&st.ciudad){
-    // Jamás cambia de línea de WhatsApp ni el responsable de un cliente asignado.
-    await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[empresaId+'-recepcion-asignacion']);
-    const cercanas=masCercanas(st.ciudad),{rows:sucs}=await db.query('SELECT nombre FROM sucursales WHERE empresa_id=$1 AND activa',[empresaId]);
-    const nombres=sucs.filter(s=>cercanas.some(c=>sucursalDe(s.nombre)?.url===c.url&&normalizar(sucursalDe(s.nombre)?.nombre)===normalizar(c.nombre))).map(s=>s.nombre);
-    const {rows:agentes}=await db.query(`SELECT u.id,u.nombre,u.sucursal,COUNT(n.id) FILTER(WHERE n.etapa NOT IN('ganado','cerrado'))::int AS carga,MAX(n.creado) AS ultima
-      FROM usuarios u LEFT JOIN negociaciones n ON n.agente_id=u.id AND n.empresa_id=u.empresa_id
-      WHERE u.empresa_id=$1 AND u.activo AND NOT u.oculto AND u.rol='agente' AND u.sucursal=ANY($2::text[])
-      GROUP BY u.id ORDER BY carga,ultima ASC NULLS FIRST,u.nombre LIMIT 1`,[empresaId,nombres]);
-    asignado=agentes[0]||null;
-    const sucursal=asignado?.sucursal||nombres[0]||cercanas[0].nombre;
-    await db.query('UPDATE negociaciones SET agente_id=$3,sucursal=$4,actualizado=now() WHERE id=$1 AND empresa_id=$2 AND agente_id IS NULL',[negId,empresaId,asignado?.id||null,sucursal]);
-    await db.query('UPDATE contactos SET responsable_id=COALESCE(responsable_id,$3),sucursal=$4 WHERE id=$1 AND empresa_id=$2',[n.contacto_id,empresaId,asignado?.id||null,sucursal]);
-    st.fase='derivado';st.sucursal=sucursal;
-    respuesta=asignado?`Gracias, ${st.nombre.split(' ')[0]}. Te atenderá ${asignado.nombre.split(' ')[0]} de ${sucursal}. ¿Qué producto necesitás?`:`Gracias, ${st.nombre.split(' ')[0]}. Tu consulta quedó para ${sucursal}; un asesor te dará retorno. ¿Qué producto necesitás?`;
-    await db.query(`INSERT INTO historial(empresa_id,negociacion_id,txt,por) VALUES($1,$2,$3,'Bot')`,[empresaId,negId,`Recepción: ${st.ciudad.nombre} → ${sucursal}${asignado?' · '+asignado.nombre:' · pendiente, sin agente activo en la sucursal'}`]);
-    if(asignado&&n.flags.notificaciones!==false)await db.query(`INSERT INTO notificaciones(empresa_id,usuario_id,tipo,titulo,msg,tono,ref) VALUES($1,$2,'nuevo','Cliente asignado por ciudad',$3,'ok',$4)`,[empresaId,asignado.id,`${st.nombre} · ${st.ciudad.nombre}`,negId]);
-   }else if((st.respuestas||0)>=3){
-    respuesta='Un asesor te ayudará a completar tus datos y atender tu consulta.';st.fase='finalizado';apagar=true;
-   }else{
-    respuesta=!st.nombre&&!st.ciudad?'¡Hola! Soy el asistente de IMPAR. ¿Cómo te llamás y en qué ciudad vivís?':!st.nombre?'¿Cómo te llamás?':'¿En qué ciudad vivís?';st.fase='datos';
-   }
-  }
-  if(ubicacion&&respuesta&&!respuesta.includes(ubicacion.url))respuesta+=`\n${ubicacion.nombre}: ${ubicacion.url}`;
-  if(pideUbicacion(texto)&&!ubicacion&&respuesta&&st.fase==='datos')respuesta+='\nDecime la sucursal y te paso la ubicación.';
-  st.respuestas=(st.respuestas||0)+(respuesta?1:0);
-  if(st.respuestas>=5)apagar=true;
-  await db.query('UPDATE negociaciones SET bot_recepcion=$3,bot_activo=$4 WHERE id=$1 AND empresa_id=$2',[negId,empresaId,JSON.stringify(st),!apagar]);
-  if(respuesta){
-   await db.query(`INSERT INTO mensajes(empresa_id,negociacion_id,dir,txt,bot,estado) VALUES($1,$2,'out',$3,true,'pendiente')`,[empresaId,negId,respuesta]);
-   await db.query(`INSERT INTO outbox(empresa_id,canal_id,negociacion_id,destino,txt,automatico) VALUES($1,$2,$3,$4,$5,TRUE)`,[empresaId,n.canal_id,negId,a,respuesta]);
-  }
-  return {asignado,notificar:n.flags.notificaciones!==false,respondio:!!respuesta};
- });
- if(resultado){emitir(empresaId,'neg:patch',{id:negId});if(resultado.asignado){emitir(empresaId,'neg:recargar',{});if(resultado.notificar)emitir(empresaId,'noti',{tipo:'nuevo',titulo:'Cliente asignado por ciudad',msg:'Tenés un nuevo cliente asignado.',tono:'ok',ref:negId},[resultado.asignado.id]);}}
- return resultado;
+  return resultado;
+}
+
+let procesando=false;
+export async function derivarRecepcionesVencidas() {
+  if (procesando) return;
+  procesando=true;
+  try {
+    const { rows } = await q(`SELECT n.id,n.empresa_id FROM negociaciones n JOIN empresas e ON e.id=n.empresa_id
+      WHERE e.codigo='impar' AND e.activa AND e.flags->>'bot'='true' AND e.bot->>'activo'='true'
+      AND n.bot_activo AND n.agente_id IS NULL AND n.recepcion_vence<=now()
+      AND n.bot_recepcion->>'elegible'='true' AND n.bot_recepcion->>'fase'='sucursal'
+      ORDER BY n.recepcion_vence,n.id LIMIT 100`);
+    for (const n of rows) await responderRecepcionImpar(n.empresa_id,n.id,{porVencimiento:true});
+  } finally { procesando=false; }
 }

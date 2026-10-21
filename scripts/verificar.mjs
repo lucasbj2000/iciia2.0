@@ -3,8 +3,9 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname, resolve, relative, sep } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const raiz = resolve(dirname(new URL(import.meta.url).pathname), '..');
+const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 let errores = 0;
 const archivos = [];
 

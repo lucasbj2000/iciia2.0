@@ -4,6 +4,7 @@ import { ingresarMensaje, notificar } from './core.mjs';
 import * as baileys from './channels/baileys.mjs';
 import * as meta from './channels/meta.mjs';
 import { emitir } from './realtime.mjs';
+import { derivarRecepcionesVencidas } from './recepcion-impar.mjs';
 
 const MAX_INTENTOS = 3;
 const MAX_ENVIOS = 8;
@@ -79,6 +80,21 @@ export async function drenarOutbox() {
           await q("UPDATE outbox SET estado='cancelado',error='Respuesta automática pausada por IMPAR' WHERE id=$1 AND estado='pendiente'",[o.id]);
           continue;
         }
+        const {rows:recepcion}=await q(`SELECT n.bot_activo,n.agente_id,n.bot_recepcion,c.responsable_id,
+          ca.activo AS canal_activo,ca.bot_activo AS canal_bot,e.codigo,
+          EXISTS(SELECT 1 FROM mensajes m WHERE m.empresa_id=n.empresa_id AND m.negociacion_id=n.id
+            AND m.dir='out' AND m.bot=FALSE) AS atendida
+          FROM negociaciones n JOIN empresas e ON e.id=n.empresa_id
+          JOIN contactos c ON c.id=n.contacto_id AND c.empresa_id=n.empresa_id
+          LEFT JOIN canales ca ON ca.id=n.canal_id AND ca.empresa_id=n.empresa_id
+          WHERE n.id=$1 AND n.empresa_id=$2`,[o.negociacion_id,o.empresa_id]);
+        const n=recepcion[0];
+        if(!n || (n.codigo==='impar' && (!n.bot_activo || n.agente_id || n.responsable_id || n.atendida
+          || !n.canal_activo || n.canal_bot===false || n.bot_recepcion?.elegible!==true || n.bot_recepcion?.version!==2))) {
+          await q("UPDATE outbox SET estado='cancelado',error='Recepción no elegible o ya atendida' WHERE id=$1 AND estado='pendiente'",[o.id]);
+          await marcar(o,'cancelado');
+          continue;
+        }
       }
       if (!o.canal_id) throw new Error('mensaje sin canal asignado');
       const canal = { id: o.canal_id, tipo: o.tipo, config: o.config, nombre: o.canal_nombre, empresa_id: o.c_emp };
@@ -125,6 +141,8 @@ export async function reprocesarCuarentena(empresaId) {
 }
 
 export function arrancarWorkers() {
+  // Plazos persistentes: también recupera las recepciones tras reiniciar PM2.
+  setInterval(() => derivarRecepcionesVencidas().catch(e => console.error('[recepcion]', e.message)), 30000);
   setInterval(() => drenarInbox().catch(e => console.error('[inbox]', e.message)), 2000);
   setInterval(() => drenarOutbox().catch(e => console.error('[outbox]', e.message)), 5000);
   console.log('✔ Workers de mensajería activos');

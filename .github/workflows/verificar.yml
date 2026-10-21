@@ -30,6 +30,8 @@ jobs:
         run: node scripts/test-canales-estables.mjs
       - name: IMPAR sin respuestas automáticas durante migración
         run: node scripts/test-pausa-bot.mjs
+      - name: Recepción de clientes nuevos por sucursal y derivación a Matriz en 2 horas
+        run: node scripts/test-recepcion-sucursales.mjs
       - name: Importación Bitrix sin duplicados y sin actualización de clientes
         run: node scripts/test-importar-bitrix.mjs
       - name: Comprobar panel admin de accesos y exportación
@@ -100,3 +102,7 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
         run: node scripts/test-telefonos-pg.mjs
+      - name: Recepción por sucursal, reparto concurrente y Matriz en PostgreSQL real
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
+        run: node scripts/test-recepcion-sucursales-pg.mjs

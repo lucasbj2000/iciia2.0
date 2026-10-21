@@ -179,7 +179,8 @@ export async function buscarContacto(empresa, { tel, externoTipo, externoId }) {
   return null;
 }
 
-export async function crearContacto(empresa,d) {
+export async function crearContacto(empresa,d,{devolverCreacion=false}={}) {
+  const resultado=(contacto,creado)=>devolverCreacion?{contacto,creado}:contacto;
   const suc=d.sucursal||(await sucursalPorDefecto(empresa));
   const tel=String(d.tel||'');
   const clave=telNorm(tel);
@@ -195,7 +196,7 @@ export async function crearContacto(empresa,d) {
         [empresa.id,clave]);
       if(existentes.length>1)
         throw Object.assign(new Error('Este teléfono coincide con varios contactos existentes. Revisar antes de crear otra ficha.'),{status:409});
-      if(existentes.length===1)return existentes[0];
+      if(existentes.length===1)return resultado(existentes[0],false);
     }
     const {rows}=await db.query(
       `INSERT INTO contactos (empresa_id,nombre,tel,tel_norm,email,doc,ciudad,direccion,sucursal,linea,responsable_id,notas,externos)
@@ -210,7 +211,7 @@ export async function crearContacto(empresa,d) {
         "VALUES($1,$2,$3,$4,'Principal') ON CONFLICT(empresa_id,tel_norm) DO NOTHING",
         [empresa.id,rows[0].id,tel,clave]);
     }
-    return rows[0];
+    return resultado(rows[0],true);
   });
 }
 async function sucursalPorDefecto(empresa) {
@@ -238,14 +239,16 @@ export async function ingresarMensaje(empresa, {
     tel: telefonoWhatsApp,
     externoTipo: externoTipo || origen, externoId: remitente
   });
-  const reingreso = !!contacto;
+  let reingreso = !!contacto;
   if (!contacto) {
-    contacto = await crearContacto(empresa, {
+    const alta = await crearContacto(empresa, {
       nombre: nombre || etiquetaAnonima(origen, remitente),
       tel: telefonoWhatsApp || '',
       sucursal: canalSucursal || null, linea: canalLinea || null,
       externos: { [externoTipo || origen]: String(remitente) }
-    });
+    },{devolverCreacion:true});
+    contacto=alta.contacto;
+    reingreso=!alta.creado;
   } else {
     const ext = contacto.externos || {};
     const key = externoTipo || origen;
@@ -305,7 +308,9 @@ export async function ingresarMensaje(empresa, {
     [contacto.responsable_id,empresa.id]) : { rows: [] };
   const responsableAnterior = responsables[0]?.id || (reingreso
     ? await responsableUltimoCierre(empresa, contacto.id) : null);
-  const recepcionImpar = empresa.codigo === 'impar' && empresa.flags?.bot && empresa.bot?.activo && empresa.bot?.recepcionImpar !== false;
+  const esImpar = empresa.codigo === 'impar';
+  const recepcionImpar = !!(esImpar && !reingreso && !contacto.responsable_id && !responsableAnterior
+    && empresa.flags?.bot && empresa.bot?.activo && empresa.bot?.recepcionImpar !== false);
   const agente = responsableAnterior || (recepcionImpar ? null
     : await asignarEquitativo(empresa, { sucursal: canalSucursal, linea: canalLinea }));
   const { rows: owner } = agente ? await q('SELECT sucursal FROM usuarios WHERE id=$1 AND empresa_id=$2',[agente,empresa.id]) : { rows: [] };
@@ -323,12 +328,13 @@ export async function ingresarMensaje(empresa, {
   }
   const { rows } = await q(
     `INSERT INTO negociaciones
-       (empresa_id,contacto_id,titulo,etapa,origen,canal_id,agente_id,sucursal,linea,marcadores,bot_activo,creado,actualizado,entrada_etapa,telefono_destino)
-     VALUES ($1,$2,'Contacto entrante','nuevo',$3,$4,$5,$6,$7,$8,$9,$10,now(),now(),$11) RETURNING *`,
+       (empresa_id,contacto_id,titulo,etapa,origen,canal_id,agente_id,sucursal,linea,marcadores,bot_activo,creado,actualizado,entrada_etapa,telefono_destino,bot_recepcion)
+     VALUES ($1,$2,'Contacto entrante','nuevo',$3,$4,$5,$6,$7,$8,$9,$10,now(),now(),$11,$12) RETURNING *`,
     [empresa.id, contacto.id, origen, canalId || null, agente,
      owner[0]?.sucursal || canalSucursal || contacto.sucursal, canalLinea || contacto.linea,
-     JSON.stringify(marcadores), !!(empresa.flags?.bot && empresa.bot?.activo), cuando,
-     origen==='whatsapp'?telefonoWhatsApp:null]);
+     JSON.stringify(marcadores), esImpar ? recepcionImpar : !!(empresa.flags?.bot && empresa.bot?.activo), cuando,
+     origen==='whatsapp'?telefonoWhatsApp:null,
+     JSON.stringify(recepcionImpar?{elegible:true,version:2}:{})]);
   const neg = rows[0];
 
   await q(
@@ -343,7 +349,7 @@ export async function ingresarMensaje(empresa, {
     `Ingreso automático por ${origen}`
       + (responsableAnterior
         ? ' · conserva responsable de la última negociación cerrada'
-        : (agente ? ' · asignado por reparto equitativo entre agentes activos' : recepcionImpar ? ' · recepción pendiente de nombre y ciudad' : ' · sin agentes activos disponibles')),
+        : (agente ? ' · asignado por reparto equitativo entre agentes activos' : recepcionImpar ? ' · recepción pendiente de elección de sucursal' : ' · sin agentes activos disponibles')),
     'Bot');
   await notificar(empresa, 'nuevo', { cliente: contacto.nombre, origen }, [agente], neg.id);
   if (det) await guardarUbicacion(empresa, contacto, neg, det);

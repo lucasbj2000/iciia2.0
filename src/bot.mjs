@@ -105,7 +105,7 @@ export async function responderBot(empresaId, negId) {
   const { rows: es } = await q('SELECT * FROM empresas WHERE id=$1 AND activa', [empresaId]);
   const emp = es[0];
   if (!emp || !emp.flags?.bot || !emp.bot?.activo) return;
-  if(emp.codigo==='impar' && emp.bot?.recepcionImpar!==false) return responderRecepcionImpar(empresaId,negId);
+  if(emp.codigo==='impar') return responderRecepcionImpar(empresaId,negId);
   const cfg = leerConfigIA(emp);
   if (!cfg.apiKey) return;
 
