@@ -32,8 +32,9 @@ export function elegirSucursal(texto, opciones) {
   const numero = t.match(/^(?:(?:opcion|sucursal) )?(\d+)$/);
   if (numero) return opciones[Number(numero[1]) - 1] || null;
   const halladas = opciones.filter(s => {
-    const alias = [normalizar(s.nombre), ...(matriz(s.nombre) ? ['matriz', 'casa matriz']
-      : (sucursalDe(s.nombre)?.alias || []).filter(a => !central(a) && !matriz(a)))];
+    const alias = [normalizar(s.nombre), ...(matriz(s.nombre) ? ['matriz', 'casa matriz', 'asuncion', 'matriz asuncion']
+      : [...(sucursalDe(s.nombre)?.alias || []), ...(normalizar(s.nombre).includes('fernando de la mora') ? ['fernando', 'fdo'] : [])]
+        .filter(a => !central(a) && !matriz(a)))];
     return alias.some(a => a && (` ${t} `).includes(` ${a} `));
   });
   return halladas.length === 1 ? halladas[0] : null;
