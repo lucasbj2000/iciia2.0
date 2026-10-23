@@ -34,6 +34,8 @@ jobs:
         run: node scripts/test-recepcion-sucursales.mjs
       - name: Catálogos empresariales con adjuntos PDF para agentes
         run: node scripts/test-catalogos-impar.mjs
+      - name: ZIP cargado desde la web sin Hostinger y permisos de administrador
+        run: node scripts/test-catalogos-zip-impar.mjs
       - name: Importación Bitrix sin duplicados y sin actualización de clientes
         run: node scripts/test-importar-bitrix.mjs
       - name: Comprobar panel admin de accesos y exportación
