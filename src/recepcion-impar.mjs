@@ -32,6 +32,8 @@ export function elegirSucursal(texto, opciones) {
   const numero = t.match(/^(?:(?:opcion|sucursal) )?(\d+)$/);
   if (numero) return opciones[Number(numero[1]) - 1] || null;
   const halladas = opciones.filter(s => {
+    // Central no participa de recepción aunque comparta alias geográficos con Matriz.
+    if (central(s.nombre)) return false;
     const alias = [normalizar(s.nombre), ...(matriz(s.nombre) ? ['matriz', 'casa matriz', 'asuncion', 'matriz asuncion']
       : [...(sucursalDe(s.nombre)?.alias || []), ...(normalizar(s.nombre).includes('fernando de la mora') ? ['fernando', 'fdo'] : [])]
         .filter(a => !central(a) && !matriz(a)))];
