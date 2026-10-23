@@ -13,13 +13,14 @@ let TADM = 'canales', defs = null, timerQR = null, sucursalesCache = [], cargaCa
 const TABS = [
   ['canales', '📡 Canales'], ['diseno', 'Diseño'], ['sucursales', 'Sucursales'], ['horarios','◷ Horarios laborales'],
   ['bitrix','🛡 Carga Bitrix'], ['botones', '⚡ Botones'], ['flags', 'Funciones ON/OFF'], ['ayudas', '❔ Ayudas guiadas'], ['noti', 'Notificaciones'],
-  ['rapidas', 'Respuestas rápidas'], ['usuarios', 'Usuarios'], ['accesos','🔐 Accesos y exportación'], ['etapas', 'Etapas'], ['reglas', 'Reglas'],
+  ['rapidas', 'Respuestas rápidas'], ['catalogos', '📚 Catálogos'], ['usuarios', 'Usuarios'], ['accesos','🔐 Accesos y exportación'], ['etapas', 'Etapas'], ['reglas', 'Reglas'],
   ['ubicaciones', '📍 Direcciones'], ['stock', 'Stock'], ['bot', 'Bot'],
   ['mensajeria', 'Salud de mensajería'], ['limpieza', 'Limpieza'], ['audit', 'Auditoría']
 ];
 
 export function irABotones() { TADM = 'botones'; import('./app.js').then(m => m.ir('adm')); }
 export function irABitrix() { TADM = 'bitrix'; import('./app.js').then(m => m.ir('adm')); }
+export function irACatalogos() { TADM = 'catalogos'; import('./app.js').then(m => m.ir('adm')); }
 
 export async function vistaAdmin() {
   if (S.usuario.rol !== 'admin') {
@@ -33,7 +34,8 @@ export async function vistaAdmin() {
   $$('[data-adm]').forEach(b => b.onclick = () => { clearInterval(timerQR); TADM = b.dataset.adm; vistaAdmin(); });
   const fn = { canales: aCanales, diseno: aDiseno, sucursales: aSucursales,
     bitrix: () => import('./importar-bitrix.js').then(m=>m.vistaImportarBitrix()),
-    botones: aBotones, flags: aFlags, ayudas: aAyudas, horarios: administrarHorarios, noti: aNoti, rapidas: aRapidas, usuarios: aUsuarios,
+    botones: aBotones, flags: aFlags, ayudas: aAyudas, horarios: administrarHorarios, noti: aNoti, rapidas: aRapidas,
+    catalogos: () => import('./catalogos-impar.js').then(m=>m.vistaCatalogosImpar()), usuarios: aUsuarios,
     accesos: () => import('./accesos.js').then(m=>m.vistaAccesos()), etapas: aEtapas,
     reglas: aReglas, ubicaciones: aUbicaciones, stock: aStock, bot: aBot, mensajeria: aMensajeria,
     limpieza: aLimpieza, audit: aAudit }[TADM];
