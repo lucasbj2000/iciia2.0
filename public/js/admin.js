@@ -736,6 +736,7 @@ async function aRapidas() {
   const sucs = S.sucursales.map(s => s.nombre);
   AB().innerHTML = `<div class="card-box"><h3>⚡ Respuestas rápidas del equipo</h3>
    <p class="sub" style="margin-top:0">Plantillas para los agentes, por empresa o por sucursal. Pueden incluir imagen o archivo.</p>
+   <button class="btn ghost sm" id="abrir-catalogos" type="button" style="margin-bottom:12px">📚 Cargar catálogos desde ZIP</button>
    <table><thead><tr><th>Texto</th><th>Adjunto</th><th>Alcance</th><th>Autor</th><th></th></tr></thead>
    <tbody>${rp.equipo.map(q => `<tr>
      <td><input value="${esc(q.txt || '')}" data-rtxt="${q.id}" style="width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:7px"></td>
@@ -758,7 +759,8 @@ async function aRapidas() {
    <table><thead><tr><th>Agente</th><th>Sucursal</th><th>Propias</th></tr></thead>
    <tbody>${us.map(u => `<tr><td>${esc(u.nombre)}</td><td>${esc(u.sucursal || '')}</td>
      <td>${(u.rapidas || []).length}</td></tr>`).join('')}</tbody></table></div>`;
-  $$('[data-rtxt]').forEach(el => el.onchange = () => patch(`/admin/rapidas/${el.dataset.rtxt}`, { txt: el.value }));
+  $('#abrir-catalogos').onclick = () => { TADM='catalogos'; vistaAdmin(); };
+  $('[data-rtxt]').forEach(el => el.onchange = () => patch(`/admin/rapidas/${el.dataset.rtxt}`, { txt: el.value }));
   $$('[data-ramb]').forEach(el => el.onchange = () => {
     const v = el.value;
     patch(`/admin/rapidas/${el.dataset.ramb}`,
