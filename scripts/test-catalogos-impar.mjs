@@ -24,5 +24,5 @@ assert.ok(ficha.includes("data-arch="),'Atajo incluye archivo');
 assert.ok(ficha.includes('adj.poner({ id: b.dataset.arch'),'Atajo conecta adjunto');
 assert.ok(adjuntos.includes('poner: a =>'),'Selector admite archivo ya cargado');
 assert.ok(wa.includes('document: bin'),'Baileys envía PDF real');
-assert.ok(meta.includes("document: 'document'"),'Meta permite documentos');
+assert.ok(meta.includes("documento: 'document'"),'Meta permite documentos');
 console.log('✔ IMPAR: 3 catálogos empresariales, instalación idempotente y envío PDF por canales.');
