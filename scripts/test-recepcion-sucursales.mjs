@@ -41,11 +41,35 @@ function escenario(cambios={}) {
     {q:query,tx:fn=>fn({query}),emitir:(...a)=>eventos.push(a),normalizar,sucursalDe,Date});
   return {...entorno,entorno,n,f,consultas,mensajes,eventos,responder:()=>f.responderRecepcionImpar('impar','neg')};
 }
+// El orden comercial debe permanecer estable aun cuando SQL lo devuelva alfabético.
+const completo=escenario();
+completo.entorno.opciones=[
+  {id:'cde',nombre:'Ciudad del Este'},{id:'enc',nombre:'Encarnación'},
+  {id:'pjc',nombre:'Pedro Juan Caballero'},{id:'fm',nombre:'Fernando de la Mora'},
+  {id:'lam',nombre:'Lambaré'},{id:'matriz',nombre:'Matriz'},
+  {id:'central',nombre:'Central'}];
+await completo.responder();
+const menuDeseado=['1 - Matriz - Asunción','2 - Lambaré','3 - Fernando de la Mora',
+ '4 - Ciudad del Este','5 - Encarnación','6 - Pedro Juan Caballero'].join('\n');
+assert.ok(completo.mensajes[0].includes(menuDeseado), 'Menú exactamente en el orden comercial');
+assert.doesNotMatch(completo.mensajes[0],/7 - Central/);
+assert.deepEqual(Array.from(completo.n.bot_recepcion.opciones,s=>s.id),
+ ['matriz','lam','fm','cde','enc','pjc'], 'Índices deben coincidir con asignación');
+completo.entorno.hist=[{id:2,dir:'in',txt:'3'}];
+await completo.responder();
+assert.equal(completo.n.agente_id,'agente-fm', 'Selección numérica 3 dirige a Fernando');
+const menuAnterior=escenario({bot_recepcion:{elegible:true,version:2,fase:'sucursal',
+ opciones:[{id:'cde',nombre:'Ciudad del Este'},{id:'matriz',nombre:'Matriz'}],ultimo:1},
+ recepcion_vence:new Date(Date.now()+60000)});
+menuAnterior.entorno.hist=[{id:2,dir:'in',txt:'1'}];
+await menuAnterior.responder();
+assert.equal(menuAnterior.n.agente_id,'agente-cde','Menú ya enviado conserva índices originales');
+
 const nuevo=escenario();
 await nuevo.responder();
 assert.equal(nuevo.mensajes.length,1);
 assert.match(nuevo.mensajes[0],/bienvenida a Papelerías IMPAR/);
-assert.match(nuevo.mensajes[0],/1\. Ciudad del Este\n2\. Matriz/);
+assert.match(nuevo.mensajes[0],/1 - Matriz - Asunción\n2 - Ciudad del Este/);
 assert.doesNotMatch(nuevo.mensajes[0],/Central|ciudad vivís|llamás/);
 assert.equal(nuevo.n.agente_id,null);
 assert.equal(nuevo.n.responsable_id,null);
@@ -58,7 +82,7 @@ await nuevo.responder();
 assert.equal(nuevo.n.recepcion_vence,plazo,'Un mensaje sin selección no reinicia las 2 horas');
 assert.equal(nuevo.n.agente_id,null);
 assert.equal(nuevo.mensajes.length,1,'No molesta repitiendo el menú');
-nuevo.entorno.hist=[{id:4,dir:'in',txt:'1'}];
+nuevo.entorno.hist=[{id:4,dir:'in',txt:'2'}];
 await nuevo.responder();
 assert.equal(nuevo.n.agente_id,'agente-cde');
 assert.equal(nuevo.n.responsable_id,'agente-cde');
@@ -115,7 +139,7 @@ sinMatriz.entorno.opciones=sucursales;
 await sinMatriz.f.derivarRecepcionesVencidas();assert.equal(sinMatriz.n.agente_id,'agente-matriz');
 const deshabilitada=escenario();await deshabilitada.responder();
 deshabilitada.entorno.opciones=sucursales.filter(s=>s.id!=='cde');
-deshabilitada.entorno.hist=[{id:2,dir:'in',txt:'1'}];await deshabilitada.responder();
+deshabilitada.entorno.hist=[{id:2,dir:'in',txt:'2'}];await deshabilitada.responder();
 assert.equal(deshabilitada.n.agente_id,null,'No cambia el significado de un número si se desactiva una sucursal');
 console.log('✓ Sin Matriz alerta y reintenta; menú estable ante sucursales deshabilitadas');
 
