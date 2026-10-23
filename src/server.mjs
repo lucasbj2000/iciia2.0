@@ -21,6 +21,7 @@ import * as meta from './channels/meta.mjs';
 import rNegociaciones from './routes/negociaciones.mjs';
 import rContactos from './routes/contactos.mjs';
 import rAdmin from './routes/admin.mjs';
+import rCatalogosImpar from './routes/catalogos-impar.mjs';
 import rAccesos from './routes/accesos.mjs';
 import rOrganigrama from './routes/organigrama.mjs';
 import rColaboracion from './routes/colaboracion.mjs';
@@ -76,7 +77,7 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || true, credentials: true }));
 
 // El multipart de subida se lee como stream en su propia ruta
 app.use((req, res, next) => {
-  if (['/api/archivos', '/api/proyecto/documentos'].includes(req.path) && req.method === 'POST') return next();
+  if (['/api/archivos', '/api/proyecto/documentos', '/api/admin/catalogos/importar'].includes(req.path) && req.method === 'POST') return next();
   express.json({ limit: '5mb', verify: (r2, _s, buf) => { r2.rawBody = buf; } })(req, res, next);
 });
 
@@ -157,6 +158,7 @@ app.use('/api/negociaciones', rNegociaciones);
 app.use('/api/negociaciones', rColaboracion);
 app.use('/api/contactos', rContactos);
 app.use('/api/admin/accesos', rAccesos);
+app.use('/api/admin/catalogos', rCatalogosImpar);
 app.use('/api/admin', rAdmin);
 app.use('/api/organigrama', rOrganigrama);
 app.use('/api/canales', rCanales);
