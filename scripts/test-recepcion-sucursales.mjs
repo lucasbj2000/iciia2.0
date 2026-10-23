@@ -97,6 +97,8 @@ for(const texto of ['CDE','Quiero hablar con Ciudad del Este','ciudad del éste'
   assert.equal(nuevo.f.elegirSucursal(texto,sucursales).id,'cde');
 }
 assert.equal(nuevo.f.elegirSucursal('Matriz',sucursales).id,'matriz');
+assert.equal(nuevo.f.elegirSucursal('Asunción',sucursales).id,'matriz');
+assert.equal(completo.f.elegirSucursal('Fernando',completo.entorno.opciones).id,'fm');
 for(const texto of ['Central','casa central','CDE o Matriz','0','99'])assert.equal(nuevo.f.elegirSucursal(texto,sucursales),null);
 console.log('✓ Selección por nombre y alias; entradas ambiguas o Central no asignan');
 
