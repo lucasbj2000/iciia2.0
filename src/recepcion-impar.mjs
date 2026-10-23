@@ -4,6 +4,24 @@ import { normalizar, sucursalDe } from './geografia-impar.mjs';
 
 const central = nombre => /\bcentral\b/.test(normalizar(nombre));
 const matriz = nombre => /\bmatriz\b/.test(normalizar(nombre));
+
+// Orden solicitado por IMPAR. No cambia los IDs ni la asignación real de usuarios.
+const ORDEN_MOSTRADO = [
+  {p:0, etiqueta:'Matriz - Asunción', patron:/\bmatriz\b/},
+  {p:1, etiqueta:'Lambaré', patron:/\blambare\b/},
+  {p:2, etiqueta:'Fernando de la Mora', patron:/\bfernando de la mora\b|\bmadame lynch\b|\bfdo de la mora\b/},
+  {p:3, etiqueta:'Ciudad del Este', patron:/\bciudad del este\b|\bcde\b/},
+  {p:4, etiqueta:'Encarnación', patron:/\bencarnacion\b/},
+  {p:5, etiqueta:'Pedro Juan Caballero', patron:/\bpedro juan caballero\b|\bpjc\b/}
+];
+const visualSucursal = nombre =>
+  ORDEN_MOSTRADO.find(s => s.patron.test(normalizar(nombre))) || {p:99,etiqueta:nombre};
+export const ordenarSucursalesRecepcion = opciones => [...opciones].sort((a,b) =>
+  visualSucursal(a.nombre).p-visualSucursal(b.nombre).p ||
+  a.nombre.localeCompare(b.nombre,'es') || String(a.id).localeCompare(String(b.id)));
+export const textoMenuRecepcion = opciones =>
+  opciones.map((s,i) => `${i+1} - ${visualSucursal(s.nombre).etiqueta}`).join('\n');
+
 const destino = n => !n.canal_activo ? '' : String(n.canal_tipo).startsWith('whatsapp')
   ? ((n.canal_tipo === 'whatsapp_qr' && n.externos?.wa_jid) || n.telefono_destino || n.tel || n.externos?.whatsapp || '')
   : (n.externos?.[n.canal_tipo === 'messenger' ? 'messenger' : 'instagram'] || '');
@@ -26,7 +44,7 @@ async function opcionesDisponibles(db, empresaId) {
     WHERE s.empresa_id=$1 AND s.activa AND EXISTS (
       SELECT 1 FROM usuarios u WHERE u.empresa_id=s.empresa_id AND u.sucursal=s.nombre
         AND u.activo AND NOT u.oculto AND u.rol='agente') ORDER BY s.nombre,s.id`, [empresaId]);
-  return rows.filter(s => !central(s.nombre));
+  return ordenarSucursalesRecepcion(rows.filter(s => !central(s.nombre)));
 }
 
 async function cancelarPendientes(db, n) {
@@ -126,7 +144,7 @@ export async function responderRecepcionImpar(empresaId, negId, { porVencimiento
     }
     st.fase='sucursal'; st.opciones=opciones;
     let respuesta='¡Hola! Te damos la bienvenida a Papelerías IMPAR. ¿Con qué sucursal querés hablar?';
-    respuesta += opciones.length ? '\n'+opciones.map((s,i) => `${i+1}. ${s.nombre}`).join('\n')+'\nRespondé con el número o el nombre de la sucursal.'
+    respuesta += opciones.length ? '\n'+textoMenuRecepcion(opciones)+'\nRespondé con el número o el nombre de la sucursal.'
       : '\nTu consulta será derivada a Matriz.';
     await db.query(`UPDATE negociaciones SET bot_recepcion=$3,recepcion_vence=now()+interval '2 hours'
       WHERE id=$1 AND empresa_id=$2`, [negId,empresaId,JSON.stringify(st)]);
