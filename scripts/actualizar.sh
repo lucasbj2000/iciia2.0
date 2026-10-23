@@ -89,6 +89,7 @@ node scripts/test-canales-estables.mjs
 node scripts/test-pausa-bot.mjs
 node scripts/test-recepcion-sucursales.mjs
 node scripts/test-catalogos-impar.mjs
+node scripts/test-catalogos-zip-impar.mjs
 node scripts/test-importar-bitrix.mjs
 node scripts/test-accesos.mjs
 node scripts/test-eliminar-usuario.mjs
