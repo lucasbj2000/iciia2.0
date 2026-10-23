@@ -4,6 +4,9 @@ node_modules/
 !.env.example
 auth/
 auth-backups/
+# Catálogos subidos manualmente al VPS, fuera del repositorio
+catalogos-impar/
+Paquete_Catalogos_IMPAR.zip
 data/
 media/
 !media/.gitkeep
