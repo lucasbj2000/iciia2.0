@@ -23,10 +23,12 @@ export async function obtenerHistorialContacto(q, empresaId, contactoId, negocia
     "a.bytes AS archivo_bytes,a.ancho,a.alto, CASE WHEN a.id IS NOT NULL THEN '/media/' || "+
     'a.empresa_id || \'/\' || a.archivo ELSE m.media_url END AS media_url, '+
     'nx.creado AS creado_negociacion,nx.titulo AS titulo_negociacion, '+
-    'nx.id AS conversacion_id, (nx.id <> $3::uuid) AS anterior '+
+    'nx.id AS conversacion_id, (nx.id <> $3::uuid) AS anterior, we.ack AS wa_ack '+
     'FROM mensajes m '+
     'JOIN negociaciones nx ON nx.id=m.negociacion_id AND nx.empresa_id=m.empresa_id '+
     'LEFT JOIN archivos a ON a.id=m.archivo_id AND a.empresa_id=m.empresa_id '+
+    'LEFT JOIN outbox ob ON ob.mensaje_id=m.id AND ob.empresa_id=m.empresa_id '+
+    'LEFT JOIN wa_entregas_impar we ON we.outbox_id=ob.id AND we.empresa_id=m.empresa_id '+
     'WHERE m.empresa_id=$1 AND nx.contacto_id=$2 '+
     'AND ($4::timestamptz IS NULL OR (m.ts,m.id) < ($4::timestamptz,$5::bigint)) '+
     'ORDER BY m.ts DESC,m.id DESC LIMIT $6',
