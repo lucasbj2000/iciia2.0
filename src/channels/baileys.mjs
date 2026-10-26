@@ -10,6 +10,7 @@ import { emitir } from '../realtime.mjs';
 import { notificar } from '../core.mjs';
 import { guardarBuffer, MEDIA_DIR } from '../archivos.mjs';
 import { guardarOriginal, recuperarOriginal } from '../wa-reintentos.mjs';
+import { crearCacheContadorReintentos } from '../wa-cache-reintentos.mjs';
 
 const AUTH_DIR = process.env.WA_AUTH_DIR || './auth';
 if (!existsSync(AUTH_DIR)) mkdirSync(AUTH_DIR, { recursive: true });
@@ -73,6 +74,9 @@ export async function iniciar(canal) {
       markOnlineOnConnect: false,
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
+      // Baileys recomienda contar reintentos para evitar reenvíos de cifrado
+      // ilimitados. No se almacenan contenidos ni credenciales en esta caché.
+      msgRetryCounterCache: S.contadorReintentos ||= crearCacheContadorReintentos(),
       // WhatsApp solicita el mensaje ORIGINAL al fallar su descifrado:
       // recuperarlo de memoria o PostgreSQL después de una reconexión.
       // Nunca generar un mensaje vacío ni reenviar por cuenta propia.
