@@ -1,7 +1,7 @@
 -- IMPAR: acuses de entrega WhatsApp asociados al identificador real de Baileys.
 -- Migration aditiva: no modifica mensajes históricos, contactos, credenciales ni conversaciones.
 ALTER TABLE outbox ADD COLUMN IF NOT EXISTS mensaje_id BIGINT REFERENCES mensajes(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS idx_outbox_mensaje_impar ON outbox(mensaje_id) WHERE mensaje_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_outbox_mensaje_impar ON outbox(mensaje_id) WHERE mensaje_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS wa_entregas_impar (
   canal_id UUID NOT NULL REFERENCES canales(id) ON DELETE CASCADE,
