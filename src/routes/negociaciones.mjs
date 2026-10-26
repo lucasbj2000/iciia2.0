@@ -310,10 +310,10 @@ async function encolarSalida(req, n, texto, adjunto) {
 
   if (canal && destino) {
     await q(
-      `INSERT INTO outbox (empresa_id,canal_id,negociacion_id,destino,txt,archivo_id,media_url,media_tipo,media_nombre)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      `INSERT INTO outbox (empresa_id,canal_id,negociacion_id,destino,txt,archivo_id,media_url,media_tipo,media_nombre,mensaje_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [req.empresaId, canal.id, n.id, destino, texto, adjunto?.id || null,
-       adjunto?.url || null, adjunto?.tipo || null, adjunto?.nombre || null]);
+       adjunto?.url || null, adjunto?.tipo || null, adjunto?.nombre || null, mensajes[0].id]);
 
     // Intentar el envío inmediatamente. El worker periódico conserva la garantía de reintento.
     import('../worker.mjs')
