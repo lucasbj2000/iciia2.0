@@ -5,6 +5,7 @@ import * as baileys from './channels/baileys.mjs';
 import * as meta from './channels/meta.mjs';
 import { emitir } from './realtime.mjs';
 import { derivarRecepcionesVencidas } from './recepcion-impar.mjs';
+import { registrarEnvioImpar } from './wa-entregas-impar.mjs';
 
 const MAX_INTENTOS = 3;
 const MAX_ENVIOS = 8;
@@ -104,11 +105,18 @@ export async function drenarOutbox() {
         : null;
       const cuerpo = o.txt || '';
 
-      if (o.tipo === 'whatsapp_qr') await baileys.enviar(canal, o.destino, cuerpo, adjunto);
+      let enviadoWA=null;
+      if (o.tipo === 'whatsapp_qr') enviadoWA=await baileys.enviar(canal, o.destino, cuerpo, adjunto);
       else if (o.tipo === 'whatsapp_api') await meta.enviarWhatsAppAPI(canal, o.destino, cuerpo, adjunto);
       else if (o.tipo === 'messenger' || o.tipo === 'instagram') await meta.enviarMeta(canal, o.destino, cuerpo, adjunto);
       else throw new Error(`tipo de canal no soportado: ${o.tipo}`);
 
+      // La aceptación no es una confirmación de entrega. Nunca reenviar porque
+      // falle el registro posterior de ACK: podría duplicar el pedido del cliente.
+      if(o.tipo==='whatsapp_qr'){
+        await registrarEnvioImpar(canal,enviadoWA,{outboxId:o.id,destino:o.destino})
+          .catch(e=>console.warn('[wa:entregas] No se pudo vincular el ACK:',e.message));
+      }
       await q(`UPDATE outbox SET estado='enviado', enviado=now(), error=NULL WHERE id=$1`, [o.id]);
       if (o.negociacion_id) await marcar(o, 'ok');
     } catch (e) {
