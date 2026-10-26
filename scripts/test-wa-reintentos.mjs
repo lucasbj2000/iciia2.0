@@ -90,5 +90,5 @@ assert.ok(ba.includes('await guardarOriginal('));
 assert.ok(ba.includes('await transmitir(contenido)'));
 assert.ok(ba.includes('colaCredenciales=colaCredenciales.catch'));
 assert.ok(!/setTimeout\([^)]*sendMessage/.test(ba));
-assert.ok(worker.includes("if (o.tipo === 'whatsapp_qr') await baileys.enviar"),'Envío único');
+assert.ok(worker.includes("if (o.tipo === 'whatsapp_qr') enviadoWA=await baileys.enviar"),'Envío único con referencia al ACK');
 console.log('✔ IMPAR: getMessage usa original persistido sin mezclar contactos ni duplicar mensajes.');
