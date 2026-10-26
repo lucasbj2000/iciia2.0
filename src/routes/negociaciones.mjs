@@ -10,6 +10,7 @@ import { obtener as obtenerArchivo } from '../archivos.mjs';
 import * as ubi from '../ubicaciones.mjs';
 import { obtenerHistorialContacto } from '../historial-contacto-impar.mjs';
 import { telefonosContacto, normalizarNumero } from '../telefonos-impar.mjs';
+import { estadoRutaWA, elegirRutaWA } from '../wa-identidades-impar.mjs';
 
 const r = Router();
 
@@ -213,6 +214,44 @@ r.patch('/:id/telefono-destino', requiere(), async(req,res)=>{
     res.json({ok:true,destino:numero});
   }catch(e){if(!e.status)console.error('[negociaciones] cambiar teléfono:',e.message);
     res.status(e.status||500).json({error:e.status?e.message:'No se pudo cambiar el número de destino.'});}
+});
+
+/** Sólo administración puede activar el direccionamiento LID para un cliente. */
+r.get('/:id/ruta-whatsapp', requiere('admin'), async(req,res)=>{
+  try{
+    const n=await obtenerNegociacionVisible(req,req.params.id);
+    if(!n)return res.status(404).json({error:'Negociación no encontrada'});
+    const {rows:canales}=await q(
+      "SELECT tipo FROM canales WHERE id=$1 AND empresa_id=$2 AND activo",
+      [n.canal_id,req.empresaId]);
+    if(canales[0]?.tipo!=='whatsapp_qr')
+      return res.json({disponible:false,alternativa:false,activa:false});
+    res.set('Cache-Control','no-store').json(
+      await estadoRutaWA(req.empresaId,n.canal_id,n.telefono_destino||n.tel));
+  }catch(e){res.status(500).json({error:'No se pudo consultar la ruta de WhatsApp'});}
+});
+r.patch('/:id/ruta-whatsapp', requiere('admin'), async(req,res)=>{
+  try{
+    if(typeof req.body?.preferirLid!=='boolean')
+      return res.status(422).json({error:'Indicá activar o desactivar la ruta alternativa'});
+    const n=await obtenerNegociacionVisible(req,req.params.id);
+    if(!n)return res.status(404).json({error:'Negociación no encontrada'});
+    const {rows:canales}=await q(
+      "SELECT tipo FROM canales WHERE id=$1 AND empresa_id=$2 AND activo",
+      [n.canal_id,req.empresaId]);
+    if(canales[0]?.tipo!=='whatsapp_qr')
+      return res.status(409).json({error:'La negociación no utiliza WhatsApp QR activo'});
+    const numero=n.telefono_destino||n.tel;
+    const actual=await estadoRutaWA(req.empresaId,n.canal_id,numero);
+    if(!actual.alternativa)
+      return res.status(409).json({error:'WhatsApp todavía no confirmó una identidad alternativa para este número'});
+    const ok=await elegirRutaWA(req.empresaId,n.canal_id,numero,req.body.preferirLid);
+    if(!ok)return res.status(409).json({error:'Ruta no disponible'});
+    await auditar(req.empresaId,req.user.nombre,'Ruta WhatsApp',
+      req.body.preferirLid?'Activó prueba de envío por LID validado':'Restauró envío por número PN',req.ip);
+    res.json({ok:true,alternativa:true,activa:req.body.preferirLid});
+  }catch(e){console.warn('[wa:ruta] Configuración:',e.message);
+    res.status(500).json({error:'No se pudo actualizar el direccionamiento WhatsApp'});}
 });
 
 /* ---------- MENSAJES ---------- */
