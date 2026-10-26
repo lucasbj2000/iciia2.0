@@ -12,6 +12,7 @@ import { guardarBuffer, MEDIA_DIR } from '../archivos.mjs';
 import { guardarOriginal, recuperarOriginal } from '../wa-reintentos.mjs';
 import { crearCacheContadorReintentos } from '../wa-cache-reintentos.mjs';
 import { registrarActualizacionImpar } from '../wa-entregas-impar.mjs';
+import { registrarParejaWA, parejaDesdeEventoWA, validarParejaWA, rutaParaEnvioWA } from '../wa-identidades-impar.mjs';
 
 const AUTH_DIR = process.env.WA_AUTH_DIR || './auth';
 if (!existsSync(AUTH_DIR)) mkdirSync(AUTH_DIR, { recursive: true });
@@ -159,6 +160,12 @@ export async function iniciar(canal) {
           console.warn('[wa:entregas] Estado no registrado:',e.message));
       }
     });
+    sock.ev.on('chats.phoneNumberShare', par => {
+      if(S.sock!==sock)return;
+      const pareja=validarParejaWA(par?.jid,par?.lid);
+      if(pareja)registrarParejaWA(canal,pareja,'telefono_compartido')
+        .catch(e=>console.warn('[wa:ruta] No se guardó equivalencia:',e.message));
+    });
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
       if (S.sock !== sock || type !== 'notify') return;
       for (const m of messages) {
@@ -179,6 +186,10 @@ async function recibir(mod, m, canal, id) {
   if (m.key.fromMe) return;
   const jid = m.key.remoteJid || '';
   if (jid.endsWith('@g.us') || jid === 'status@broadcast' || jid.endsWith('@newsletter')) return;
+  // Sólo confiamos en identidades que traiga la sesión real de WhatsApp.
+  const pareja=parejaDesdeEventoWA(m.key);
+  if(pareja)registrarParejaWA(canal,pareja).catch(e=>
+    console.warn('[wa:ruta] Identidad no registrada:',e.message));
 
   /*
    * WhatsApp moderno puede entregar DMs con un JID @lid. Si Baileys trae
@@ -281,6 +292,11 @@ export async function enviar(canal, destino, texto, adjunto) {
     if (!num) throw new Error('destinatario de WhatsApp vacío');
     jid = `${num}@s.whatsapp.net`;
   }
+
+  // Default PN. Ruta LID sólo con equivalencia real confirmada y opt-in admin.
+  // No se modifica la ficha del contacto ni la cola de salida.
+  try { jid=(await rutaParaEnvioWA(canal,jid)).destino; }
+  catch(e){ console.warn('[wa:ruta] Se conserva ruta por defecto:',e.message); }
 
   // Cada salida se registra en el almacén de recuperación por su propio
   // identificador original (no se duplican envíos para intentar repararla).
