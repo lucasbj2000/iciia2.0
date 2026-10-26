@@ -13,10 +13,15 @@ let ultimoBarrido=0;
 export function claveReintento(key){
   if(!key || key.fromMe===false || typeof key.id!=='string' ||
     typeof key.remoteJid!=='string')return null;
-  const jid=key.remoteJid.trim().toLowerCase();
+  const recibido=key.remoteJid.trim().toLowerCase();
   const id=key.id.trim();
-  if(!/^[0-9a-z.+:-]+@(s\.whatsapp\.net|lid)$/.test(jid) ||
+  if(!/^[0-9a-z.+:-]+@(s\.whatsapp\.net|lid)$/.test(recibido) ||
      !/^[a-zA-Z0-9._:-]{4,128}$/.test(id))return null;
+  // En solicitudes de recuperación, WhatsApp puede incluir el índice
+  // específico del dispositivo (usuario:3@s.whatsapp.net). El mensaje
+  // original se guardó para usuario@s.whatsapp.net. Quitar solamente el
+  // sufijo numérico de dispositivo, sin intercambiar usuarios ni LID/PN.
+  const jid=recibido.replace(/:([0-9]+)@(s\.whatsapp\.net|lid)$/,'@$2');
   return {jid,id};
 }
 const claveCache=k=>k.jid+'|'+k.id;
