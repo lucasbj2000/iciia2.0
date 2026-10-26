@@ -99,6 +99,7 @@ function pintar() {
          <option>Consultando números…</option>
        </select>
        <small id="f-telefono-chat-error" role="alert"></small>
+       ${esAdmin()?'<div id="f-ruta-wa" style="margin-top:6px"></div>':''}
      </div>`:''}
      <div class="chat" id="chatbox"></div>
 
@@ -255,6 +256,7 @@ async function cargarTelefonosChat(id){
     let seleccionado=nums.find(x=>x.tel_norm===actualNorm) || nums[0];
     selector.value=seleccionado.numero;
     selector.disabled=nums.length===1;
+    cargarRutaWA(id);
     selector.onchange=async()=>{
       const numero=selector.value;
       selector.disabled=true;
@@ -264,12 +266,51 @@ async function cargarTelefonosChat(id){
         if(actual?.id===id)actual.telefono_destino=r.destino;
         seleccionado=nums.find(x=>x.numero===numero)||seleccionado;
         toast('El próximo mensaje se enviará al número seleccionado.','ok','WhatsApp');
+        cargarRutaWA(id);
       }catch(e){
         if(error)error.textContent=e.message;
         selector.value=seleccionado.numero;
+        cargarRutaWA(id);
       }finally{if(selector.isConnected)selector.disabled=nums.length===1;}
     };
   }catch(e){if(error)error.textContent='No se pudieron consultar números: '+e.message;}
+}
+
+/** Prueba controlada PN/LID exclusivamente administrada. Nunca reenvía mensajes. */
+async function cargarRutaWA(id){
+  const zona=$('#f-ruta-wa');
+  if(!zona || !esAdmin() || actual?.id!==id)return;
+  zona.textContent='Consultando ruta WhatsApp…';
+  try{
+    const datos=await get(`/negociaciones/${id}/ruta-whatsapp`);
+    if(!zona.isConnected || actual?.id!==id)return;
+    if(!datos.disponible){zona.textContent='';return;}
+    if(!datos.alternativa){
+      zona.innerHTML='<small style="color:var(--muted)">Ruta actual: número telefónico. WhatsApp aún no proporcionó una equivalencia LID verificada para este contacto.</small>';
+      return;
+    }
+    const activo=!!datos.activa;
+    zona.innerHTML='<small style="color:var(--muted)">Ruta de envío: <b>'+
+      (activo?'LID verificado (prueba)':'número telefónico (normal)')+'</b></small> '+
+      '<button type="button" class="btn ghost sm" id="f-cambiar-ruta">'+
+      (activo?'Restaurar ruta normal':'Probar ruta LID verificada')+'</button>';
+    const boton=$('#f-cambiar-ruta');
+    if(!boton)return;
+    boton.onclick=async()=>{
+      if(!await confirmar('Ruta alternativa WhatsApp',
+        activo?'Se restablecerá el envío normal a este número. No se reenviarán mensajes.':
+        'WhatsApp confirmó una equivalencia PN/LID. Se probará la ruta LID sólo para este número. Confirmá la entrega con el destinatario; no hay reenvío automático.',
+        activo?'Restaurar PN':'Activar prueba LID',false))return;
+      boton.disabled=true;
+      try{
+        await patch(`/negociaciones/${id}/ruta-whatsapp`,{preferirLid:!activo});
+        toast('Ruta guardada para nuevos mensajes de este número.','ok','WhatsApp');
+      }catch(e){toast(e.message,'bad','WhatsApp');}
+      finally{cargarRutaWA(id);}
+    };
+  }catch(e){
+    if(zona.isConnected)zona.textContent='No se pudo consultar la ruta: '+e.message;
+  }
 }
 
 function herramientasHTML(campo) {
