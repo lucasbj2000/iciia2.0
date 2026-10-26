@@ -11,6 +11,7 @@ import { notificar } from '../core.mjs';
 import { guardarBuffer, MEDIA_DIR } from '../archivos.mjs';
 import { guardarOriginal, recuperarOriginal } from '../wa-reintentos.mjs';
 import { crearCacheContadorReintentos } from '../wa-cache-reintentos.mjs';
+import { registrarActualizacionImpar } from '../wa-entregas-impar.mjs';
 
 const AUTH_DIR = process.env.WA_AUTH_DIR || './auth';
 if (!existsSync(AUTH_DIR)) mkdirSync(AUTH_DIR, { recursive: true });
@@ -151,6 +152,13 @@ export async function iniciar(canal) {
       } catch (e) { console.error(`[wa:${canal.nombre}] update:`, e.message); }
     });
 
+    sock.ev.on('messages.update', cambios => {
+      if (S.sock !== sock) return;
+      for (const cambio of cambios || []) {
+        registrarActualizacionImpar(canal,cambio).catch(e =>
+          console.warn('[wa:entregas] Estado no registrado:',e.message));
+      }
+    });
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
       if (S.sock !== sock || type !== 'notify') return;
       for (const m of messages) {
@@ -292,12 +300,11 @@ export async function enviar(canal, destino, texto, adjunto) {
       : adjunto.tipo === 'video' ? { video: bin, caption: pie }
       : adjunto.tipo === 'audio' ? { audio: bin, mimetype: adjunto.mime }
       : { document: bin, mimetype: adjunto.mime, fileName: adjunto.nombre, caption: pie };
-    await transmitir(contenido);
+    const enviado=await transmitir(contenido);
     if (adjunto.tipo === 'audio' && texto) await transmitir({ text: texto });
-    return true;
+    return enviado;
   }
-  await transmitir({ text: texto });
-  return true;
+  return transmitir({ text: texto });
 }
 
 export async function desvincular(canal) {
