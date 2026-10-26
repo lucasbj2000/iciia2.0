@@ -48,6 +48,8 @@ jobs:
         run: node scripts/test-wa-reintentos.mjs
       - name: Comprobar ACK de entrega sin duplicar ni falsear enviados
         run: node scripts/test-wa-entregas-impar.mjs
+      - name: Probar direccionamiento PN/LID por contacto sin reenvíos
+        run: node scripts/test-wa-identidades-impar.mjs
       - name: Canal principal compartido y responsables de Contactos
         run: node scripts/test-principal-contactos.mjs
       - name: Ficha 360, permisos y teléfonos múltiples
