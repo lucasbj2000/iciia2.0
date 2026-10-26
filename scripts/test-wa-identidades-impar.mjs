@@ -6,8 +6,7 @@ const leer=r=>readFileSync(new URL('../'+r,import.meta.url),'utf8');
 const mod=leer('src/wa-identidades-impar.mjs');
 const guardado=new Map();
 const q=async(sql,args)=>{
-  const key=sql.includes('SELECT lid_jid')||sql.includes('SELECT lid_jid,preferir_lid')?
-    args[1]+'|'+args[2]:args[1]+'|'+args[2];
+  const key=args[0]+'|'+args[1]+'|'+args[2];
   if(sql.startsWith('INSERT INTO wa_identidades_impar')){
     const nuevo={pn:args[2],lid_jid:args[3],preferir_lid:false};
     const ant=guardado.get(key);
