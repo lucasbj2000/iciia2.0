@@ -46,6 +46,8 @@ jobs:
         run: node scripts/test-historial-chat.mjs
       - name: Verificar recuperación Signal de mensajes WhatsApp
         run: node scripts/test-wa-reintentos.mjs
+      - name: Comprobar ACK de entrega sin duplicar ni falsear enviados
+        run: node scripts/test-wa-entregas-impar.mjs
       - name: Canal principal compartido y responsables de Contactos
         run: node scripts/test-principal-contactos.mjs
       - name: Ficha 360, permisos y teléfonos múltiples
