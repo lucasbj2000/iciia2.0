@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {claveReintento,guardarOriginal,recuperarOriginal} from '../src/wa-reintentos.mjs';
+import {crearCacheContadorReintentos} from '../src/wa-cache-reintentos.mjs';
 
 const source=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const ba=source('src/channels/baileys.mjs');
@@ -55,6 +56,25 @@ assert.deepEqual(await recuperarOriginal({q:qFalla,proto,canalId,key,cache:cache
   'Fallback temporal en memoria');
 assert.equal(await recuperarOriginal({q:qFalla,proto,canalId,key,cache:new Map()}),undefined,
   'Falla de DB nunca fabrica mensaje vacío');
+const dispositivo={...key,remoteJid:'595981000001:3@s.whatsapp.net'};
+assert.equal(claveReintento(dispositivo)?.jid,key.remoteJid,
+  'Un dispositivo vinculado debe resolver al mismo contacto');
+assert.deepEqual(await recuperarOriginal({q:store,proto,canalId,key:dispositivo,cache:new Map()}),sent.message,
+  'Una solicitud desde móvil/PC vinculado puede recuperar el original');
+assert.equal(await recuperarOriginal({q:store,proto,canalId,
+  key:{...key,remoteJid:'595981000002:3@s.whatsapp.net'},cache:new Map()}),undefined,
+  'No mezclar contenido con dispositivos de otro cliente');
+const cachereintentos=crearCacheContadorReintentos({max:2});
+assert.equal(await cachereintentos.get('desconocido'),undefined);
+await cachereintentos.set('a',1);await cachereintentos.set('b',2);
+assert.equal(await cachereintentos.get('a'),1);
+await cachereintentos.set('c',3);
+assert.equal(await cachereintentos.get('a'),undefined,'Se debe limitar memoria');
+assert.equal(await cachereintentos.get('b'),2);
+await cachereintentos.del('b');
+assert.equal(await cachereintentos.get('b'),undefined);
+await cachereintentos.flushAll();
+assert.equal((await cachereintentos.keys()).length,0);
 const protoRoto={Message:{encode:()=>{throw Error('mensaje cifrado sin codificador')}}};
 assert.equal(await guardarOriginal({q:store,proto:protoRoto,canalId,empresaId,enviado:sent,cache:new Map()}),false,
   'Una falla al codificar después del envío no debe provocar duplicación de salida');
@@ -64,6 +84,8 @@ assert.ok(sql.includes('PRIMARY KEY(canal_id, jid, mensaje_id)'));
 assert.ok(sql.includes("interval '7 days'"));
 assert.ok(!sql.includes('DELETE FROM contactos')&&!sql.includes('UPDATE usuarios'));
 assert.ok(ba.includes('getMessage: key => recuperarOriginal('));
+assert.ok(ba.includes('msgRetryCounterCache: S.contadorReintentos'),
+  'Debe registrar el contador de reintentos para el socket actual');
 assert.ok(ba.includes('await guardarOriginal('));
 assert.ok(ba.includes('await transmitir(contenido)'));
 assert.ok(ba.includes('colaCredenciales=colaCredenciales.catch'));
