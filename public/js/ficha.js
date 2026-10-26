@@ -117,7 +117,8 @@ function pintar() {
         <div class="row chat-input-row" style="margin-top:8px;align-items:center;position:relative">
         ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj" type="button" title="Adjuntar archivo (o pegá con Ctrl+V)">📎</button>` : ''}
         <textarea id="msg" rows="3" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje, pegar o arrastrar un archivo…"></textarea>
-        <button class="btn" style="flex:none" id="f-enviar">Enviar</button></div></div>`}
+        <button class="btn" style="flex:none" id="f-enviar">Enviar</button></div>
+        <button class="btn ghost sm" type="button" id="f-wa-web" title="Abrir el chat oficial y enviar manualmente; no duplica automáticamente el envío">↗ WhatsApp Web (manual)</button></div>`}
    </div>
 
    <div id="t-det" class="hidden">
@@ -171,13 +172,16 @@ function mensajeHTML(m) {
          ? `<a class="ubi" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener">
               <span class="pin">📍</span><div style="min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.nombre || 'Ubicación compartida')}</b>
               <small style="color:var(--muted)">${esc(u.direccion || `${u.lat}, ${u.lon}`)}</small></div></a>` : '';
+       const estadoWA=m.wa_ack == null ? '' : Number(m.wa_ack)>=4
+         ? ' · ✓✓ Leído' : Number(m.wa_ack)>=3
+           ? ' · ✓✓ Entregado' : ' · ✓ Enviado, entrega no confirmada';
        const tramo = m.inicioConversacion
          ? `<div class="historial-tramo ${m.anterior?'anterior':''}">${m.anterior?'↶ Conversación anterior':'Conversación actual'}
               · ${fd(m.creado_negociacion)}${m.titulo_negociacion?' · '+esc(m.titulo_negociacion):''}</div>` : '';
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
           ${tramo}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${mapaUbi}
           <small>${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ' · 📱 '+esc(m.remitente_numero) : ''}
-          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}</small></div>`;
+          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}${estadoWA}</small></div>`;
 }
 
 export async function refrescarFicha(id, seguir = false) {
@@ -371,6 +375,18 @@ function conectar(n) {
 
   /* envío */
   adj = null;
+  if($('#f-wa-web')){
+    $('#f-wa-web').onclick=()=>{
+      const numero=String($('#f-telefono-chat')?.value || n.telefono_destino || n.tel || '').replace(/\D/g,'');
+      if(numero.length<8 || numero.length>15)
+        return toast('Seleccioná un teléfono válido antes de abrir WhatsApp Web.','warn');
+      const texto=$('#msg')?.value?.trim() || '';
+      const link='https://wa.me/'+encodeURIComponent(numero)+(texto?'?text='+encodeURIComponent(texto):'');
+      // Es un envío MANUAL: no crear otro outbox ni marcar mensaje como enviado.
+      window.open(link,'_blank','noopener,noreferrer');
+      toast('Confirmá el destinatario y presioná Enviar en WhatsApp. El CRM no enviará una copia.','warn','WhatsApp oficial');
+    };
+  }
   if ($('#f-enviar')) {
     if (fx('adjuntos')) adj = conectarAdjuntos({ inputSel: '#msg', barraSel: '#adj-barra', botonSel: '#f-adj', zonaSel: '#t-chat' });
     let enviando = false;
