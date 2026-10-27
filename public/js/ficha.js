@@ -173,7 +173,7 @@ function mensajeHTML(m) {
          ? `<a class="ubi" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener">
               <span class="pin">📍</span><div style="min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.nombre || 'Ubicación compartida')}</b>
               <small style="color:var(--muted)">${esc(u.direccion || `${u.lat}, ${u.lon}`)}</small></div></a>` : '';
-       const estadoWA=m.wa_ack == null ? '' : Number(m.wa_ack)>=4
+       const estadoWA=m.wa_estado_meta==='failed' ? ' · ⚠ Meta no entregó' : m.wa_ack == null ? '' : Number(m.wa_ack)>=4
          ? ' · ✓✓ Leído' : Number(m.wa_ack)>=3
            ? ' · ✓✓ Entregado' : ' · ✓ Enviado, entrega no confirmada';
        const tramo = m.inicioConversacion
