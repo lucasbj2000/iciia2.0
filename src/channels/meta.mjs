@@ -5,6 +5,8 @@
 import crypto from 'node:crypto';
 import { q } from '../db.mjs';
 import { guardarDesdeUrl, urlPublica } from '../archivos.mjs';
+import { resolverToken } from '../meta-secretos-impar.mjs';
+import { encolarWebhookMeta, drenarWebhooksMeta } from '../meta-webhooks-impar.mjs';
 
 const GRAPH = process.env.GRAPH_VERSION || 'v21.0';
 const API = `https://graph.facebook.com/${GRAPH}`;
@@ -25,9 +27,9 @@ export function verificarWebhook(req, res) {
 /* ---------- Firma HMAC ---------- */
 export function firmaValida(req) {
   const secreto = process.env.META_APP_SECRET;
-  if (!secreto) return true;
+  if (!secreto || !req.rawBody) return false;
   const firma = req.headers['x-hub-signature-256'];
-  if (!firma || !req.rawBody) return false;
+  if (!firma) return false;
   const esperado = 'sha256=' + crypto.createHmac('sha256', secreto).update(req.rawBody).digest('hex');
   try {
     const a = Buffer.from(firma), b = Buffer.from(esperado);
@@ -37,13 +39,19 @@ export function firmaValida(req) {
 
 /* ---------- Recepción (POST) ---------- */
 export async function recibirWebhook(req, res) {
-  res.sendStatus(200);
-  const body = req.body || {};
   try {
-    if (body.object === 'whatsapp_business_account') await procesarWhatsAppAPI(body);
-    else if (body.object === 'page') await procesarMeta(body, 'messenger');
-    else if (body.object === 'instagram') await procesarMeta(body, 'instagram');
-  } catch (e) { console.error('[meta] webhook:', e.message); }
+    await encolarWebhookMeta(req.body||{},req.rawBody);
+    res.sendStatus(200);
+    drenarWebhooksMeta().catch(e=>console.error('[meta] cola:',e.name));
+  }catch(e){
+    console.error('[meta] recepción no confirmada:',e.name);
+    res.sendStatus(e.status===422?422:503);
+  }
+}
+export async function procesarWebhookGuardado(objeto,body){
+  if(objeto==='whatsapp_business_account')await procesarWhatsAppAPI(body);
+  else if(objeto==='page')await procesarMeta(body,'messenger');
+  else if(objeto==='instagram')await procesarMeta(body,'instagram');
 }
 
 async function canalPor(tipo, campo, valor) {
@@ -78,6 +86,7 @@ async function procesarWhatsAppAPI(body) {
       const canal = await canalPor('whatsapp_api', 'phone_number_id', phoneId);
       if (!canal) { console.warn('[meta] sin canal para phone_number_id', phoneId); continue; }
 
+      for(const estado of v.statuses || [])await registrarEstadoCloud(canal,estado);
       for (const m of v.messages || []) {
         const perfil = (v.contacts || []).find(c => c.wa_id === m.from);
         const { texto, media, ubicacion } = await extraerWhatsApp(m, canal);
@@ -87,6 +96,31 @@ async function procesarWhatsAppAPI(body) {
           payload: { ts: Number(m.timestamp) * 1000, archivoId: media?.id }
         });
       }
+    }
+  }
+}
+
+/** Meta entrega acuses asíncronos: HTTP 200 no significa recibido. */
+async function registrarEstadoCloud(canal,s){
+  if(!s?.id || !['sent','delivered','read','failed'].includes(s.status))return;
+  const ack={sent:2,delivered:3,read:4,failed:0}[s.status];
+  const {rows}=await q(
+    "INSERT INTO wa_entregas_impar(canal_id,empresa_id,wa_id,ack,estado_meta,error_meta) "+
+    "VALUES($1,$2,$3,$4,$5,$6) "+
+    "ON CONFLICT(canal_id,wa_id) DO UPDATE SET "+
+    "ack=GREATEST(wa_entregas_impar.ack,EXCLUDED.ack), "+
+    "estado_meta=CASE WHEN EXCLUDED.ack>=wa_entregas_impar.ack OR EXCLUDED.estado_meta='failed' "+
+    "THEN EXCLUDED.estado_meta ELSE wa_entregas_impar.estado_meta END, "+
+    "error_meta=CASE WHEN EXCLUDED.estado_meta='failed' THEN EXCLUDED.error_meta ELSE NULL END, "+
+    "actualizado=now() RETURNING outbox_id",
+    [canal.id,canal.empresa_id,String(s.id),ack,s.status,
+     s.status==='failed'?String(s.errors?.[0]?.code||'Meta no entregó').slice(0,60):null]);
+  if(rows[0]?.outbox_id){
+    const {rows:neg}=await q('SELECT negociacion_id FROM outbox WHERE id=$1 AND empresa_id=$2',
+      [rows[0].outbox_id,canal.empresa_id]);
+    if(neg[0]?.negociacion_id){
+      const {emitir}=await import('../realtime.mjs');
+      emitir(canal.empresa_id,'neg:patch',{id:neg[0].negociacion_id});
     }
   }
 }
@@ -117,7 +151,7 @@ async function extraerWhatsApp(m, canal) {
 }
 
 async function bajarMediaWA(mediaId, canal, nombre, mime) {
-  const token = canal.config?.token;
+  const token = resolverToken(canal.config?.token);
   if (!token) throw new Error('canal sin token');
   const meta = await (await fetch(`${API}/${mediaId}`, { headers: { Authorization: `Bearer ${token}` } })).json();
   if (!meta.url) throw new Error(meta.error?.message || 'la API no devolvió URL del adjunto');
@@ -184,7 +218,7 @@ function descripcionAdjunto(adj) {
 
 async function nombrePerfil(id, canal) {
   try {
-    const token = canal.config?.token;
+    const token = resolverToken(canal.config?.token);
     if (!token) return '';
     const r = await fetch(`${API}/${id}?fields=name,username&access_token=${encodeURIComponent(token)}`);
     const j = await r.json();
@@ -194,7 +228,8 @@ async function nombrePerfil(id, canal) {
 
 /* ---------- ENVÍO ---------- */
 export async function enviarWhatsAppAPI(canal, destino, texto, adjunto) {
-  const { token, phone_number_id } = canal.config || {};
+  const { phone_number_id } = canal.config || {};
+  const token = resolverToken(canal.config?.token);
   if (!token || !phone_number_id) throw new Error('canal sin token o phone_number_id');
   const prefijo = canal.config.prefijoPais || process.env.PREFIJO_PAIS || '595';
   let num = String(destino).replace(/\D/g, '');
@@ -227,7 +262,8 @@ export async function enviarWhatsAppAPI(canal, destino, texto, adjunto) {
 }
 
 export async function enviarMeta(canal, destino, texto, adjunto) {
-  const { token, page_id } = canal.config || {};
+  const { page_id } = canal.config || {};
+  const token = resolverToken(canal.config?.token);
   if (!token) throw new Error('canal sin token');
   const post = async mensaje => {
     const r = await fetch(`${API}/${page_id || 'me'}/messages`, {
@@ -252,7 +288,8 @@ export async function enviarMeta(canal, destino, texto, adjunto) {
 
 /* ---------- Prueba de credenciales ---------- */
 export async function probarCanal(canal) {
-  const { token, phone_number_id, page_id, ig_id } = canal.config || {};
+  const { phone_number_id, page_id, ig_id } = canal.config || {};
+  const token = resolverToken(canal.config?.token);
   if (!token) return { ok: false, error: 'Falta el token de acceso.' };
   const destino = canal.tipo === 'whatsapp_api'
     ? `${API}/${phone_number_id}?fields=display_phone_number,verified_name,quality_rating`
