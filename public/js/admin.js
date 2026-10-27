@@ -99,17 +99,18 @@ async function aCanales() {
   const esPrincipal=c=>c.id===oficial?.id;
   const tarjeta = c => {
     const [cls, ico] = ICONOS[c.tipo] || ['otro', '📨'];
-    const color = c.estado === 'conectado' ? 'var(--ok)' : ['pendiente','reconectando','conectando'].includes(c.estado) ? 'var(--warn)' : 'var(--bad)';
+    const color = ['conectado','verificado'].includes(c.estado) ? 'var(--ok)' : ['pendiente','reconectando','conectando'].includes(c.estado) ? 'var(--warn)' : 'var(--bad)';
     return `<div class="canal ${c.estado === 'conectado' ? 'conectado' : ''}" data-canal-id="${esc(c.id)}"><div class="ico ${cls}">${ico}</div>
       <div style="flex:1;min-width:0"><b>${esc(c.nombre)}</b>
         <small>${NOMBRES[c.tipo]}${c.numero ? ' · ' + esc(c.numero) : ''}${c.linea ? ' · ' + esc(c.linea) : ''}</small>
         <small data-canal-estado-etiqueta><span class="dot ${c.estado === 'conectado' ? 'live' : ''}" style="background:${color}"></span>
           <span data-canal-estado-texto>${c.estado === 'conectado' ? 'Conectado'
+            : c.estado === 'verificado' ? 'Token válido · confirmar Webhook y activar'
             : c.estado === 'pendiente' ? 'Esperando escaneo'
             : ['reconectando','conectando'].includes(c.estado) ? 'Reconectando…'
             : c.estado === 'error' ? 'Error de conexión' : 'Desconectado'}</span>
           ${c.ultima_conexion ? ' · última ' + ago(c.ultima_conexion) + ' atrás' : ''}
-          ${!c.activo ? ' · <span style="color:var(--warn)">pausado</span>' : ''}</small>
+          ${!c.activo ? ' · <span style="color:var(--warn)">inactivo / en preparación</span>' : ''}</small>
         ${esPrincipal(c) ? '<small style="color:var(--ok);font-weight:700">★ Central · principal única para iniciar conversaciones</small>' : ''}
         ${c.ultimo_error ? `<small style="color:var(--bad)">${esc(String(c.ultimo_error).slice(0, 70))}</small>` : ''}</div>
       <div style="flex:none;display:flex;gap:6px;flex-wrap:wrap">
@@ -159,6 +160,15 @@ async function aCanales() {
                : 'Mensajes directos de tu cuenta de Instagram.'}</small></button>`;
        }).join('')}</div></div>
 
+   <div class="card-box" style="border-color:var(--brand)">
+     <h3>☁️ WhatsApp Cloud API oficial · IMPAR</h3>
+     <p class="sub">Agregá el número con un token de usuario del sistema y Phone Number ID.
+       Se guardará inicialmente <b>inactivo</b>. Primero probá el token,
+       configurá el webhook en Meta, probá una conversación y recién después activá el canal
+       y elegilo como principal si corresponde.</p>
+     <p class="sub">${info.listoParaCloud ? '✓ Meta y cifrado de token configurados.'
+       : '⚠ Falta configurar App Secret, Verify Token o clave de cifrado en Hostinger.'}</p>
+   </div>
    <div class="card-box"><h3>🔗 Webhook para los canales de Meta</h3>
      ${info.noDisponible ? '<p class="sub">El estado de Webhooks no respondió. Los canales siguen disponibles.</p>' : ''}
      <p class="sub" style="margin-top:0">Pegá estos datos en tu app de Meta → Webhooks → Editar suscripción.</p>
@@ -272,7 +282,9 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
          <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:6px;line-height:1.7">
            En <b>developers.facebook.com</b> → tu app → WhatsApp → Configuración de la API.
            Ahí ves el <i>Phone number ID</i> y podés generar el token. Para producción usá un token
-           permanente de usuario del sistema, no el temporal de 24 horas.</div></div>`
+           permanente de usuario del sistema, no el temporal de 24 horas.
+           <br><b>Seguridad:</b> el token se cifra en el servidor y no se muestra de vuelta.
+           <br><b>Activación:</b> el canal se crea inactivo y no cambia conversaciones existentes ni WhatsApp QR.</div></div>
     : `<div class="field"><label>Token de acceso de la página *</label>
          <input id="c-token" type="password" autocomplete="off" placeholder="${c ? 'Dejá vacío para conservar el actual' : 'EAAG...'}"></div>
        <div class="row"><div class="field"><label>Page ID ${tipo === 'messenger' ? '*' : ''}</label>
@@ -320,6 +332,7 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
       const r = await post('/canales', body);
       cerrar();
       if (r.prueba && !r.prueba.ok) toast(`Canal creado, pero las credenciales fallaron: ${r.prueba.error}`, 'warn', 'Verificar');
+      else if (tipo === 'whatsapp_api') toast('Token verificado. Canal guardado inactivo hasta probar webhook y activarlo.', 'ok');
       else toast('Canal creado y verificado ✓', 'ok');
       if (tipo === 'whatsapp_qr') return modalQR(r.canal.id);
       aCanales();
