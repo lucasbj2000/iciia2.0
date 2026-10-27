@@ -4,6 +4,7 @@ import { requiere } from '../auth.mjs';
 import { auditar } from '../core.mjs';
 import * as baileys from '../channels/baileys.mjs';
 import * as meta from '../channels/meta.mjs';
+import { cifrarToken, tokenConfigurado } from '../meta-secretos-impar.mjs';
 
 const r = Router();
 const TIPOS = ['whatsapp_qr', 'whatsapp_api', 'messenger', 'instagram'];
@@ -15,7 +16,7 @@ export const ETIQUETAS = {
 /** Nunca devolver tokens completos al navegador. */
 function sanear(c) {
   const cfg = { ...(c.config || {}) };
-  if (cfg.token) cfg.token = '••••••' + String(cfg.token).slice(-4);
+  if (cfg.token) cfg.token = '•••••• configurado';
   return { ...c, config: cfg, etiqueta: ETIQUETAS[c.tipo] };
 }
 
@@ -72,10 +73,14 @@ r.post('/', requiere('admin'), async (req, res) => {
     if (!(await baileys.disponible()))
       return res.status(503).json({ error: 'Baileys no está instalado en el servidor. Ejecutá: npm i @whiskeysockets/baileys' });
   } else if (b.tipo === 'whatsapp_api') {
-    if (!b.token || !b.phone_number_id)
-      return res.status(422).json({ error: 'WhatsApp Cloud API requiere token y Phone Number ID.' });
-    Object.assign(config, { token: b.token, phone_number_id: b.phone_number_id,
-      waba_id: b.waba_id || '', prefijoPais: b.prefijoPais || process.env.PREFIJO_PAIS || '595' });
+    if (!b.token || !/^\d{5,25}$/.test(String(b.phone_number_id||'')))
+      return res.status(422).json({ error: 'Cloud API requiere token y Phone Number ID numérico.' });
+    if (!process.env.META_APP_SECRET || !process.env.META_VERIFY_TOKEN)
+      return res.status(503).json({ error: 'Configurá META_APP_SECRET y META_VERIFY_TOKEN de forma segura en Hostinger.' });
+    try{
+      Object.assign(config, { token: cifrarToken(b.token), phone_number_id: String(b.phone_number_id),
+        waba_id: String(b.waba_id||''), prefijoPais: b.prefijoPais || process.env.PREFIJO_PAIS || '595' });
+    }catch(e){return res.status(503).json({error:e.message});}
   } else {
     if (!b.token || !(b.page_id || b.ig_id))
       return res.status(422).json({ error: 'Se requiere token de página y Page ID (o Instagram ID).' });
@@ -101,10 +106,11 @@ r.post('/', requiere('admin'), async (req, res) => {
   }
 
   const { rows } = await q(
-    `INSERT INTO canales (empresa_id,sucursal_id,linea,tipo,nombre,config,sesion)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    `INSERT INTO canales (empresa_id,sucursal_id,linea,tipo,nombre,config,sesion,activo)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
     [req.empresaId, b.sucursalId || null, b.linea || '', b.tipo, b.nombre, JSON.stringify(config),
-     b.tipo === 'whatsapp_qr' ? `${req.empresa.codigo}-${Date.now().toString(36)}` : null]);
+     b.tipo === 'whatsapp_qr' ? `${req.empresa.codigo}-${Date.now().toString(36)}` : null,
+     b.tipo !== 'whatsapp_api']);
 
   // Verificación inmediata para los canales de Meta
   let prueba = null;
@@ -113,11 +119,11 @@ r.post('/', requiere('admin'), async (req, res) => {
     await q(`UPDATE canales SET estado=$3, numero=COALESCE(NULLIF($4,''),numero), ultimo_error=$5,
                ultima_conexion=CASE WHEN $6 THEN now() ELSE ultima_conexion END
              WHERE id=$1 AND empresa_id=$2`,
-      [rows[0].id, req.empresaId, prueba.ok ? 'conectado' : 'error', prueba.numero || '',
+      [rows[0].id, req.empresaId, prueba.ok && b.tipo==='whatsapp_api' ? 'verificado' : prueba.ok ? 'conectado' : 'error', prueba.numero || '',
        prueba.ok ? null : prueba.error, prueba.ok]);
   }
   await auditar(req.empresaId, req.user.nombre, 'Canal', `Alta ${ETIQUETAS[b.tipo]} · ${b.nombre}`, req.ip);
-  res.json({ ok: true, canal: sanear(rows[0]), prueba });
+  res.json({ ok: true, canal: sanear(rows[0]), prueba, pendienteActivacion: b.tipo==='whatsapp_api' });
 });
 
 /* ---------- HACER PRINCIPAL Y COMPARTIDA ---------- */
@@ -151,7 +157,18 @@ r.patch('/:id', requiere('admin'), async (req, res) => {
 
   const config = { ...(c.config || {}) };
   for (const k of ['token', 'phone_number_id', 'waba_id', 'page_id', 'ig_id', 'prefijoPais']) {
-    if (b[k] !== undefined && b[k] !== '' && !String(b[k]).startsWith('••••')) config[k] = b[k];
+    if (b[k] !== undefined && b[k] !== '' && !String(b[k]).startsWith('••••')) {
+      if(k==='token' && c.tipo==='whatsapp_api'){
+        try{config[k]=cifrarToken(b[k]);}
+        catch(e){return res.status(503).json({error:e.message});}
+      }else config[k]=b[k];
+    }
+  }
+  if(c.tipo==='whatsapp_api' && b.activo===true && c.activo!==true){
+    if(!process.env.META_APP_SECRET || !process.env.META_VERIFY_TOKEN)
+      return res.status(409).json({error:'Webhook de Meta sin secreto y Verify Token configurados.'});
+    const p=await meta.probarCanal({...c,config});
+    if(!p.ok)return res.status(409).json({error:'Primero verificá el token y el Phone Number ID: '+p.error});
   }
   await q(
     `UPDATE canales SET nombre=COALESCE($3,nombre), sucursal_id=$4, linea=COALESCE($5,linea),
@@ -209,7 +226,7 @@ r.post('/:id/probar', requiere('admin'), async (req, res) => {
   const p = await meta.probarCanal(c);
   await q(`UPDATE canales SET estado=$3, numero=COALESCE(NULLIF($4,''),numero), ultimo_error=$5
             WHERE id=$1 AND empresa_id=$2`,
-    [c.id, req.empresaId, p.ok ? 'conectado' : 'error', p.numero || '', p.ok ? null : p.error]);
+    [c.id, req.empresaId, p.ok && c.tipo==='whatsapp_api' ? 'verificado' : p.ok ? 'conectado' : 'error', p.numero || '', p.ok ? null : p.error]);
   res.json(p);
 });
 
@@ -220,6 +237,8 @@ r.get('/webhook/info', requiere('admin'), (req, res) => {
     url: `${base}/webhook/meta`,
     verifyToken: process.env.META_VERIFY_TOKEN || '',
     tieneSecret: !!process.env.META_APP_SECRET,
+    tieneCifrado: /^[0-9a-f]{64}$/i.test(process.env.META_TOKEN_ENCRYPTION_KEY||''),
+    listoParaCloud: !!process.env.META_APP_SECRET && !!process.env.META_VERIFY_TOKEN && /^[0-9a-f]{64}$/i.test(process.env.META_TOKEN_ENCRYPTION_KEY||''),
     https: base.startsWith('https://'),
     eventos: { whatsapp_api: ['messages'], messenger: ['messages', 'messaging_postbacks'], instagram: ['messages'] }
   });
