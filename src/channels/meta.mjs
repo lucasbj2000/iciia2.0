@@ -10,6 +10,8 @@ import { encolarWebhookMeta, drenarWebhooksMeta } from '../meta-webhooks-impar.m
 
 const GRAPH = process.env.GRAPH_VERSION || 'v21.0';
 const API = `https://graph.facebook.com/${GRAPH}`;
+// Versión fijada solo para WhatsApp Cloud; Messenger e Instagram conservan su configuración.
+const WA_API = `https://graph.facebook.com/${process.env.WA_GRAPH_VERSION || 'v26.0'}`;
 
 /* ---------- Verificación (GET) ---------- */
 export function verificarWebhook(req, res) {
@@ -153,7 +155,7 @@ async function extraerWhatsApp(m, canal) {
 async function bajarMediaWA(mediaId, canal, nombre, mime) {
   const token = resolverToken(canal.config?.token);
   if (!token) throw new Error('canal sin token');
-  const meta = await (await fetch(`${API}/${mediaId}`, { headers: { Authorization: `Bearer ${token}` } })).json();
+  const meta = await (await fetch(`${WA_API}/${mediaId}`, { headers: { Authorization: `Bearer ${token}` } })).json();
   if (!meta.url) throw new Error(meta.error?.message || 'la API no devolvió URL del adjunto');
   const a = await guardarDesdeUrl({
     empresaId: canal.empresa_id, url: meta.url, mime: mime || meta.mime_type,
@@ -236,7 +238,7 @@ export async function enviarWhatsAppAPI(canal, destino, texto, adjunto) {
   if (num.length <= 10 && !num.startsWith(prefijo)) num = prefijo + num.replace(/^0/, '');
 
   const post = async cuerpo => {
-    const r = await fetch(`${API}/${phone_number_id}/messages`, {
+    const r = await fetch(`${WA_API}/${phone_number_id}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messaging_product: 'whatsapp', to: num, ...cuerpo })
@@ -292,7 +294,7 @@ export async function probarCanal(canal) {
   const token = resolverToken(canal.config?.token);
   if (!token) return { ok: false, error: 'Falta el token de acceso.' };
   const destino = canal.tipo === 'whatsapp_api'
-    ? `${API}/${phone_number_id}?fields=display_phone_number,verified_name,quality_rating`
+    ? `${WA_API}/${phone_number_id}?fields=display_phone_number,verified_name,quality_rating`
     : `${API}/${ig_id || page_id}?fields=name,username`;
   try {
     const r = await fetch(destino, { headers: { Authorization: `Bearer ${token}` } });
