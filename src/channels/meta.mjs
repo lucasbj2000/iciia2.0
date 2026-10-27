@@ -297,7 +297,7 @@ export async function probarCanal(canal) {
     ? `${WA_API}/${phone_number_id}?fields=display_phone_number,verified_name,quality_rating`
     : `${API}/${ig_id || page_id}?fields=name,username`;
   try {
-    const r = await fetch(destino, { headers: { Authorization: `Bearer ${token}` } });
+    const r = await fetch(destino, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10000) });
     const j = await r.json();
     if (!r.ok) return { ok: false, error: j.error?.message || 'Credenciales inválidas.' };
     return { ok: true, info: j,
