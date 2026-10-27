@@ -6,6 +6,7 @@ import * as meta from './channels/meta.mjs';
 import { emitir } from './realtime.mjs';
 import { derivarRecepcionesVencidas } from './recepcion-impar.mjs';
 import { registrarEnvioImpar } from './wa-entregas-impar.mjs';
+import { drenarWebhooksMeta } from './meta-webhooks-impar.mjs';
 
 const MAX_INTENTOS = 3;
 const MAX_ENVIOS = 8;
@@ -107,12 +108,22 @@ export async function drenarOutbox() {
 
       let enviadoWA=null;
       if (o.tipo === 'whatsapp_qr') enviadoWA=await baileys.enviar(canal, o.destino, cuerpo, adjunto);
-      else if (o.tipo === 'whatsapp_api') await meta.enviarWhatsAppAPI(canal, o.destino, cuerpo, adjunto);
+      else if (o.tipo === 'whatsapp_api') enviadoWA=await meta.enviarWhatsAppAPI(canal, o.destino, cuerpo, adjunto);
       else if (o.tipo === 'messenger' || o.tipo === 'instagram') await meta.enviarMeta(canal, o.destino, cuerpo, adjunto);
       else throw new Error(`tipo de canal no soportado: ${o.tipo}`);
 
       // La aceptación no es una confirmación de entrega. Nunca reenviar porque
       // falle el registro posterior de ACK: podría duplicar el pedido del cliente.
+      if(o.tipo==='whatsapp_api' && enviadoWA?.messages?.[0]?.id){
+        const id=String(enviadoWA.messages[0].id);
+        await q(
+          "INSERT INTO wa_entregas_impar(canal_id,empresa_id,wa_id,outbox_id,ack,estado_meta) "+
+          "VALUES($1,$2,$3,$4,1,'accepted') "+
+          "ON CONFLICT(canal_id,wa_id) DO UPDATE SET outbox_id=EXCLUDED.outbox_id, "+
+          "actualizado=now()",
+          [canal.id,canal.empresa_id,id,o.id]
+        ).catch(e=>console.warn('[meta] No se pudo asociar ACK:',e.name));
+      }
       if(o.tipo==='whatsapp_qr'){
         await registrarEnvioImpar(canal,enviadoWA,{outboxId:o.id,destino:o.destino})
           .catch(e=>console.warn('[wa:entregas] No se pudo vincular el ACK:',e.message));
@@ -151,6 +162,7 @@ export async function reprocesarCuarentena(empresaId) {
 export function arrancarWorkers() {
   // Plazos persistentes: también recupera las recepciones tras reiniciar PM2.
   setInterval(() => derivarRecepcionesVencidas().catch(e => console.error('[recepcion]', e.message)), 30000);
+  setInterval(() => drenarWebhooksMeta().catch(e => console.error('[webhook meta]',e.name)), 4000);
   setInterval(() => drenarInbox().catch(e => console.error('[inbox]', e.message)), 2000);
   setInterval(() => drenarOutbox().catch(e => console.error('[outbox]', e.message)), 5000);
   console.log('✔ Workers de mensajería activos');
