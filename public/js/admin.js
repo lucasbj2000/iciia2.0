@@ -164,8 +164,9 @@ async function aCanales() {
      <h3>☁️ WhatsApp Cloud API oficial · IMPAR</h3>
      <p class="sub">Agregá el número con un token de usuario del sistema y Phone Number ID.
        Se guardará inicialmente <b>inactivo</b>. Primero probá el token,
-       configurá el webhook en Meta, probá una conversación y recién después activá el canal
-       y elegilo como principal si corresponde.</p>
+       configurá el webhook en Meta, activá el canal para hacer una prueba piloto
+       y recién después elegilo como principal si corresponde. Las conversaciones antiguas
+       conservan su canal de origen hasta una migración explícita.</p>
      <p class="sub">${info.listoParaCloud ? '✓ Meta y cifrado de token configurados.'
        : '⚠ Falta configurar App Secret, Verify Token o clave de cifrado en Hostinger.'}</p>
    </div>
@@ -284,7 +285,7 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
            Ahí ves el <i>Phone number ID</i> y podés generar el token. Para producción usá un token
            permanente de usuario del sistema, no el temporal de 24 horas.
            <br><b>Seguridad:</b> el token se cifra en el servidor y no se muestra de vuelta.
-           <br><b>Activación:</b> el canal se crea inactivo y no cambia conversaciones existentes ni WhatsApp QR.</div></div>`
+           <br><b>Activación:</b> primero configurá el webhook en Meta y activá el canal para probar mensajes reales. No cambia conversaciones antiguas ni WhatsApp QR.</div></div>`
     : `<div class="field"><label>Token de acceso de la página *</label>
          <input id="c-token" type="password" autocomplete="off" placeholder="${c ? 'Dejá vacío para conservar el actual' : 'EAAG...'}"></div>
        <div class="row"><div class="field"><label>Page ID ${tipo === 'messenger' ? '*' : ''}</label>
