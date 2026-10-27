@@ -97,6 +97,7 @@ node scripts/test-historial-chat.mjs
 node scripts/test-wa-reintentos.mjs
 node scripts/test-wa-entregas-impar.mjs
 node scripts/test-wa-identidades-impar.mjs
+node scripts/test-meta-cloud-impar.mjs
 node scripts/test-principal-contactos.mjs
 node scripts/test-telefonos-impar.mjs
 node scripts/test-busqueda-contactos.mjs
