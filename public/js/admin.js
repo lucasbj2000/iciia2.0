@@ -284,7 +284,7 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
            Ahí ves el <i>Phone number ID</i> y podés generar el token. Para producción usá un token
            permanente de usuario del sistema, no el temporal de 24 horas.
            <br><b>Seguridad:</b> el token se cifra en el servidor y no se muestra de vuelta.
-           <br><b>Activación:</b> el canal se crea inactivo y no cambia conversaciones existentes ni WhatsApp QR.</div></div>
+           <br><b>Activación:</b> el canal se crea inactivo y no cambia conversaciones existentes ni WhatsApp QR.</div></div>`
     : `<div class="field"><label>Token de acceso de la página *</label>
          <input id="c-token" type="password" autocomplete="off" placeholder="${c ? 'Dejá vacío para conservar el actual' : 'EAAG...'}"></div>
        <div class="row"><div class="field"><label>Page ID ${tipo === 'messenger' ? '*' : ''}</label>
