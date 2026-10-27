@@ -18,6 +18,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Diagnosticar sintaxis exacta de interfaz Cloud API
+        run: node --check public/js/admin.js
       - name: Verificar sintaxis, imports y archivos sensibles
         run: node scripts/verificar.mjs
       - name: Pruebas de permisos y guia interactiva
