@@ -162,7 +162,7 @@ export async function reprocesarCuarentena(empresaId) {
 export function arrancarWorkers() {
   // Plazos persistentes: también recupera las recepciones tras reiniciar PM2.
   setInterval(() => derivarRecepcionesVencidas().catch(e => console.error('[recepcion]', e.message)), 30000);
-  setInterval(() => drenarWebhooksMeta().catch(e => console.error('[webhook meta]',e.name)), 4000);
+  setInterval(() => drenarWebhooksMeta().catch(e => console.error('[webhook meta]',e.name)), 15000);
   setInterval(() => drenarInbox().catch(e => console.error('[inbox]', e.message)), 2000);
   setInterval(() => drenarOutbox().catch(e => console.error('[outbox]', e.message)), 5000);
   console.log('✔ Workers de mensajería activos');
