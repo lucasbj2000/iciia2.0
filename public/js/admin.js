@@ -29,10 +29,10 @@ export async function vistaAdmin() {
   }
   if (!defs) defs = await get('/admin/definiciones');
   $('#view').innerHTML = `<div class="section">
-    <div class="tabs">${TABS.map(([k, t]) => `<button class="tab ${TADM === k ? 'active' : ''}" data-adm="${k}">${t}</button>`).join('')}</div>
+    <div class="tabs">${[...TABS, ...(S.usuario.usuario?.toLowerCase()==='admin' ? [['meta-lab','🧪 Pruebas API']] : [])].map(([k, t]) => `<button class="tab ${TADM === k ? 'active' : ''}" data-adm="${k}">${t}</button>`).join('')}</div>
     <div id="adm-body" class="fx-vista">${skeleton(4)}</div></div>`;
   $$('[data-adm]').forEach(b => b.onclick = () => { clearInterval(timerQR); TADM = b.dataset.adm; vistaAdmin(); });
-  const fn = { canales: aCanales, diseno: aDiseno, sucursales: aSucursales,
+  const fn = { 'meta-lab': () => import('./meta-laboratorio-impar.js').then(m=>m.vistaLaboratorioMeta()), canales: aCanales, diseno: aDiseno, sucursales: aSucursales,
     bitrix: () => import('./importar-bitrix.js').then(m=>m.vistaImportarBitrix()),
     botones: aBotones, flags: aFlags, ayudas: aAyudas, horarios: administrarHorarios, noti: aNoti, rapidas: aRapidas,
     catalogos: () => import('./catalogos-impar.js').then(m=>m.vistaCatalogosImpar()), usuarios: aUsuarios,
