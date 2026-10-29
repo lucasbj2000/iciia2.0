@@ -206,10 +206,13 @@ app.use(express.static(join(__dirname, '..', 'public'), {
   lastModified: true,
   index: 'index.html',
   setHeaders: (res, path) => {
-    if (/\.(?:html|js|css)$/i.test(path)) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
+    if (/\.html$/i.test(path)) {
+      // El documento principal siempre es fresco y decide la versión pública.
+      res.setHeader('Cache-Control','no-store, must-revalidate');
+    } else if (/\.(?:js|css)$/i.test(path)) {
+      // Permitir respuestas 304 con ETag: conservamos la última versión, sin
+      // descargar decenas de módulos otra vez en cada login o recarga.
+      res.setHeader('Cache-Control','no-cache, must-revalidate');
     }
     res.setHeader('X-ICIIA-Build', BUILD_SHA);
   }
