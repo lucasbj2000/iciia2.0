@@ -23,6 +23,8 @@ assert.ok(server.includes('etag: true'));
 assert.ok(board.includes("const resultado=await get('/negociaciones')"));
 assert.ok(board.includes('Promise.allSettled(['));
 assert.ok(board.includes('BLOQUE_TARJETAS = 60'));
+assert.ok(board.includes("$$('[data-mas-etapa]').forEach"), 'Cada botón Mostrar más debe usar selector múltiple, no Element.forEach');
+assert.ok(!board.includes("$('[data-mas-etapa]').forEach"), 'No volver a romper la vista de Negociaciones');
 assert.ok(board.includes('lista.slice(0,limite)'));
 assert.ok(board.includes('restantes>0')&&board.includes('limitesEtapa.set('));
 assert.ok(board.includes('filtradas().filter(x=>x.etapa===e.id).length'));
