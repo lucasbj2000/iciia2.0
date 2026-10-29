@@ -15,11 +15,14 @@ export const firmar = u => jwt.sign(
 
 export async function login({ empresa, usuario, password }) {
   const us = String(usuario || '').trim().toLowerCase();
-  const { rows: es } = await q("SELECT * FROM empresas WHERE codigo='impar' AND activa");
-  const empRow = es[0];
-  if (!empRow) return { error: 'IMPAR todavía no está configurado.' };
-  const { rows } = await q('SELECT * FROM usuarios WHERE empresa_id=$1 AND lower(usuario)=$2 AND activo', [empRow.id, us]);
+  // Una sola consulta para el acceso: usuario vigente y empresa IMPAR activa.
+  // bcrypt mantiene la comprobación segura de contraseña sin recortar su coste.
+  const { rows } = await q(
+    "SELECT u.*,row_to_json(e) AS _empresa FROM usuarios u "+
+    "JOIN empresas e ON e.id=u.empresa_id AND e.codigo='impar' AND e.activa "+
+    "WHERE lower(u.usuario)=$1 AND u.activo LIMIT 1", [us]);
   const user = rows[0];
+  const empRow = user?._empresa;
   if (!user) return { error: 'Usuario o contraseña incorrectos.' };
   const ok = await bcrypt.compare(String(password || ''), user.pass_hash);
   if (!ok) return { error: 'Usuario o contraseña incorrectos.' };
@@ -38,13 +41,17 @@ export function requiere(...roles) {
       let p;
       try { p = jwt.verify(t, SECRET); }
       catch { return res.status(401).json({ error: 'token inválido' }); }
-      const { rows } = await q('SELECT * FROM usuarios WHERE id=$1 AND activo', [p.uid]);
+      // Una sola ida a PostgreSQL por petición protegida (antes eran dos).
+      // Sin caché de privilegios: bloqueos y cambios de rol se aplican inmediatamente.
+      const { rows } = await q(
+        "SELECT u.*,row_to_json(e) AS _empresa FROM usuarios u "+
+        "LEFT JOIN empresas e ON e.id=u.empresa_id AND e.codigo='impar' AND e.activa "+
+        "WHERE u.id=$1 AND u.activo LIMIT 1", [p.uid]);
       const user = rows[0];
       if (!user) return res.status(401).json({ error: 'usuario inactivo' });
-
-      const { rows: es } = await q("SELECT * FROM empresas WHERE codigo='impar' AND activa");
-      const empresa = es[0];
-      if (!empresa || user.empresa_id !== empresa.id) return res.status(403).json({ error: 'Acceso exclusivo a IMPAR.' });
+      const empresa = user._empresa;
+      if (!empresa || user.empresa_id !== empresa.id || p.eid !== user.empresa_id)
+        return res.status(403).json({ error: 'Acceso exclusivo a IMPAR.' });
       if (roles.length && !roles.includes(user.rol)) return res.status(403).json({ error: 'sin permiso' });
 
       req.user = user; req.empresa = empresa;
