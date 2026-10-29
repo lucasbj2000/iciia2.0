@@ -85,6 +85,7 @@ node scripts/verificar.mjs
 node scripts/test-ayudas.mjs
 node scripts/test-horarios.mjs
 node scripts/test-login.mjs
+node scripts/test-rendimiento-impar.mjs
 node scripts/test-canales-estables.mjs
 node scripts/test-pausa-bot.mjs
 node scripts/test-recepcion-sucursales.mjs
