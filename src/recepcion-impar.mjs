@@ -94,7 +94,7 @@ export async function responderRecepcionImpar(empresaId, negId, { porVencimiento
       || !n.bot_activo || n.canal_bot === false || ['ganado','cerrado'].includes(n.etapa)) return null;
     const st = { ...n.bot_recepcion };
     const { rows: humanos } = await db.query(`SELECT 1 FROM mensajes WHERE empresa_id=$1 AND negociacion_id=$2
-      AND dir='out' AND bot=FALSE LIMIT 1`, [empresaId,negId]);
+      AND dir='out' AND bot=FALSE AND NOT carga_historica LIMIT 1`, [empresaId,negId]);
     // Una ficha previa nunca adquiere elegibilidad por reactivar el bot manualmente.
     if (st.elegible !== true || st.version !== 2 || n.agente_id || n.responsable_id || humanos.length || st.fase === 'finalizado') {
       await db.query('UPDATE negociaciones SET bot_activo=FALSE,recepcion_vence=NULL WHERE id=$1 AND empresa_id=$2', [negId,empresaId]);
