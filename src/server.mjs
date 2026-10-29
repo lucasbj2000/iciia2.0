@@ -152,7 +152,7 @@ app.get('/api/contexto', requiere(), async (req, res) => {
   ]);
   res.json({
     empresa: req.empresa ? publica(req.empresa) : null,
-    sucursales: sucs, empresas, usuario: publicoUsuario(req.user)
+    sucursales: sucs.rows, empresas: empresas.rows, usuario: publicoUsuario(req.user)
   });
 });
 
