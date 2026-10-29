@@ -17,3 +17,9 @@
 .cita-barra[hidden]{display:none}
 .cita-barra .msg-cita{margin:0;flex:1;cursor:default}
 .msg-resaltado{outline:2px solid var(--brand);outline-offset:3px}
+/* Mensajes editados por el cliente */
+.msg-editado{margin:4px 0 0;font-size:12px;color:var(--muted)}
+.msg-editado summary{cursor:pointer;list-style:none;display:inline-block}
+.msg-editado summary::-webkit-details-marker{display:none}
+.msg-editado[open] summary{margin-bottom:4px}
+.msg-editado-original{padding:5px 8px;border-left:3px solid var(--line);background:rgba(127,127,127,.1);border-radius:6px;white-space:pre-wrap;word-break:break-word}

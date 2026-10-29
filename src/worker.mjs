@@ -56,7 +56,7 @@ export async function drenarInbox() {
           origen: ORIGEN[m.tipo] || 'otro', externoTipo: EXTERNO[m.tipo],
           extId: m.ext_id, remitente, nombre: m.nombre, texto: m.txt,
           mediaUrl: m.media_url, mediaTipo: m.media_tipo, mediaNombre: m.media_nombre,
-          archivoId: m.payload?.archivoId || null, ubicacion: m.ubicacion, cita: m.payload?.cita || null,
+          archivoId: m.payload?.archivoId || null, ubicacion: m.ubicacion, cita: m.payload?.cita || null, editado: m.payload?.editado || null,
           ts: m.payload?.ts || m.ts
         });
         await q(`UPDATE inbox SET estado='procesado', procesado=now(), error=NULL, proximo_intento=NULL WHERE id=$1`, [m.id]);

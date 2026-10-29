@@ -224,7 +224,7 @@ async function sucursalPorDefecto(empresa) {
 /** Punto único por donde entra TODO mensaje externo (los 4 canales). */
 export async function ingresarMensaje(empresa, {
   canalId, canalSucursal, canalLinea, origen, extId, remitente, nombre, texto,
-  mediaUrl, mediaTipo, mediaNombre, archivoId, ubicacion, ts, externoTipo, cita
+  mediaUrl, mediaTipo, mediaNombre, archivoId, ubicacion, ts, externoTipo, cita, editado
 }) {
   if (extId) {
     const { rows } = await q('SELECT 1 FROM mensajes WHERE empresa_id=$1 AND msg_id=$2 LIMIT 1', [empresa.id, extId]);
@@ -235,6 +235,7 @@ export async function ingresarMensaje(empresa, {
   const citaFinal = cita ? await resolverCitaEntrante(q, empresa.id, cita)
     .catch(e => { console.warn('[citas] Vínculo no resuelto:', e.name); return null; }) : null;
   const citaJSON = citaFinal ? JSON.stringify(citaFinal) : null;
+  const editadoJSON = editado && typeof editado === 'object' ? JSON.stringify(editado) : null;
   const telefonoWhatsApp = origen === 'whatsapp' && !String(remitente || '').includes('@')
     ? String(remitente)
     : null;
@@ -283,11 +284,11 @@ export async function ingresarMensaje(empresa, {
 
   if (abierta) {
     await q(
-      `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita)
-       VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT DO NOTHING`,
+      `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita,editado)
+       VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT DO NOTHING`,
       [empresa.id, abierta.id, texto || '', mediaUrl || null, mediaTipo || null, mediaNombre || null,
        archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando,
-      telefonoWhatsApp || null, citaJSON]);
+      telefonoWhatsApp || null, citaJSON, editadoJSON]);
     // El número al que se responde es el último número que escribió en esta
     // negociación; no sobrescribir el teléfono principal del cliente.
     if(origen==='whatsapp' && telefonoWhatsApp){
@@ -343,11 +344,11 @@ export async function ingresarMensaje(empresa, {
   const neg = rows[0];
 
   await q(
-    `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita)
-     VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT DO NOTHING`,
+    `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita,editado)
+     VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT DO NOTHING`,
     [empresa.id, neg.id, texto || '', mediaUrl || null, mediaTipo || null, mediaNombre || null,
      archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando,
-      telefonoWhatsApp || null, citaJSON]);
+      telefonoWhatsApp || null, citaJSON, editadoJSON]);
 
   if (empresa.flags?.bot && empresa.bot?.activo) programarBot(empresa,neg.id);
   await historial(empresa.id, neg.id,

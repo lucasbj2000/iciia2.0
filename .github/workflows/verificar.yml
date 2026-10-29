@@ -63,6 +63,8 @@ jobs:
         run: node scripts/test-wa-no-descifrados-impar.mjs
       - name: Respuestas citadas WhatsApp QR y Cloud API
         run: node scripts/test-citas-impar.mjs
+      - name: Mensajes editados por clientes
+        run: node scripts/test-ediciones-impar.mjs
       - name: Vigilancia de buffer prolongado de WhatsApp
         run: node scripts/test-wa-vigilancia-buffer.mjs
       - name: Recepción LID, append, medios e inserción de mensajes históricos

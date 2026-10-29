@@ -129,7 +129,7 @@ export async function iniciar(canal) {
     const estadoRecepcion = setInterval(() => {
       if (S.sock !== sock) { clearInterval(estadoRecepcion); return; }
       if (S.estado !== 'conectado') return;
-      console.log(`[wa:recepcion] estado=${S.estado} buffer=${Boolean(sock.ev?.isBuffering?.())} eventos=${S.eventosWA||0} mensajes=${S.mensajesWA||0} guardados=${S.totalEntradas||0} sin_contenido=${S.sinContenidoWA||0} no_admitidos=${S.tipoNoAdmitidoWA||0} errores=${S.erroresRecepcionWA||0} recuperados=${S.recuperadosWA||0} avisos_no_leidos=${S.noDescifradosWA||0} tardios=${S.tardiosWA||0} esperando_descifrado=${S.noDescifrados?.size||0}`);
+      console.log(`[wa:recepcion] estado=${S.estado} buffer=${Boolean(sock.ev?.isBuffering?.())} eventos=${S.eventosWA||0} mensajes=${S.mensajesWA||0} guardados=${S.totalEntradas||0} sin_contenido=${S.sinContenidoWA||0} no_admitidos=${S.tipoNoAdmitidoWA||0} errores=${S.erroresRecepcionWA||0} recuperados=${S.recuperadosWA||0} avisos_no_leidos=${S.noDescifradosWA||0} tardios=${S.tardiosWA||0} ediciones=${S.edicionesWA||0} esperando_descifrado=${S.noDescifrados?.size||0}`);
       console.log(`[wa:transporte] nodos=${transporte.nodos} cifrados=${transporte.cifrados} no_disponibles=${transporte.noDisponibles} msmsg=${transporte.msmsg} errores_cola=${transporte.erroresCola}`);
     },60000);
     estadoRecepcion.unref?.();
@@ -229,6 +229,11 @@ export async function iniciar(canal) {
     sock.ev.on('messages.update', cambios => {
       if (S.sock !== sock) return;
       for (const cambio of cambios || []) {
+        if (cambio?.update?.message?.editedMessage) {
+          recibirEdicion(mod,cambio,canal,id).catch(e =>
+            console.warn('[wa:ediciones] Edición no registrada:',e.name));
+          continue;
+        }
         registrarActualizacionImpar(canal,cambio).catch(e =>
           console.warn('[wa:entregas] Estado no registrado:',e.message));
       }
@@ -378,6 +383,47 @@ async function reemplazarNoDescifrado(mod,m,contenido,canal,id,{etiqueta,ubicaci
   repetir?.unref?.();
   despertarWorker();
   return true;
+}
+
+/** El cliente editó un mensaje: actualizar el texto y conservar el original. */
+async function recibirEdicion(mod,cambio,canal,id){
+  const key=cambio?.key;
+  if(!key?.id || key.fromMe)return false;
+  const jid=String(key.remoteJid||'');
+  if(!jid || jid.endsWith('@g.us') || jid.endsWith('@broadcast') || jid.endsWith('@newsletter'))return false;
+  const bruto=cambio.update?.message?.editedMessage?.message;
+  const c=mod.normalizeMessageContent?.(bruto) || bruto;
+  const texto=String(c?.conversation || c?.extendedTextMessage?.text || c?.imageMessage?.caption ||
+    c?.videoMessage?.caption || c?.documentMessage?.caption || '').trim();
+  if(!texto)return false;
+  const ts=fechaDe({messageTimestamp:cambio.update?.messageTimestamp});
+  const ext=String(key.id);
+  const S=sesiones.get(id);
+  if(S)S.edicionesWA=(S.edicionesWA||0)+1;
+  // 1) Ya está en la conversación. Una edición más antigua nunca pisa a una más nueva.
+  const {rows}=await q(
+    "UPDATE mensajes SET editado=jsonb_build_object('original',COALESCE(editado->>'original',txt),"+
+    "'veces',COALESCE((editado->>'veces')::int,0)+1,'ts',$4::bigint),txt=$3 "+
+    "WHERE empresa_id=$1 AND msg_id=$2 AND dir='in' AND COALESCE((editado->>'ts')::bigint,0)<$4::bigint "+
+    'RETURNING negociacion_id',[canal.empresa_id,ext,texto,ts]);
+  if(rows.length){for(const x of rows)emitir(canal.empresa_id,'neg:patch',{id:x.negociacion_id});return true;}
+  // 2) Todavía en cola: corregir antes de que llegue a la conversación.
+  const {rows:enCola}=await q(
+    "UPDATE inbox SET payload=COALESCE(payload,'{}'::jsonb)||jsonb_build_object('editado',jsonb_build_object("+
+    "'original',COALESCE(payload->'editado'->>'original',txt),'veces',COALESCE((payload->'editado'->>'veces')::int,0)+1,'ts',$4::bigint)),txt=$3 "+
+    "WHERE canal_id=$1 AND ext_id=$2 AND estado IN ('pendiente','capturando','cuarentena') "+
+    "AND COALESCE((payload->'editado'->>'ts')::bigint,0)<$4::bigint RETURNING id",[id,ext,texto,ts]);
+  if(enCola.length){despertarWorker();return true;}
+  // 3) El original nunca llegó (por ejemplo, no se pudo descifrar): registrar la versión editada.
+  const {remitente}=remitenteDe({key});
+  const {rows:nuevo}=await q(
+    'INSERT INTO inbox (empresa_id,canal_id,tipo,ext_id,remitente,nombre,txt,'+
+    "ubicacion,payload,estado) VALUES($1,$2,'whatsapp_qr',$3,$4,$5,$6,$7,$8,$9) "+
+    'ON CONFLICT(canal_id,ext_id) DO NOTHING RETURNING id',
+    [canal.empresa_id,id,ext,remitente,'',texto,null,
+     JSON.stringify({ts,archivoId:null,editado:{original:null,veces:1,ts}}),'pendiente']);
+  if(nuevo[0]?.id){despertarWorker();return true;}
+  return false;
 }
 
 /** Respuesta citada: ID WhatsApp del mensaje citado y vista previa corta. */

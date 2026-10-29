@@ -178,6 +178,12 @@ function citaHTML(c) {
     title="Ver el mensaje citado"><b>${quienCita(c.dir)}</b><span>${esc(c.txt || 'Mensaje')}</span></button>`;
 }
 
+function editadoHTML(e) {
+  if (!e) return '';
+  const original = e.original ? `<div class="msg-editado-original"><b>Antes:</b> ${esc(e.original)}</div>` : '';
+  return `<details class="msg-editado"><summary title="El cliente editó este mensaje en WhatsApp">✎ Editado${Number(e.veces) > 1 ? ` (${Number(e.veces)} veces)` : ''}</summary>${original}</details>`;
+}
+
 function mensajeHTML(m) {
        const media = mediaHTML(m);
        const u = m.ubicacion;
@@ -194,7 +200,7 @@ function mensajeHTML(m) {
        const responder = /^\d+$/.test(String(m.id || ''))
          ? `<button type="button" class="msg-responder" data-responder="${m.id}" title="Responder citando este mensaje" aria-label="Responder citando este mensaje">↩</button>` : '';
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
-          ${tramo}${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${mapaUbi}
+          ${tramo}${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
           <small>${m.carga_historica ? '✎ Carga histórica (admin) · ' : ''}${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ' · 📱 '+esc(m.remitente_numero) : ''}
           ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}${estadoWA}${esAdmin()?botonAnclarHistorico(m):''}</small></div>`;
 }

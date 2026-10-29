@@ -119,7 +119,7 @@ const tramo = (src, desde, hasta) => {
   assert.ok(worker.includes('cita: m.payload?.cita || null'), 'Worker pasa la cita recibida');
   assert.ok(worker.includes('baileys.enviar(canal, o.destino, cuerpo, adjunto, opcionesEnvio)'), 'Worker envía cita por QR');
   assert.ok(worker.includes('meta.enviarWhatsAppAPI(canal, o.destino, cuerpo, adjunto, opcionesEnvio)'), 'Worker envía cita por Cloud API');
-  assert.equal((core.match(/remitente_numero,cita\)/g) || []).length, 2, 'Ambas inserciones guardan la cita');
+  assert.equal((core.match(/remitente_numero,cita[,)]/g) || []).length, 2, 'Ambas inserciones guardan la cita');
   assert.ok(core.includes('.catch(e => { console.warn(\'[citas] Vínculo no resuelto:\', e.name); return null; })'),
     'Una cita fallida no bloquea el mensaje');
   const iRuta = ruta.indexOf("r.post('/:id/mensajes'"), iCita = ruta.indexOf('citaParaEnvio(q', iRuta), iBot = ruta.indexOf('botAutoOff', iRuta);
