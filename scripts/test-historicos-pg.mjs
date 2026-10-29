@@ -26,7 +26,7 @@ try{
   await client.query("INSERT INTO mensajes(empresa_id,negociacion_id,dir,txt,ts,carga_historica,carga_por,carga_registrada) "+
     "VALUES($1,$2,'out','medio','2026-10-19T15:00:00.123457Z',TRUE,$3,now())",
     [empresa,neg,admin]);
-  const {rows}=await client.query('SELECT txt,carga_historica,carga_por,'+
+  const {rows}=await client.query('SELECT txt,carga_historica,carga_por,carga_registrada,'+
     'to_char(ts AT TIME ZONE \'UTC\',\'HH24:MI:SS.US\') AS preciso FROM mensajes ORDER BY ts,id');
   assert.deepEqual(rows.map(r=>r.txt),['antes','medio','despues']);
   assert.equal(rows[0].carga_historica,false);
