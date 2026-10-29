@@ -56,6 +56,8 @@ jobs:
         run: node scripts/test-wa-identidades-impar.mjs
       - name: Recepción Baileys y persistencia inmediata sin descargas bloqueantes
         run: node scripts/test-recepcion-baileys-buffer-impar.mjs
+      - name: Vigilancia de buffer prolongado de WhatsApp
+        run: node scripts/test-wa-vigilancia-buffer.mjs
       - name: Recepción LID, append, medios e inserción de mensajes históricos
         run: node scripts/test-recepcion-lid-historicos-impar.mjs
       - name: WhatsApp Cloud API · webhook duradero, cifrado, HMAC y ACK
