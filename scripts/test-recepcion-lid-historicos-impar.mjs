@@ -42,6 +42,12 @@ errorBD=true;
 assert.equal(await resolverRemitenteWA(canal,{remoteJid:lid}),lid,
   'Un error de mapa no impide registrar el LID original');
 assert.equal(parejaDesdeEventoWA({remoteJid:lid,remoteJidAlt:pn})?.pn,pn);
+assert.equal(parejaDesdeEventoWA({remoteJid:lid,participantPn:pn})?.pn,pn,
+  'El identificador telefónico alternativo de participantes no puede perderse');
+assert.equal(parejaDesdeEventoWA({remoteJid:lid,participantAlt:pn})?.pn,pn,
+  'Compatibilidad con participantAlt del receptor original');
+assert.equal(parejaDesdeEventoWA({remoteJid:pn,participantAlt:lid})?.lid,lid,
+  'Reconocer LID alternativo desde un JID telefónico');
 const ba=leer('src/channels/baileys.mjs');
 assert.ok(ba.includes("!['notify','append'].includes(type)"),
   'Recuperar mensajes append tras desconexión');
