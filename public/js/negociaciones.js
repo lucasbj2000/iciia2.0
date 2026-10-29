@@ -161,7 +161,7 @@ export function bloquear(id, ms = 4000) {
 export async function patchTarjeta(id, opts = {}) {
   if (bloqueadas.has(id)) return;
   try {
-    const n = await get(`/negociaciones/${id}`);
+    const n = await get(`/negociaciones/${id}/resumen`);
     const i = S.negociaciones.findIndex(x => x.id === id);
     if (i >= 0) S.negociaciones[i] = { ...S.negociaciones[i], ...n };
     else S.negociaciones.push(n);
