@@ -25,10 +25,23 @@ export async function vistaNegociaciones() {
   pintarShell();
   Promise.allSettled([get('/admin/usuarios'),get('/canales')]).then(([u,c])=>{
     if(revision!==ultimaCarga || S.vista!=='neg')return;
-    if(u.status==='fulfilled')usuarios=u.value;
+    if(u.status==='fulfilled'){
+      usuarios=u.value;
+      const filtro=$('#f-agente');
+      if(filtro){
+        const elegido=F.agente;
+        filtro.replaceChildren();
+        const todos=document.createElement('option');
+        todos.value='';todos.textContent='Todos los agentes';filtro.append(todos);
+        for(const agente of usuarios.filter(x=>x.rol==='agente')){
+          const opcion=document.createElement('option');
+          opcion.value=agente.id;opcion.textContent=agente.nombre;
+          filtro.append(opcion);
+        }
+        filtro.value=elegido;
+      }
+    }
     if(c.status==='fulfilled')canales=c.value;
-    // Actualizar sólo cuando llegaron metadatos secundarios.
-    pintarShell();
   });
 }
 
