@@ -47,10 +47,12 @@ assert.ok(ba.includes("!['notify','append'].includes(type)"),
   'Recuperar mensajes append tras desconexión');
 assert.ok(ba.includes('hora<Date.now()-72*60*60*1000'),
   'Append antiguo se filtra para no duplicar históricos');
-assert.ok(ba.includes('await resolverRemitenteWA(canal,m.key)'),'Unificar PN antes de inbox');
-assert.ok(ba.includes('await registrarParejaWA(canal,pareja)'),
+assert.ok(ba.includes('const remitente=pareja?.pn?.split('),'Usar PN verificado en el propio evento');
+assert.ok(leer('src/worker.mjs').includes('await resolverRemitenteWA('),'Resolver LID pendiente antes de ingresar mensaje');
+assert.ok(ba.includes('registrarParejaWA(canal,pareja).catch('),
   'Persistir equivalencia antes de resolver el remitente');
 assert.ok(ba.includes('normalizeMessageContent'),'Contenido efímero desembalado');
+assert.ok(ba.includes("hayMedia?'capturando':'pendiente'"),'Persistencia antes de descarga');
 assert.ok(ba.includes('[imagen recibida · adjunto no disponible]'),
   'Descargas fallidas no descartan eventos de imagen');
 
