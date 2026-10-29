@@ -255,6 +255,10 @@ async function recibir(mod, m, canal, id) {
 }
 
 function especial(m) {
+  if (m.message?.imageMessage) return '[imagen recibida · adjunto no disponible]';
+  if (m.message?.videoMessage) return '[video recibido · adjunto no disponible]';
+  if (m.message?.audioMessage) return '[audio recibido · adjunto no disponible]';
+  if (m.message?.documentMessage) return '[documento recibido · adjunto no disponible]';
   if (m.message?.stickerMessage) return '[sticker recibido]';
   if (m.message?.contactMessage) return '[contacto compartido]';
   if (m.message?.pollCreationMessage) return '[encuesta recibida]';
