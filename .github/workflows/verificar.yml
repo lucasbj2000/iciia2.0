@@ -54,6 +54,8 @@ jobs:
         run: node scripts/test-wa-entregas-impar.mjs
       - name: Probar direccionamiento PN/LID por contacto sin reenvíos
         run: node scripts/test-wa-identidades-impar.mjs
+      - name: Recepción Baileys y persistencia inmediata sin descargas bloqueantes
+        run: node scripts/test-recepcion-baileys-buffer-impar.mjs
       - name: Recepción LID, append, medios e inserción de mensajes históricos
         run: node scripts/test-recepcion-lid-historicos-impar.mjs
       - name: WhatsApp Cloud API · webhook duradero, cifrado, HMAC y ACK
@@ -110,6 +112,11 @@ jobs:
           node-version: '22'
       - name: Instalar cliente PostgreSQL
         run: npm ci --omit=dev
+      - name: Verificar parche offline de Baileys 6.7.24 compilado
+        run: |
+          node scripts/patch-baileys-recepcion.mjs
+          node scripts/patch-baileys-recepcion.mjs
+          node scripts/patch-baileys-lid.mjs
       - name: Ejecutar migraciones 016 y 017 contra PostgreSQL real
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
