@@ -40,7 +40,8 @@ r.post('/:id/historico',requiere('admin'),async(req,res)=>{
     let fecha=input.fecha,negociacionId=actual.id;
     if(input.modo!=='fecha'){
       const {rows:references}=await q(
-        'SELECT m.id,m.ts,m.negociacion_id FROM mensajes m '+
+        'SELECT m.id,m.ts,m.negociacion_id, '+
+        'to_char(m.ts AT TIME ZONE \'UTC\',\'YYYY-MM-DD"T"HH24:MI:SS.US"Z"\') AS ts_precisa FROM mensajes m '+
         'JOIN negociaciones n ON n.id=m.negociacion_id AND n.empresa_id=m.empresa_id '+
         'WHERE m.id=$1 AND m.empresa_id=$2 AND n.contacto_id=$3',
         [input.referencia,req.empresaId,actual.contacto_id]);
@@ -50,21 +51,22 @@ r.post('/:id/historico',requiere('admin'),async(req,res)=>{
       const antes=input.modo==='antes';
       const comparator=antes?'<':'>',direction=antes?'DESC':'ASC';
       const {rows:adyacentes}=await q(
-        'SELECT m.ts FROM mensajes m JOIN negociaciones n ON n.id=m.negociacion_id '+
+        'SELECT m.ts,to_char(m.ts AT TIME ZONE \'UTC\',\'YYYY-MM-DD"T"HH24:MI:SS.US"Z"\') AS ts_precisa '+
+        'FROM mensajes m JOIN negociaciones n ON n.id=m.negociacion_id '+
         'WHERE m.empresa_id=$1 AND n.empresa_id=$1 AND n.contacto_id=$2 '+
         'AND (m.ts,m.id) '+comparator+' ($3::timestamptz,$4::bigint) '+
         'ORDER BY m.ts '+direction+',m.id '+direction+' LIMIT 1',
-        [req.empresaId,actual.contacto_id,referencia.ts,referencia.id]);
-      if(adyacentes[0] && new Date(adyacentes[0].ts).getTime()!==new Date(referencia.ts).getTime()){
-        const primero=antes?adyacentes[0].ts:referencia.ts,
-          segundo=antes?referencia.ts:adyacentes[0].ts;
+        [req.empresaId,actual.contacto_id,referencia.ts_precisa,referencia.id]);
+      if(adyacentes[0] && adyacentes[0].ts_precisa!==referencia.ts_precisa){
+        const primero=antes?adyacentes[0].ts_precisa:referencia.ts_precisa,
+          segundo=antes?referencia.ts_precisa:adyacentes[0].ts_precisa;
         const {rows:mid}=await q('SELECT ($1::timestamptz+($2::timestamptz-$1::timestamptz)/2) AS ts',
           [primero,segundo]);
         fecha=mid[0].ts;
       }else{
         const {rows:intervalo}=await q(
           "SELECT $1::timestamptz + ($2::integer * interval '1 microsecond') AS ts",
-          [referencia.ts,antes?-1:1]);
+          [referencia.ts_precisa,antes?-1:1]);
         fecha=intervalo[0].ts;
       }
     }
