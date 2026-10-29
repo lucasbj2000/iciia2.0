@@ -7,6 +7,7 @@ import { emitir } from './realtime.mjs';
 import { derivarRecepcionesVencidas } from './recepcion-impar.mjs';
 import { registrarEnvioImpar } from './wa-entregas-impar.mjs';
 import { drenarWebhooksMeta } from './meta-webhooks-impar.mjs';
+import { resolverRemitenteWA } from './wa-identidades-impar.mjs';
 
 const MAX_INTENTOS = 3;
 const MAX_ENVIOS = 8;
@@ -32,11 +33,17 @@ export async function drenarInbox() {
         const { rows: es } = await q('SELECT * FROM empresas WHERE id=$1 AND activa', [m.empresa_id]);
         const empresa = es[0];
         if (!empresa) throw new Error('empresa inexistente o inactiva');
+        // Recuperar también inbox en espera guardado originalmente con @lid.
+        // Solo utilizar PN si existe equivalencia WhatsApp inequívoca de esta línea.
+        const remitente=(m.tipo==='whatsapp_qr' && String(m.remitente||'').endsWith('@lid'))
+          ? (await resolverRemitenteWA(
+             {id:m.canal_id,empresa_id:m.empresa_id},{remoteJid:m.remitente}))||m.remitente
+          : m.remitente;
         await ingresarMensaje(empresa, {
           canalId: m.canal_id, canalSucursal: m.canal_compartido ? null : m.canal_sucursal,
           canalLinea: m.canal_compartido ? null : m.canal_linea,
           origen: ORIGEN[m.tipo] || 'otro', externoTipo: EXTERNO[m.tipo],
-          extId: m.ext_id, remitente: m.remitente, nombre: m.nombre, texto: m.txt,
+          extId: m.ext_id, remitente, nombre: m.nombre, texto: m.txt,
           mediaUrl: m.media_url, mediaTipo: m.media_tipo, mediaNombre: m.media_nombre,
           archivoId: m.payload?.archivoId || null, ubicacion: m.ubicacion,
           ts: m.payload?.ts || m.ts
