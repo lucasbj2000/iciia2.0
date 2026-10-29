@@ -220,7 +220,7 @@ r.get('/reportes', requiere(), async (req, res) => {
   const { rows: tr } = await q(
     `SELECT AVG(EXTRACT(EPOCH FROM (m.primera - n.creado))/60) AS minutos FROM negociaciones n
        JOIN LATERAL (SELECT MIN(ts) AS primera FROM mensajes
-                      WHERE negociacion_id=n.id AND dir='out' AND NOT bot) m ON TRUE
+                      WHERE negociacion_id=n.id AND dir='out' AND NOT bot AND NOT carga_historica) m ON TRUE
       WHERE n.empresa_id=$1 AND n.creado >= now() - ($2 || ' days')::interval
         AND m.primera IS NOT NULL ${where}`,
     [req.empresaId, String(dias), ...params]);
