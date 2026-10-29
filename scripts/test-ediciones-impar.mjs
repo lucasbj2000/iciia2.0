@@ -30,6 +30,7 @@ function entorno() {
     }
     if (sql.startsWith('INSERT INTO inbox')) {
       if (inbox.has(a[2])) return { rows: [] };
+      if (sql.includes('WHERE NOT EXISTS(SELECT 1 FROM mensajes') && mensajes.has(a[2])) return { rows: [] };
       inbox.set(a[2], { id: inbox.size + 1, txt: a[5], remitente: a[3], payload: JSON.parse(a[7]), estado: a[8] });
       return { rows: [{ id: inbox.size }] };
     }
@@ -64,7 +65,8 @@ const edicion = (id, texto, ts, extra = {}) => ({
   // Una edición atrasada no pisa a la más nueva.
   await e.recibirEdicion(mod, edicion('M1', 'Quiero 3 resmas', 1800000150), canal, 'c');
   assert.equal(e.mensajes.get('M1').txt, 'Quiero 6 resmas');
-  assert.equal(e.sesiones.get('c').edicionesWA, 3);
+  assert.equal(e.inbox.size, 0, 'Una edición atrasada no crea un mensaje duplicado');
+  assert.equal(e.sesiones.get('c').edicionesWA, 2, 'Solo cuenta ediciones aplicadas');
 }
 
 // 2) Todavía en cola: se corrige antes de llegar a la conversación.
@@ -100,7 +102,28 @@ const edicion = (id, texto, ts, extra = {}) => ({
   assert.equal(e.inbox.size, 0);
 }
 
-// 5) Integración.
+// 5) La edición llega por messages.upsert (protocolMessage) y también por messages.update: se aplica una vez.
+{
+  const e = entorno();
+  vm.runInContext('globalThis.r=recibir;', e.ctx);
+  e.mensajes.set('M5', { txt: 'Retiro mañana', neg: 'neg-5' });
+  const upsert = { key: { id: 'PROTO-1', remoteJid: '595981000001@s.whatsapp.net', fromMe: false }, messageTimestamp: 1800000300,
+    message: { protocolMessage: { type: 14, key: { id: 'M5', fromMe: true }, timestampMs: 1800000300123,
+      editedMessage: { conversation: 'Retiro el viernes' } } } };
+  await e.ctx.r(mod, upsert, canal, 'c');
+  assert.equal(e.mensajes.get('M5').txt, 'Retiro el viernes');
+  assert.equal(e.mensajes.get('M5').editado.original, 'Retiro mañana');
+  assert.equal(e.inbox.size, 0, 'El protocolMessage no se guarda como mensaje nuevo');
+  await e.recibirEdicion(mod, edicion('M5', 'Retiro el viernes', 1800000300), canal, 'c');
+  assert.equal(e.mensajes.get('M5').editado.veces, 1, 'No se aplica dos veces');
+  assert.equal(e.sesiones.get('c').edicionesWA, 1, 'Contador sin duplicar');
+  // Otros protocolMessage (p. ej. borrados) no generan mensajes.
+  await e.ctx.r(mod, { key: { id: 'PROTO-2', remoteJid: '595981000001@s.whatsapp.net', fromMe: false },
+    message: { protocolMessage: { type: 0, key: { id: 'M5' } } } }, canal, 'c');
+  assert.equal(e.inbox.size, 0);
+}
+
+// 6) Integración.
 {
   assert.ok(ba.includes('if (cambio?.update?.message?.editedMessage) {') && ba.includes('recibirEdicion(mod,cambio,canal,id)'),
     'messages.update deriva ediciones sin tocar acuses');

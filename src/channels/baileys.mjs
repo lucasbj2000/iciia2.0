@@ -399,30 +399,33 @@ async function recibirEdicion(mod,cambio,canal,id){
   const ts=fechaDe({messageTimestamp:cambio.update?.messageTimestamp});
   const ext=String(key.id);
   const S=sesiones.get(id);
-  if(S)S.edicionesWA=(S.edicionesWA||0)+1;
+  // Solo cuenta ediciones aplicadas: la misma edición puede llegar por dos eventos.
+  const aplicada=()=>{if(S)S.edicionesWA=(S.edicionesWA||0)+1;return true;};
   // 1) Ya está en la conversación. Una edición más antigua nunca pisa a una más nueva.
   const {rows}=await q(
     "UPDATE mensajes SET editado=jsonb_build_object('original',COALESCE(editado->>'original',txt),"+
     "'veces',COALESCE((editado->>'veces')::int,0)+1,'ts',$4::bigint),txt=$3 "+
     "WHERE empresa_id=$1 AND msg_id=$2 AND dir='in' AND COALESCE((editado->>'ts')::bigint,0)<$4::bigint "+
     'RETURNING negociacion_id',[canal.empresa_id,ext,texto,ts]);
-  if(rows.length){for(const x of rows)emitir(canal.empresa_id,'neg:patch',{id:x.negociacion_id});return true;}
+  if(rows.length){for(const x of rows)emitir(canal.empresa_id,'neg:patch',{id:x.negociacion_id});return aplicada();}
   // 2) Todavía en cola: corregir antes de que llegue a la conversación.
   const {rows:enCola}=await q(
     "UPDATE inbox SET payload=COALESCE(payload,'{}'::jsonb)||jsonb_build_object('editado',jsonb_build_object("+
     "'original',COALESCE(payload->'editado'->>'original',txt),'veces',COALESCE((payload->'editado'->>'veces')::int,0)+1,'ts',$4::bigint)),txt=$3 "+
     "WHERE canal_id=$1 AND ext_id=$2 AND estado IN ('pendiente','capturando','cuarentena') "+
     "AND COALESCE((payload->'editado'->>'ts')::bigint,0)<$4::bigint RETURNING id",[id,ext,texto,ts]);
-  if(enCola.length){despertarWorker();return true;}
+  if(enCola.length){despertarWorker();return aplicada();}
   // 3) El original nunca llegó (por ejemplo, no se pudo descifrar): registrar la versión editada.
   const {remitente}=remitenteDe({key});
+  // Nunca duplicar: solo si el mensaje no está ya en alguna conversación.
   const {rows:nuevo}=await q(
     'INSERT INTO inbox (empresa_id,canal_id,tipo,ext_id,remitente,nombre,txt,'+
-    "ubicacion,payload,estado) VALUES($1,$2,'whatsapp_qr',$3,$4,$5,$6,$7,$8,$9) "+
+    "ubicacion,payload,estado) SELECT $1::uuid,$2::uuid,'whatsapp_qr',$3::text,$4::text,$5::text,$6::text,$7::jsonb,$8::jsonb,$9::text "+
+    'WHERE NOT EXISTS(SELECT 1 FROM mensajes WHERE empresa_id=$1::uuid AND msg_id=$3::text) '+
     'ON CONFLICT(canal_id,ext_id) DO NOTHING RETURNING id',
     [canal.empresa_id,id,ext,remitente,'',texto,null,
      JSON.stringify({ts,archivoId:null,editado:{original:null,veces:1,ts}}),'pendiente']);
-  if(nuevo[0]?.id){despertarWorker();return true;}
+  if(nuevo[0]?.id){despertarWorker();return aplicada();}
   return false;
 }
 
@@ -464,6 +467,20 @@ async function recibir(mod,m,canal,id){
   if(espera){
     clearTimeout(espera.timer);S0.noDescifrados.delete(String(m.key.id));
     S0.recuperadosWA=(S0.recuperadosWA||0)+1;
+  }
+  // La edición también llega como protocolMessage por messages.upsert. Procesarla
+  // aquí cubre el caso en que Baileys no emite messages.update; el control por
+  // hora de edición evita aplicarla dos veces.
+  const EDICION=mod.proto?.Message?.ProtocolMessage?.Type?.MESSAGE_EDIT ?? 14;
+  const protocolo=contenido.protocolMessage;
+  if(protocolo){
+    if(Number(protocolo.type)===EDICION && protocolo.key?.id && protocolo.editedMessage){
+      const ms=Number(protocolo.timestampMs?.toNumber?.() ?? protocolo.timestampMs);
+      await recibirEdicion(mod,{key:{...m.key,id:String(protocolo.key.id)},
+        update:{message:{editedMessage:{message:protocolo.editedMessage}},
+          messageTimestamp:Number.isFinite(ms)&&ms>0?Math.floor(ms/1000):m.messageTimestamp}},canal,id);
+      return;
+    }
   }
   const texto=contenido.conversation ||
     contenido.extendedTextMessage?.text ||
