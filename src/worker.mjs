@@ -21,6 +21,10 @@ export async function drenarInbox() {
   if (corriendoInbox) return;
   corriendoInbox = true;
   try {
+    // Si IMPAR se reinicia durante la descarga multimedia, el marcador
+    // reservado continúa hacia la conversación y no queda oculto indefinidamente.
+    await q("UPDATE inbox SET estado='pendiente',error='Multimedia no disponible tras espera' "+
+      "WHERE estado='capturando' AND ts<now()-interval '20 seconds'");
     const { rows } = await q(
       `SELECT i.*, c.sucursal_id, c.linea AS canal_linea, s.nombre AS canal_sucursal,
                 ((c.config->>'principal_global')='true' OR (lower(trim(c.nombre))='principal' AND lower(trim(s.nombre))='central')) AS canal_compartido
