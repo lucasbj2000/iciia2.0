@@ -18,8 +18,9 @@ const fin=ba.indexOf('async function bajarMedia(',inicio);
 if(inicio<0||fin<=inicio)throw Error('No se localizó el receptor nuevo');
 let codigo=ba.slice(inicio,fin);
 // El worker se simula, sin import dinámico o efectos de red.
-codigo=codigo.replace(/const despertar=\(\)=>import\('\.\.\/worker\.mjs'\)[\s\S]*?\.catch\(e=>console\.warn\('\[wa:recepcion\] Worker inmediato:',e\.name\)\);/,
-  'const despertar=()=>{despertados++};');
+codigo=codigo.replace(/const despertarWorker=\(\)=>import\('\.\.\/worker\.mjs'\)[\s\S]*?\.catch\(e=>console\.warn\('\[wa:recepcion\] Worker inmediato:',e\.name\)\);/,
+  'const despertarWorker=()=>{despertados++};');
+if(!codigo.includes('const despertarWorker=()=>{despertados++};'))throw Error('No se simuló el worker');
 const filas=[],updates=[],sesiones=new Map([['test',{totalEntradas:0}]]);
 const q=async(sql,args)=>{
  if(sql.startsWith('INSERT INTO inbox')){
@@ -30,7 +31,7 @@ const q=async(sql,args)=>{
  updates.push({sql,args});
  return {rows:[]};
 };
-const context=vm.createContext({q,console,sesiones,Promise,Date,Number,String,
+const context=vm.createContext({q,console,sesiones,Promise,Date,Number,String,JSON,process,emitir:()=>{},
   setTimeout:()=>0,
   parejaDesdeEventoWA:()=>null,registrarParejaWA:async()=>true,
   bajarMedia:async()=>null,despertados:0});

@@ -48,6 +48,9 @@ export function estadoSesion(canalId) {
                  sinContenidoWA: s.sinContenidoWA || 0,
                  tipoNoAdmitidoWA: s.tipoNoAdmitidoWA || 0,
                  erroresRecepcionWA: s.erroresRecepcionWA || 0,
+                 recuperadosWA: s.recuperadosWA || 0,
+                 noDescifradosWA: s.noDescifradosWA || 0,
+                 tardiosWA: s.tardiosWA || 0,
                  recuperacionesBuffer: s.recuperacionesBuffer||0 }
            : { estado: 'desconectado', qr: null, numero: '', error: null };
 }
@@ -126,7 +129,7 @@ export async function iniciar(canal) {
     const estadoRecepcion = setInterval(() => {
       if (S.sock !== sock) { clearInterval(estadoRecepcion); return; }
       if (S.estado !== 'conectado') return;
-      console.log(`[wa:recepcion] estado=${S.estado} buffer=${Boolean(sock.ev?.isBuffering?.())} eventos=${S.eventosWA||0} mensajes=${S.mensajesWA||0} guardados=${S.totalEntradas||0} sin_contenido=${S.sinContenidoWA||0} no_admitidos=${S.tipoNoAdmitidoWA||0} errores=${S.erroresRecepcionWA||0}`);
+      console.log(`[wa:recepcion] estado=${S.estado} buffer=${Boolean(sock.ev?.isBuffering?.())} eventos=${S.eventosWA||0} mensajes=${S.mensajesWA||0} guardados=${S.totalEntradas||0} sin_contenido=${S.sinContenidoWA||0} no_admitidos=${S.tipoNoAdmitidoWA||0} errores=${S.erroresRecepcionWA||0} recuperados=${S.recuperadosWA||0} avisos_no_leidos=${S.noDescifradosWA||0} tardios=${S.tardiosWA||0} esperando_descifrado=${S.noDescifrados?.size||0}`);
       console.log(`[wa:transporte] nodos=${transporte.nodos} cifrados=${transporte.cifrados} no_disponibles=${transporte.noDisponibles} msmsg=${transporte.msmsg} errores_cola=${transporte.erroresCola}`);
     },60000);
     estadoRecepcion.unref?.();
@@ -275,6 +278,107 @@ function agendarMultimedia(trabajo){
   impulsar();
 }
 
+// WhatsApp entrega a veces un mensaje que no se puede descifrar (Bad MAC /
+// No session). Baileys pide al teléfono del cliente que lo reenvíe; si no
+// llega a tiempo, se registra un aviso visible en la conversación para que
+// el agente pida el reenvío. Si el original llega después, reemplaza el aviso.
+const ESPERA_DESCIFRADO_MS=Number(process.env.WA_ESPERA_DESCIFRADO_MS||60000);
+const MAX_ESPERANDO_DESCIFRADO=2000;
+const AVISO_NO_DESCIFRADO='[El cliente envió un mensaje que WhatsApp no permitió leer en el CRM. Pedile que lo reenvíe.]';
+
+function remitenteDe(m){
+  const jid=String(m.key?.remoteJid||'');
+  const pareja=parejaDesdeEventoWA(m.key);
+  const remitente=pareja?.pn?.split('@')[0] ||
+    (jid.endsWith('@s.whatsapp.net')?jid.split('@')[0]:jid);
+  return {pareja,remitente};
+}
+function fechaDe(m){
+  const timestamp=Number(m.messageTimestamp);
+  return Number.isFinite(timestamp)&&timestamp>0?timestamp*1000:Date.now();
+}
+const despertarWorker=()=>import('../worker.mjs').then(({drenarInbox})=>drenarInbox())
+  .catch(e=>console.warn('[wa:recepcion] Worker inmediato:',e.name));
+
+function esperarDescifrado(m,canal,id){
+  const S=sesiones.get(id);
+  if(!S)return;
+  S.noDescifrados ||= new Map();
+  const clave=String(m.key.id);
+  if(S.noDescifrados.has(clave))return;
+  if(S.noDescifrados.size>=MAX_ESPERANDO_DESCIFRADO){
+    // Tope de memoria: el más antiguo pasa directamente a aviso.
+    const [antigua,dato]=S.noDescifrados.entries().next().value;
+    clearTimeout(dato.timer);S.noDescifrados.delete(antigua);
+    registrarNoDescifrado(dato.m,canal,id).catch(e=>console.warn('[wa:descifrado] Aviso no registrado:',e.name));
+  }
+  const copia={key:{...m.key},pushName:m.pushName,messageTimestamp:m.messageTimestamp};
+  const dato={m:copia,timer:null};
+  dato.timer=setTimeout(()=>{
+    if(S.noDescifrados?.get(clave)!==dato)return;
+    S.noDescifrados.delete(clave);
+    registrarNoDescifrado(copia,canal,id).catch(e=>console.warn('[wa:descifrado] Aviso no registrado:',e.name));
+  },ESPERA_DESCIFRADO_MS);
+  dato.timer?.unref?.();
+  S.noDescifrados.set(clave,dato);
+}
+
+async function registrarNoDescifrado(m,canal,id){
+  const {remitente}=remitenteDe(m);
+  const {rows}=await q(
+    'INSERT INTO inbox (empresa_id,canal_id,tipo,ext_id,remitente,nombre,txt,'+
+    "ubicacion,payload,estado) VALUES($1,$2,'whatsapp_qr',$3,$4,$5,$6,$7,$8,$9) "+
+    'ON CONFLICT(canal_id,ext_id) DO NOTHING RETURNING id',
+    [canal.empresa_id,id,String(m.key.id),remitente,m.pushName||'',AVISO_NO_DESCIFRADO,
+     null,JSON.stringify({ts:fechaDe(m),archivoId:null,noDescifrado:true}),'pendiente']);
+  if(!rows[0]?.id)return false;
+  const S=sesiones.get(id);
+  if(S)S.noDescifradosWA=(S.noDescifradosWA||0)+1;
+  despertarWorker();
+  return true;
+}
+
+/** El original llegó después del aviso: reemplazar texto y adjunto, sin duplicar. */
+async function reemplazarNoDescifrado(mod,m,contenido,canal,id,{etiqueta,ubicacion,hayMedia}){
+  const ext=String(m.key.id);
+  const {rows}=await q(
+    "UPDATE inbox SET txt=$3,ubicacion=$4,payload=COALESCE(payload,'{}'::jsonb)||"+
+    "jsonb_build_object('noDescifrado',false,'recuperadoTarde',true) "+
+    "WHERE canal_id=$1 AND ext_id=$2 AND payload->>'noDescifrado'='true' RETURNING id",
+    [id,ext,etiqueta,ubicacion?JSON.stringify(ubicacion):null]);
+  if(!rows[0]?.id)return false;
+  const S=sesiones.get(id);
+  if(S)S.tardiosWA=(S.tardiosWA||0)+1;
+  let media=null;
+  if(hayMedia){
+    try{
+      media=await Promise.race([
+        bajarMedia(mod,{...m,message:contenido},canal),
+        new Promise(resolve=>setTimeout(()=>resolve(null),8000))
+      ]);
+    }catch(e){console.warn('[wa:multimedia] Descarga tardía:',e.name);}
+    if(media)await q('UPDATE inbox SET media_url=$2,media_tipo=$3,media_nombre=$4,'+
+      "payload=jsonb_set(COALESCE(payload,'{}'::jsonb),'{archivoId}',$5::jsonb) WHERE id=$1",
+      [rows[0].id,media.url,media.tipo,media.nombre,JSON.stringify(media.id||null)]);
+  }
+  // Si el aviso ya está en la conversación, corregir ese mismo mensaje.
+  // Se repite a los 5 s por si el worker lo estaba ingresando en paralelo.
+  const corregir=async()=>{
+    const {rows:ms}=await q(
+      'UPDATE mensajes SET txt=$3,ubicacion=COALESCE($4,ubicacion),media_url=COALESCE($5,media_url),'+
+      'media_tipo=COALESCE($6,media_tipo),media_nombre=COALESCE($7,media_nombre),archivo_id=COALESCE($8,archivo_id) '+
+      "WHERE empresa_id=$1 AND msg_id=$2 AND dir='in' AND txt=$9 RETURNING negociacion_id",
+      [canal.empresa_id,ext,etiqueta,ubicacion?JSON.stringify(ubicacion):null,
+       media?.url||null,media?.tipo||null,media?.nombre||null,media?.id||null,AVISO_NO_DESCIFRADO]);
+    for(const x of ms)emitir(canal.empresa_id,'neg:patch',{id:x.negociacion_id});
+  };
+  await corregir();
+  const repetir=setTimeout(()=>corregir().catch(e=>console.warn('[wa:descifrado] Corrección diferida:',e.name)),5000);
+  repetir?.unref?.();
+  despertarWorker();
+  return true;
+}
+
 async function recibir(mod,m,canal,id){
   if(!m?.key?.id || m.key.fromMe)return;
   const jid=String(m.key.remoteJid||'');
@@ -284,7 +388,18 @@ async function recibir(mod,m,canal,id){
   const contenido=mod.normalizeMessageContent?.(m.message) ||
     m.message?.ephemeralMessage?.message ||
     m.message?.viewOnceMessageV2?.message || m.message;
-  if(!contenido){const s=sesiones.get(id);if(s)s.sinContenidoWA=(s.sinContenidoWA||0)+1;return;}
+  if(!contenido){
+    const s=sesiones.get(id);if(s)s.sinContenidoWA=(s.sinContenidoWA||0)+1;
+    const CIPHERTEXT=mod.proto?.WebMessageInfo?.StubType?.CIPHERTEXT ?? 2;
+    if(m.messageStubType===CIPHERTEXT)esperarDescifrado(m,canal,id);
+    return;
+  }
+  const S0=sesiones.get(id);
+  const espera=S0?.noDescifrados?.get(String(m.key.id));
+  if(espera){
+    clearTimeout(espera.timer);S0.noDescifrados.delete(String(m.key.id));
+    S0.recuperadosWA=(S0.recuperadosWA||0)+1;
+  }
   const texto=contenido.conversation ||
     contenido.extendedTextMessage?.text ||
     contenido.imageMessage?.caption ||
@@ -301,11 +416,8 @@ async function recibir(mod,m,canal,id){
     .some(tipo=>Boolean(contenido[tipo]));
   const etiqueta=texto || (ubicacion?'[ubicación compartida]':especial({...m,message:contenido}));
   if(!etiqueta && !hayMedia && !ubicacion){const s=sesiones.get(id);if(s)s.tipoNoAdmitidoWA=(s.tipoNoAdmitidoWA||0)+1;return;}
-  const pareja=parejaDesdeEventoWA(m.key);
-  const remitente=pareja?.pn?.split('@')[0] ||
-    (jid.endsWith('@s.whatsapp.net')?jid.split('@')[0]:jid);
-  const timestamp=Number(m.messageTimestamp);
-  const fecha=Number.isFinite(timestamp)&&timestamp>0?timestamp*1000:Date.now();
+  const {pareja,remitente}=remitenteDe(m);
+  const fecha=fechaDe(m);
   const {rows}=await q(
     'INSERT INTO inbox (empresa_id,canal_id,tipo,ext_id,remitente,nombre,txt,'+
     "ubicacion,payload,estado) VALUES($1,$2,'whatsapp_qr',$3,$4,$5,$6,$7,$8,$9) "+
@@ -314,15 +426,17 @@ async function recibir(mod,m,canal,id){
      ubicacion?JSON.stringify(ubicacion):null,
      JSON.stringify({ts:fecha,archivoId:null}),hayMedia?'capturando':'pendiente']);
   const entrada=rows[0]?.id;
-  if(!entrada)return;
+  if(!entrada){
+    await reemplazarNoDescifrado(mod,m,contenido,canal,id,{etiqueta,ubicacion,hayMedia});
+    return;
+  }
   const S=sesiones.get(id);
   if(S){S.totalEntradas=(S.totalEntradas||0)+1;S.entradaUltima=Date.now();}
   if(pareja)registrarParejaWA(canal,pareja).catch(e=>
     console.warn('[wa:identidades] Guardado diferido:',e.name));
   q('UPDATE canales SET ultimo_mensaje=now() WHERE id=$1',[id]).catch(e=>
     console.warn('[wa:recepcion] Marca de actividad:',e.name));
-  const despertar=()=>import('../worker.mjs').then(({drenarInbox})=>drenarInbox())
-    .catch(e=>console.warn('[wa:recepcion] Worker inmediato:',e.name));
+  const despertar=despertarWorker;
   if(!hayMedia){despertar();return;}
   agendarMultimedia(async()=>{
     let media=null;
