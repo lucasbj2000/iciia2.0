@@ -218,69 +218,88 @@ export async function iniciar(canal) {
   return estadoSesion(id);
 }
 
-async function recibir(mod, m, canal, id) {
-  if (!m?.key?.id || m.key.fromMe) return;
-  const jid = m.key.remoteJid || '';
-  if (jid.endsWith('@g.us') || jid === 'status@broadcast' || jid.endsWith('@newsletter')) return;
-  // Sólo confiamos en identidades que traiga la sesión real de WhatsApp.
-  const pareja=parejaDesdeEventoWA(m.key);
-  if(pareja)await registrarParejaWA(canal,pareja).catch(e=>
-    console.warn('[wa:ruta] Identidad no registrada:',e.message));
+// Máximo 3 descargas en paralelo: el adjunto lento no bloquea los textos.
+const colaMultimedia=[];
+let descargasActivas=0;
+function agendarMultimedia(trabajo){
+  colaMultimedia.push(trabajo);
+  const impulsar=()=>{
+    while(descargasActivas<3 && colaMultimedia.length){
+      const siguiente=colaMultimedia.shift();
+      descargasActivas++;
+      Promise.resolve().then(siguiente).catch(e=>
+        console.warn('[wa:multimedia] Captura secundaria:',e.name)).finally(()=>{
+        descargasActivas--;impulsar();
+      });
+    }
+  };
+  impulsar();
+}
 
-  /*
-   * WhatsApp moderno puede entregar DMs con un JID @lid. Si Baileys trae
-   * también el PN alternativo, usamos el teléfono para conservar la identidad
-   * existente. Si no existe PN, preservamos el @lid completo para poder
-   * responder al mismo chat sin inventar un @s.whatsapp.net inválido.
-   */
-  const remitente = await resolverRemitenteWA(canal,m.key);
-  if(!remitente)return;
-
-  // Mensajes efímeros y de visualización única llegan envueltos por WhatsApp.
+async function recibir(mod,m,canal,id){
+  if(!m?.key?.id || m.key.fromMe)return;
+  const jid=String(m.key.remoteJid||'');
+  if(!jid || jid.endsWith('@g.us') || jid==='status@broadcast' ||
+     jid.endsWith('@newsletter') || jid.endsWith('@broadcast'))return;
+  // Persistir ANTES de mapas, multimedia o actualizaciones de canal.
   const contenido=mod.normalizeMessageContent?.(m.message) ||
     m.message?.ephemeralMessage?.message ||
     m.message?.viewOnceMessageV2?.message || m.message;
   if(!contenido)return;
-  const texto = contenido?.conversation ||
-    contenido?.extendedTextMessage?.text ||
-    contenido?.imageMessage?.caption ||
-    contenido?.videoMessage?.caption ||
-    contenido?.documentMessage?.caption || '';
-
-  /* ubicación nativa */
-  let ubicacion = null;
-  const loc = contenido?.locationMessage || contenido?.liveLocationMessage;
-  if (loc) ubicacion = { lat: loc.degreesLatitude, lon: loc.degreesLongitude,
-    nombre: loc.name || '', direccion: loc.address || '' };
-
-  /* adjunto */
-  let media = null;
-  try {
-    // No permitir que una descarga bloqueada impida guardar el texto entrante.
-    media = await Promise.race([
-      bajarMedia(mod,{...m,message:contenido},canal),
-      new Promise(resolve=>setTimeout(()=>resolve(null),8000))
-    ]);
-  }
-  catch (e) { console.error(`[wa:${canal.nombre}] adjunto:`, e.message); }
-
-  const etiqueta = texto || (ubicacion ? '[ubicación compartida]' : (media ? '' : especial({...m,message:contenido})));
-  if (!etiqueta && !media && !ubicacion) return;
-
-  await q(
-    `INSERT INTO inbox (empresa_id,canal_id,tipo,ext_id,remitente,nombre,txt,media_url,media_tipo,media_nombre,ubicacion,payload)
-     VALUES ($1,$2,'whatsapp_qr',$3,$4,$5,$6,$7,$8,$9,$10,$11)
-     ON CONFLICT (canal_id, ext_id) DO NOTHING`,
-    [canal.empresa_id, id, m.key.id, remitente, m.pushName || '', etiqueta,
-     media?.url || null, media?.tipo || null, media?.nombre || null,
-     ubicacion ? JSON.stringify(ubicacion) : null,
-     JSON.stringify({ ts: Number(m.messageTimestamp) * 1000, archivoId: media?.id || null })]);
-  await q('UPDATE canales SET ultimo_mensaje=now() WHERE id=$1', [id]);
-
-  // Despierta el worker inmediatamente; el polling periódico queda como respaldo.
-  import('../worker.mjs')
-    .then(({ drenarInbox }) => drenarInbox())
-    .catch(e => console.error('[inbox inmediato]', e.message));
+  const texto=contenido.conversation ||
+    contenido.extendedTextMessage?.text ||
+    contenido.imageMessage?.caption ||
+    contenido.videoMessage?.caption ||
+    contenido.documentMessage?.caption || '';
+  const loc=contenido.locationMessage||contenido.liveLocationMessage;
+  const ubicacion=loc?{lat:loc.degreesLatitude,lon:loc.degreesLongitude,
+    nombre:loc.name||'',direccion:loc.address||''}:null;
+  const hayMedia=['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage']
+    .some(tipo=>Boolean(contenido[tipo]));
+  const etiqueta=texto || (ubicacion?'[ubicación compartida]':especial({...m,message:contenido}));
+  if(!etiqueta && !hayMedia && !ubicacion)return;
+  const pareja=parejaDesdeEventoWA(m.key);
+  const remitente=pareja?.pn?.split('@')[0] ||
+    (jid.endsWith('@s.whatsapp.net')?jid.split('@')[0]:jid);
+  const timestamp=Number(m.messageTimestamp);
+  const fecha=Number.isFinite(timestamp)&&timestamp>0?timestamp*1000:Date.now();
+  const {rows}=await q(
+    'INSERT INTO inbox (empresa_id,canal_id,tipo,ext_id,remitente,nombre,txt,'+
+    "ubicacion,payload,estado) VALUES($1,$2,'whatsapp_qr',$3,$4,$5,$6,$7,$8,$9) "+
+    'ON CONFLICT(canal_id,ext_id) DO NOTHING RETURNING id',
+    [canal.empresa_id,id,String(m.key.id),remitente,m.pushName||'',etiqueta,
+     ubicacion?JSON.stringify(ubicacion):null,
+     JSON.stringify({ts:fecha,archivoId:null}),hayMedia?'capturando':'pendiente']);
+  const entrada=rows[0]?.id;
+  if(!entrada)return;
+  const S=sesiones.get(id);
+  if(S){S.totalEntradas=(S.totalEntradas||0)+1;S.entradaUltima=Date.now();}
+  if(pareja)registrarParejaWA(canal,pareja).catch(e=>
+    console.warn('[wa:identidades] Guardado diferido:',e.name));
+  q('UPDATE canales SET ultimo_mensaje=now() WHERE id=$1',[id]).catch(e=>
+    console.warn('[wa:recepcion] Marca de actividad:',e.name));
+  const despertar=()=>import('../worker.mjs').then(({drenarInbox})=>drenarInbox())
+    .catch(e=>console.warn('[wa:recepcion] Worker inmediato:',e.name));
+  if(!hayMedia){despertar();return;}
+  agendarMultimedia(async()=>{
+    let media=null;
+    try{
+      media=await Promise.race([
+        bajarMedia(mod,{...m,message:contenido},canal),
+        new Promise(resolve=>setTimeout(()=>resolve(null),8000))
+      ]);
+    }catch(e){console.warn('[wa:multimedia] Descarga:',e.name);}
+    try{
+      // Nunca reabrir un mensaje ya procesado por el rescatador.
+      await q(
+        'UPDATE inbox SET media_url=$2,media_tipo=$3,media_nombre=$4,'+
+        "payload=jsonb_set(COALESCE(payload,'{}'::jsonb),'{archivoId}',$5::jsonb),"+
+        "estado='pendiente' WHERE id=$1 AND estado='capturando'",
+        [entrada,media?.url||null,media?.tipo||null,media?.nombre||null,
+         JSON.stringify(media?.id||null)]);
+      despertar();
+    }catch(e){console.error('[wa:multimedia] Finalización:',e.name);}
+  });
 }
 
 function especial(m) {
