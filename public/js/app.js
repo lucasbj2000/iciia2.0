@@ -53,7 +53,7 @@ $('#form-login').onsubmit = async e => {
     S.token = r.token; localStorage.setItem('iciia_token', r.token);
     accesoAceptado = true;
     S.usuario = r.usuario; S.empresa = r.empresa;
-    await arrancar(true);
+    await arrancar(true,r);
     document.documentElement.classList.remove('sesion-verificando');
   } catch (ex) {
     if (accesoAceptado) {
@@ -73,22 +73,42 @@ $('#form-login').onsubmit = async e => {
 };
 
 /* ================= ARRANQUE ================= */
-async function arrancar(fresco) {
-  const ctx = await get('/contexto');
-  S.usuario = ctx.usuario; S.empresa = ctx.empresa;
-  S.sucursales = ctx.sucursales; S.empresas = ctx.empresas || [];
+async function arrancar(fresco, respuestaLogin=null) {
+  // Para accesos nuevos, /login ya entregó identidad y empresa verificadas.
+  // No bloquear la apertura esperando un segundo viaje /contexto.
+  const entradaValida=!!(respuestaLogin?.token && respuestaLogin?.usuario && respuestaLogin?.empresa);
+  if(entradaValida){
+    S.usuario=respuestaLogin.usuario;S.empresa=respuestaLogin.empresa;
+    S.sucursales=[];S.empresas=[];
+    const tokenInicio=S.token;
+    get('/contexto').then(ctx=>{
+      if(S.token!==tokenInicio || !S.usuario)return;
+      S.sucursales=ctx.sucursales||[];S.empresas=ctx.empresas||[];
+    }).catch(e=>console.warn('[impar] Contexto secundario diferido:',e.message));
+  }else{
+    // Una sesión recuperada sí se valida en backend antes de mostrar información.
+    const ctx=await get('/contexto');
+    S.usuario=ctx.usuario;S.empresa=ctx.empresa;
+    S.sucursales=ctx.sucursales;S.empresas=ctx.empresas||[];
+  }
   if (!S.empresa) toast('No hay ninguna empresa activa. Creá la primera desde Administración.', 'warn', 'Sin empresa');
 
   $('#login').classList.add('hidden');
   $('#app').classList.remove('hidden');
   // El usuario ve el CRM apenas se valida contexto, no al terminar módulos secundarios.
   document.documentElement.classList.remove('sesion-verificando');
-  try { S.proyectoAcceso = await get('/proyecto/acceso'); }
-  catch { S.proyectoAcceso = { visible: esAdmin(), admin: esAdmin() }; }
+  // El proyecto privado no puede retrasar el tablero ni el inicio de sesión.
+  S.proyectoAcceso={visible:esAdmin(),admin:esAdmin()};
   aplicarTema(); aplicarFX(); aplicarMarca(); pintarNav();
+  const tokenProyecto=S.token;
+  get('/proyecto/acceso').then(acceso=>{
+    if(S.token!==tokenProyecto || !S.usuario)return;
+    S.proyectoAcceso=acceso;pintarNav();
+  }).catch(()=>{});
+  
   cargarNotificaciones().catch(() => {});
   try { conectarRealtime(); } catch (e) { console.warn('[impar] SSE no disponible:',e.message); }
-  reloj(); cargarClima();
+  reloj(); setTimeout(()=>{ if(S.usuario) cargarClima(); },1400);
 
   S.vista = 'neg';
   render().catch(e => console.warn('[impar] No se pudo renderizar la vista:',e.message));
