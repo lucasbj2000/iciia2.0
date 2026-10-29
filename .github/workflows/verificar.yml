@@ -52,6 +52,8 @@ jobs:
         run: node scripts/test-wa-entregas-impar.mjs
       - name: Probar direccionamiento PN/LID por contacto sin reenvíos
         run: node scripts/test-wa-identidades-impar.mjs
+      - name: Recepción LID, append, medios e inserción de mensajes históricos
+        run: node scripts/test-recepcion-lid-historicos-impar.mjs
       - name: WhatsApp Cloud API · webhook duradero, cifrado, HMAC y ACK
         run: node scripts/test-meta-cloud-impar.mjs
       - name: Canal principal compartido y responsables de Contactos
