@@ -70,6 +70,21 @@ r.get('/util/duplicados', requiere('admin'), async (req, res) => {
   res.json(rows);
 });
 
+/** Patch SSE de tarjeta: jamás descargar 120 mensajes ni historial completo por cada evento. */
+r.get('/:id/resumen', requiere(), async(req,res)=>{
+  try{
+    const {where,params}=await alcanceSQL(req.user,req.empresaId,'n',3);
+    const {rows}=await q(
+      `${SELECT_TABLERO} WHERE n.id=$1 AND n.empresa_id=$2 ${where} LIMIT 1`,
+      [req.params.id,req.empresaId,...params]);
+    if(!rows[0])return res.status(404).json({error:'Negociación no encontrada.'});
+    res.set('Cache-Control','no-store').json(rows[0]);
+  }catch(e){
+    console.warn('[impar] Tarjeta ligera:',e.name);
+    res.status(503).json({error:'No se pudo actualizar la tarjeta.'});
+  }
+});
+
 r.get('/:id', requiere(), async (req, res) => {
   const n = await obtenerNegociacionVisible(req, req.params.id);
   if (!n) return res.status(404).json({ error: 'no encontrada' });
