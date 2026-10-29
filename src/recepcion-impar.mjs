@@ -103,7 +103,7 @@ export async function responderRecepcionImpar(empresaId, negId, { porVencimiento
     }
     if (!destino(n)) return null;
     const opciones = await opcionesDisponibles(db,empresaId);
-    const { rows: hist } = await db.query(`SELECT id,dir,txt,bot,ts FROM mensajes WHERE negociacion_id=$1 AND empresa_id=$2
+    const { rows: hist } = await db.query(`SELECT id,dir,txt,bot,ts FROM mensajes WHERE negociacion_id=$1 AND empresa_id=$2 AND NOT carga_historica
       ORDER BY ts DESC,id DESC LIMIT 30`, [negId,empresaId]);
     const entradas = hist[0]?.dir === 'in'
       ? hist.filter(m => m.dir === 'in' && Number(m.id) > Number(st.ultimo || 0)) : [];
