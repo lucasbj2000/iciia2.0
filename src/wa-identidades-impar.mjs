@@ -42,6 +42,28 @@ export async function registrarParejaWA(canal,par,fuente='mensaje_entrante'){
     [canal.empresa_id,canal.id,pareja.pn,pareja.lid,fuente]);
   return true;
 }
+/** Resolver un @lid entrante contra un PN realmente observado, sin inferir números.
+ * Si el mapa es ambiguo, preservar @lid; jamás atribuir mensajes a otro cliente.
+ */
+export async function resolverRemitenteWA(canal,clave){
+  const directo=base(clave?.remoteJid);
+  if(!directo || !validoLID(directo) && !validoPN(directo))return null;
+  const par=parejaDesdeEventoWA(clave);
+  if(par)return par.pn.split('@')[0];
+  if(validoPN(directo))return directo.split('@')[0];
+  try {
+    const {rows}=await q(
+      'SELECT pn_jid FROM wa_identidades_impar '+
+      'WHERE empresa_id=$1 AND canal_id=$2 AND lid_jid=$3 LIMIT 2',
+      [canal.empresa_id,canal.id,directo]);
+    return rows.length===1 && validoPN(rows[0].pn_jid)
+      ? rows[0].pn_jid.split('@')[0] : directo;
+  }catch(e){
+    console.warn('[wa:identidades] mapa de recepción no disponible; se conserva LID:',e.name);
+    return directo;
+  }
+}
+
 export async function rutaParaEnvioWA(canal,destino){
   const pn=telefonoAStringJid(destino);
   if(!pn || !validoPN(pn))return {destino:pn||destino,origen:'sin_pn'};
