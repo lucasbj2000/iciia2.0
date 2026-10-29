@@ -142,12 +142,14 @@ app.post('/api/sesion/renovar', requiere(), (req,res) => {
 });
 
 app.get('/api/contexto', requiere(), async (req, res) => {
-  const { rows: sucs } = req.empresaId
-    ? await q('SELECT * FROM sucursales WHERE empresa_id=$1 AND activa ORDER BY nombre', [req.empresaId])
-    : { rows: [] };
-  const { rows: empresas } = req.esAdmin
-    ? await q("SELECT id,codigo,nombre,color FROM empresas WHERE activa AND codigo='impar'")
-    : { rows: [] };
+  const [sucs, empresas] = await Promise.all([
+    req.empresaId
+      ? q('SELECT * FROM sucursales WHERE empresa_id=$1 AND activa ORDER BY nombre', [req.empresaId])
+      : Promise.resolve({rows:[]}),
+    req.esAdmin
+      ? q("SELECT id,codigo,nombre,color FROM empresas WHERE activa AND codigo='impar'")
+      : Promise.resolve({rows:[]})
+  ]);
   res.json({
     empresa: req.empresa ? publica(req.empresa) : null,
     sucursales: sucs, empresas, usuario: publicoUsuario(req.user)
