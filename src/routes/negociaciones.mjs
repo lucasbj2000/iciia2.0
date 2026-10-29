@@ -25,6 +25,23 @@ const SELECT_BASE = `
     LEFT JOIN usuarios u ON u.id = n.agente_id
     LEFT JOIN canales ca ON ca.id = n.canal_id`;
 
+// Proyección ligera del tablero: la ficha completa se obtiene sólo al abrir una tarjeta.
+// No transportar bot_recepcion, estructuras extensas ni subconsultas de transferencias
+// para cada cliente en cada entrada al CRM.
+const SELECT_TABLERO = `
+  SELECT n.id,n.empresa_id,n.contacto_id,n.titulo,n.etapa,n.origen,n.canal_id,
+         n.agente_id,n.sucursal,n.linea,n.valor,n.monto_cierre,n.motivo,
+         n.marcadores,n.bot_activo,n.aviso_sla,n.creado,n.actualizado,
+         n.entrada_etapa,n.telefono_destino,
+         c.nombre AS cliente,c.tel,c.frecuente,
+         u.nombre AS agente_nombre,ca.tipo AS canal_tipo,ca.nombre AS canal_nombre,
+         CASE WHEN EXISTS(SELECT 1 FROM ubicaciones ub WHERE ub.negociacion_id=n.id)
+           THEN 1 ELSE 0 END AS n_ubicaciones
+    FROM negociaciones n
+    JOIN contactos c ON c.id=n.contacto_id
+    LEFT JOIN usuarios u ON u.id=n.agente_id
+    LEFT JOIN canales ca ON ca.id=n.canal_id`;
+
 async function obtenerNegociacionVisible(req, id) {
   const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 3);
   const { rows } = await q(
@@ -35,7 +52,7 @@ async function obtenerNegociacionVisible(req, id) {
 
 r.get('/', requiere(), async (req, res) => {
   const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 2);
-  const { rows } = await q(`${SELECT_BASE} WHERE n.empresa_id = $1 ${where} ORDER BY n.actualizado DESC`,
+  const { rows } = await q(`${SELECT_TABLERO} WHERE n.empresa_id = $1 ${where} ORDER BY n.actualizado DESC`,
     [req.empresaId, ...params]);
   res.json(rows);
 });
