@@ -1,6 +1,6 @@
 /** IMPAR: pruebas de recuperación original de mensajes WhatsApp (sin conectar teléfono). */
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 import {claveReintento,guardarOriginal,recuperarOriginal} from '../src/wa-reintentos.mjs';
 import {crearCacheContadorReintentos} from '../src/wa-cache-reintentos.mjs';
 
@@ -65,6 +65,21 @@ assert.equal(await recuperarOriginal({q:store,proto,canalId,
   key:{...key,remoteJid:'595981000002:3@s.whatsapp.net'},cache:new Map()}),undefined,
   'No mezclar contenido con dispositivos de otro cliente');
 const cachereintentos=crearCacheContadorReintentos({max:2});
+// Contrato real de 6.7.24: las lecturas NO llevan await.
+assert.equal(cachereintentos.get('nuevo'),undefined);
+let cuenta=cachereintentos.get('nuevo')||0;
+cuenta+=1;
+assert.equal(cuenta,1,'El primer reintento debe pedir el original al teléfono');
+assert.equal(cachereintentos.set('nuevo',cuenta),true);
+assert.equal(cachereintentos.get('nuevo')<5,true,'Permitir recuperación de envío');
+assert.equal(cachereintentos.del('nuevo'),1);
+let reloj=0;
+const temporal=crearCacheContadorReintentos({ahora:()=>reloj,ttlMs:1000});
+temporal.set('temporal',2);reloj=1000;
+assert.equal(temporal.get('temporal'),undefined,'Expirar contadores');
+temporal.set('ttl',3,2);reloj=2999;
+assert.equal(temporal.get('ttl'),3);reloj=3000;
+assert.equal(temporal.get('ttl'),undefined,'TTL explícito en segundos');
 assert.equal(await cachereintentos.get('desconocido'),undefined);
 await cachereintentos.set('a',1);await cachereintentos.set('b',2);
 assert.equal(await cachereintentos.get('a'),1);
@@ -92,3 +107,7 @@ assert.ok(ba.includes('colaCredenciales=colaCredenciales.catch'));
 assert.ok(!/setTimeout\([^)]*sendMessage/.test(ba));
 assert.ok(worker.includes("if (o.tipo === 'whatsapp_qr') enviadoWA=await baileys.enviar"),'Envío único con referencia al ACK');
 console.log('✔ IMPAR: getMessage usa original persistido sin mezclar contactos ni duplicar mensajes.');
+// También se ejecuta desde el actualizador anterior, después de npm ci.
+if(existsSync(new URL('../node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js',import.meta.url))){
+  await import('./test-baileys-recepcion-instalado.mjs');
+}
