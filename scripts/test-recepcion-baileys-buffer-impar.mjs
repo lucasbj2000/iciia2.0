@@ -24,7 +24,7 @@ const filas=[],updates=[],sesiones=new Map([['test',{totalEntradas:0}]]);
 const q=async(sql,args)=>{
  if(sql.startsWith('INSERT INTO inbox')){
   const id=filas.length+1;
-  filas.push({id,remitente:args[3],txt:args[5],estado:args[7]});
+  filas.push({id,remitente:args[3],txt:args[5],estado:args[8]});
   return {rows:[{id}]};
  }
  updates.push({sql,args});
