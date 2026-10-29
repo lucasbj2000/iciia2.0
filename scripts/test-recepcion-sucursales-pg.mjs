@@ -44,7 +44,7 @@ try {
     CREATE TABLE canales(id uuid PRIMARY KEY,empresa_id uuid,tipo text,activo boolean,bot_activo boolean);
     CREATE TABLE negociaciones(id uuid PRIMARY KEY,empresa_id uuid,contacto_id uuid,canal_id uuid,agente_id uuid,sucursal text,
       etapa text DEFAULT 'nuevo',bot_activo boolean DEFAULT true,bot_recepcion jsonb DEFAULT '{}',creado timestamptz DEFAULT now(),actualizado timestamptz DEFAULT now(),telefono_destino text);
-    CREATE TABLE mensajes(id bigserial PRIMARY KEY,empresa_id uuid,negociacion_id uuid,dir text,txt text,bot boolean,estado text,ts timestamptz DEFAULT now());
+    CREATE TABLE mensajes(id bigserial PRIMARY KEY,empresa_id uuid,negociacion_id uuid,dir text,txt text,bot boolean,estado text,carga_historica boolean NOT NULL DEFAULT false,ts timestamptz DEFAULT now());
     CREATE TABLE outbox(id bigserial PRIMARY KEY,empresa_id uuid,canal_id uuid,negociacion_id uuid,destino text,txt text,automatico boolean,estado text DEFAULT 'pendiente',error text);
     CREATE TABLE historial(id bigserial PRIMARY KEY,empresa_id uuid,negociacion_id uuid,txt text,por text);
     CREATE TABLE notificaciones(id bigserial PRIMARY KEY,empresa_id uuid,usuario_id uuid,tipo text,titulo text,msg text,tono text,ref uuid);`);
