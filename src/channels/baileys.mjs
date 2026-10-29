@@ -198,13 +198,10 @@ export async function iniciar(canal) {
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
       if (S.sock !== sock || !['notify','append'].includes(type)) return;
       for (const m of messages || []) {
-        // Los mensajes pendientes pueden llegar como 'append' tras reconexión.
-        // Admitir únicamente mensajes recientes para no reimportar históricos masivos.
-        if(type==='append'){
-          const hora=Number(m.messageTimestamp||0)*1000;
-          if(!Number.isFinite(hora)||hora<Date.now()-72*60*60*1000||
-             hora>Date.now()+10*60*1000)continue;
-        }
+        // No descartar 'append' por fecha: WhatsApp puede reenviar mensajes
+        // retenidos durante una desconexión con hora ausente o atrasada.
+        // La deduplicación durable depende del ID real de WhatsApp en inbox,
+        // no de una ventana arbitraria de 72 horas.
         try { await recibir(mod, m, canal, id); }
         catch (e) { console.error(`[wa:${canal.nombre}] recibir:`, e.message); }
       }
@@ -250,7 +247,11 @@ async function recibir(mod,m,canal,id){
     contenido.extendedTextMessage?.text ||
     contenido.imageMessage?.caption ||
     contenido.videoMessage?.caption ||
-    contenido.documentMessage?.caption || '';
+    contenido.documentMessage?.caption ||
+    contenido.buttonsResponseMessage?.selectedDisplayText ||
+    contenido.listResponseMessage?.title ||
+    contenido.templateButtonReplyMessage?.selectedDisplayText ||
+    contenido.interactiveResponseMessage?.body?.text || '';
   const loc=contenido.locationMessage||contenido.liveLocationMessage;
   const ubicacion=loc?{lat:loc.degreesLatitude,lon:loc.degreesLongitude,
     nombre:loc.name||'',direccion:loc.address||''}:null;
