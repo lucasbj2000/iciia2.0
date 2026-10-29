@@ -10,6 +10,7 @@ import { notasHTML,conectarNotas,cargarNotas,cargarCambiosNeg } from './colabora
 import { actualizarMensajes, mostrarMensajePendiente, confirmarIdPendiente } from './chat-mensajes.js';
 import { combinarHistorial } from './historial-chat.js';
 import { enlazarTexto } from './enlaces.js';
+import { formularioHistorico,botonAnclarHistorico,activarCargaHistorica } from './carga-historica-impar.js';
 
 let actual = null, usuarios = [], rapidas = { equipo: [], personales: [] }, adj = null;
 let historialVista = null;
@@ -101,6 +102,7 @@ function pintar() {
        <small id="f-telefono-chat-error" role="alert"></small>
        ${esAdmin()?'<div id="f-ruta-wa" style="margin-top:6px"></div>':''}
      </div>`:''}
+     ${esAdmin()?formularioHistorico():''}
      <div class="chat" id="chatbox"></div>
 
      ${cerrada ? `<div class="card-box chat-compose" style="margin:12px 0 0;border-color:var(--warn)">
@@ -181,8 +183,8 @@ function mensajeHTML(m) {
               · ${fd(m.creado_negociacion)}${m.titulo_negociacion?' · '+esc(m.titulo_negociacion):''}</div>` : '';
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
           ${tramo}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${mapaUbi}
-          <small>${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ' · 📱 '+esc(m.remitente_numero) : ''}
-          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}${estadoWA}</small></div>`;
+          <small>${m.carga_historica ? '✎ Carga histórica (admin) · ' : ''}${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ' · 📱 '+esc(m.remitente_numero) : ''}
+          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}${estadoWA}${esAdmin()?botonAnclarHistorico(m):''}</small></div>`;
 }
 
 export async function refrescarFicha(id, seguir = false) {
@@ -350,6 +352,7 @@ function rapidasHTML(campo) {
 function conectar(n) {
   if($('#f-telefono-chat'))cargarTelefonosChat(n.id);
   if($('#f-mas-mensajes'))$('#f-mas-mensajes').onclick=()=>cargarMensajesAnteriores(n.id);
+  if(esAdmin())activarCargaHistorica(n.id,refrescarFicha);
   conectarNotas(n.id);
   conectarEmojis('#msg');
   conectarEmojis('#remsg');
