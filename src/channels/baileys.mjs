@@ -37,7 +37,12 @@ const crearSocket = (mod, opts) => (typeof mod.default === 'function' ? mod.defa
 
 export function estadoSesion(canalId) {
   const s = sesiones.get(canalId);
-  return s ? { estado: s.estado, qr: s.qr, numero: s.numero, error: s.error || null }
+  return s ? { estado: s.estado, qr: s.qr, numero: s.numero, error: s.error || null,
+                 entradaUltima: s.entradaUltima || null,
+                 recepcionEnBuffer: Boolean(s.sock?.ev?.isBuffering?.()),
+                 pendientesIniciales: s.pendientesIniciales !== false,
+                 totalEntradas: s.totalEntradas||0,
+                 recuperacionesBuffer: s.recuperacionesBuffer||0 }
            : { estado: 'desconectado', qr: null, numero: '', error: null };
 }
 
@@ -87,6 +92,30 @@ export async function iniciar(canal) {
       })
     });
     S.sock = sock;
+    S.pendientesIniciales=true;
+    // Si el servidor de WhatsApp no termina el lote offline, Baileys 6.7.24
+    // puede quedar conectado pero sin emitir messages.upsert (#2810).
+    let timerBuffer=null;
+    const cancelarVigilancia=()=>{if(timerBuffer){clearTimeout(timerBuffer);timerBuffer=null;}};
+    sock.ev.on('connection.update',u=>{
+      if(S.sock!==sock)return;
+      if(u.receivedPendingNotifications===true){
+        S.pendientesIniciales=false;
+        cancelarVigilancia();
+      }
+      if(u.connection==='close')cancelarVigilancia();
+      if(u.connection!=='open')return;
+      cancelarVigilancia();
+      timerBuffer=setTimeout(()=>{
+        timerBuffer=null;
+        if(S.sock!==sock || S.estado!=='conectado' || !S.pendientesIniciales)return;
+        if(sock.ev?.isBuffering?.() && typeof sock.ev.flush==='function'){
+          S.recuperacionesBuffer=(S.recuperacionesBuffer||0)+1;
+          console.warn('[wa:recepcion] Buffer inicial bloqueado tras conexión; liberando eventos sin cerrar sesión.');
+          sock.ev.flush();
+        }
+      },18000);
+    });
     // Serializar escrituras de credenciales para evitar sobrescrituras
     // concurrentes del estado de la sesión Signal.
     let colaCredenciales=Promise.resolve();
