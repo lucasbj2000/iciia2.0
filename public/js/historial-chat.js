@@ -9,7 +9,7 @@ export function combinarHistorial(actuales=[],nuevos=[]) {
     // Usar cursor_preciso cuando exista para ubicar mensajes manuales entre dos reales.
     const micros=m=>{
       const t=String(m.cursor_preciso||m.ts||'');
-      const f=t.match(/\\.(\\d+)(?:Z|[+-]\\d\\d:\\d\\d)$/);
+      const f=t.match(/\.(\d+)(?:Z|[+-]\d\d:\d\d)$/);
       return Number((f?.[1]||'').padEnd(6,'0').slice(0,6))||0;
     };
     const diferencia=micros(a)-micros(b);
