@@ -302,6 +302,7 @@ r.get('/cuarentena', requiere('admin'), async (req, res) => {
        (SELECT COUNT(*) FROM inbox WHERE empresa_id=$1 AND estado='pendiente')  AS pendientes,
        (SELECT COUNT(*) FROM inbox WHERE empresa_id=$1 AND estado='procesado')  AS procesados,
        (SELECT COUNT(*) FROM inbox WHERE empresa_id=$1 AND estado='cuarentena') AS cuarentena,
+       (SELECT COUNT(*) FROM inbox WHERE empresa_id=$1 AND estado='pendiente' AND intentos>0) AS reintentando,
        (SELECT COUNT(*) FROM outbox WHERE empresa_id=$1 AND estado='pendiente') AS cola_salida,
        (SELECT COUNT(*) FROM outbox WHERE empresa_id=$1 AND estado='error')     AS envios_fallidos`, [req.empresaId]);
   res.json({ mensajes: rows, stats: st[0] });

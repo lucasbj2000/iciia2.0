@@ -1036,14 +1036,14 @@ async function aMensajeria() {
   AB().innerHTML = `<div class="card-box" style="border-color:${Number(s.cuarentena) ? 'var(--bad)' : 'var(--line)'}">
    <h3>🛡 Garantía de ingesta · ningún mensaje se pierde</h3>
    <div class="grid g4" style="margin-bottom:12px">
-     <div class="kpi"><span>En cola de proceso</span><b class="chico">${s.pendientes}</b></div>
+     <div class="kpi"><span>En cola de proceso</span><b class="chico">${s.pendientes}</b>${Number(s.reintentando) ? `<small style="color:var(--warn)"> · ${s.reintentando} en reintento</small>` : ''}</div>
      <div class="kpi"><span>Procesados</span><b class="chico" style="color:var(--ok)">${s.procesados}</b></div>
      <div class="kpi"><span>En cuarentena</span><b class="chico" style="color:${Number(s.cuarentena) ? 'var(--bad)' : 'var(--ok)'}">${s.cuarentena}</b></div>
      <div class="kpi"><span>Envíos pendientes</span><b class="chico" style="color:${Number(s.cola_salida) ? 'var(--warn)' : 'var(--ok)'}">${s.cola_salida}</b></div></div>
    <div style="color:var(--muted);font-size:var(--fs-sm);line-height:1.8;margin-bottom:12px">
      Cada mensaje entrante se guarda en la base <b>antes</b> de procesarse, con índice único por canal e id externo.
      El worker lo convierte en negociación y recién ahí lo marca como procesado. Si algo falla se reintenta
-     3 veces y luego pasa a <b>cuarentena visible</b>: nunca se descarta. Los envíos que fallan quedan en cola
+     automáticamente durante alrededor de una hora, con esperas crecientes, y recién después pasa a <b>cuarentena visible</b>: nunca se descarta. Los envíos que fallan quedan en cola
      y se reintentan al reconectar el canal.</div>
    ${Number(s.cuarentena) ? `<table><thead><tr><th>Recibido</th><th>Canal</th><th>De</th><th>Texto</th><th>Error</th><th></th></tr></thead>
      <tbody>${d.mensajes.map(m => `<tr><td>${fdate(m.ts)}</td><td>${esc(m.canal || '—')}</td>

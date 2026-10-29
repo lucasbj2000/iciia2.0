@@ -9,7 +9,13 @@ import { registrarEnvioImpar } from './wa-entregas-impar.mjs';
 import { drenarWebhooksMeta } from './meta-webhooks-impar.mjs';
 import { resolverRemitenteWA } from './wa-identidades-impar.mjs';
 
-const MAX_INTENTOS = 3;
+// Recepción: un fallo transitorio (PostgreSQL reiniciando, bloqueo, pico de
+// carga) no debe mandar el mensaje del cliente a cuarentena en segundos.
+// Espera escalonada: 5 s, 15 s, 30 s, 1, 2, 5, 10, 20 y 30 min (~70 min).
+export const ESPERAS_INBOX_SEG = [5, 15, 30, 60, 120, 300, 600, 1200, 1800];
+export const MAX_INTENTOS = ESPERAS_INBOX_SEG.length + 1;
+export const esperaInbox = intentos =>
+  ESPERAS_INBOX_SEG[Math.min(Math.max(intentos, 1), ESPERAS_INBOX_SEG.length) - 1];
 const MAX_ENVIOS = 8;
 const ORIGEN = { whatsapp_qr: 'whatsapp', whatsapp_api: 'whatsapp', messenger: 'facebook', instagram: 'instagram' };
 const EXTERNO = { whatsapp_qr: 'whatsapp', whatsapp_api: 'whatsapp', messenger: 'messenger', instagram: 'instagram' };
@@ -31,7 +37,8 @@ export async function drenarInbox() {
          FROM inbox i
          LEFT JOIN canales c ON c.id = i.canal_id
          LEFT JOIN sucursales s ON s.id = c.sucursal_id
-        WHERE i.estado='pendiente' ORDER BY i.ts ASC LIMIT 100`);
+        WHERE i.estado='pendiente' AND (i.proximo_intento IS NULL OR i.proximo_intento<=now())
+        ORDER BY i.ts ASC LIMIT 100`);
     for (const m of rows) {
       try {
         const { rows: es } = await q('SELECT * FROM empresas WHERE id=$1 AND activa', [m.empresa_id]);
@@ -52,16 +59,24 @@ export async function drenarInbox() {
           archivoId: m.payload?.archivoId || null, ubicacion: m.ubicacion,
           ts: m.payload?.ts || m.ts
         });
-        await q(`UPDATE inbox SET estado='procesado', procesado=now(), error=NULL WHERE id=$1`, [m.id]);
+        await q(`UPDATE inbox SET estado='procesado', procesado=now(), error=NULL, proximo_intento=NULL WHERE id=$1`, [m.id]);
       } catch (e) {
-        const intentos = m.intentos + 1;
-        if (intentos >= MAX_INTENTOS) {
-          await q(`UPDATE inbox SET estado='cuarentena', intentos=$2, error=$3 WHERE id=$1`, [m.id, intentos, e.message]);
-          const { rows: es } = await q('SELECT * FROM empresas WHERE id=$1', [m.empresa_id]);
-          if (es[0]) await notificar(es[0], 'cuarentena', { cantidad: 1 }, []);
-          console.error(`[worker] ${m.ext_id} → cuarentena:`, e.message);
-        } else {
-          await q(`UPDATE inbox SET intentos=$2, error=$3 WHERE id=$1`, [m.id, intentos, e.message]);
+        // Un fallo al registrar el error no debe frenar al resto de la cola.
+        try {
+          const intentos = m.intentos + 1;
+          if (intentos >= MAX_INTENTOS) {
+            await q(`UPDATE inbox SET estado='cuarentena', intentos=$2, error=$3, proximo_intento=NULL WHERE id=$1`, [m.id, intentos, e.message]);
+            const { rows: es } = await q('SELECT * FROM empresas WHERE id=$1', [m.empresa_id]);
+            if (es[0]) await notificar(es[0], 'cuarentena', { cantidad: 1 }, []);
+            console.error(`[worker] inbox ${m.id} → cuarentena tras ${intentos} intentos:`, e.message);
+          } else {
+            const espera = esperaInbox(intentos);
+            await q(`UPDATE inbox SET intentos=$2, error=$3, proximo_intento=now()+make_interval(secs=>$4) WHERE id=$1`,
+              [m.id, intentos, e.message, espera]);
+            console.warn(`[worker] inbox ${m.id} · intento ${intentos}/${MAX_INTENTOS} falló, nuevo intento en ${espera}s:`, e.message);
+          }
+        } catch (e2) {
+          console.error(`[worker] inbox ${m.id} · no se pudo registrar el fallo:`, e2.message);
         }
       }
     }
@@ -165,7 +180,7 @@ const marcar = async (o, estado) => {
 
 export async function reprocesarCuarentena(empresaId) {
   const { rowCount } = await q(
-    `UPDATE inbox SET estado='pendiente', intentos=0, error=NULL WHERE empresa_id=$1 AND estado='cuarentena'`, [empresaId]);
+    `UPDATE inbox SET estado='pendiente', intentos=0, error=NULL, proximo_intento=NULL WHERE empresa_id=$1 AND estado='cuarentena'`, [empresaId]);
   await drenarInbox();
   return rowCount;
 }

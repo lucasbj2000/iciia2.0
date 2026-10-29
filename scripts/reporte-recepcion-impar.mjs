@@ -30,7 +30,9 @@ try{
   "COUNT(*) FILTER(WHERE m.id IS NOT NULL)::int AS incluidos_en_chat,"+
   "COUNT(*) FILTER(WHERE m.id IS NOT NULL AND n.agente_id IS NULL)::int AS sin_agente,"+
   "COUNT(*) FILTER(WHERE i.remitente LIKE '%@lid')::int AS lid_sin_telefono,"+
-  "COUNT(*) FILTER(WHERE i.estado='capturando')::int AS adjuntos_pendientes "+
+  "COUNT(*) FILTER(WHERE i.estado='capturando')::int AS adjuntos_pendientes,"+
+  "COUNT(*) FILTER(WHERE i.estado='pendiente' AND i.intentos>0)::int AS en_reintento,"+
+  "COUNT(*) FILTER(WHERE i.estado='cuarentena')::int AS en_cuarentena "+
   "FROM inbox i JOIN empresas e ON e.id=i.empresa_id "+
   "LEFT JOIN mensajes m ON m.empresa_id=i.empresa_id AND m.msg_id=i.ext_id AND m.dir='in' "+
   "LEFT JOIN negociaciones n ON n.id=m.negociacion_id "+
@@ -46,6 +48,8 @@ try{
   console.log('Con mensaje pero sin agente asignado: '+x.sin_agente);
   console.log('Remitentes identificados solo por LID: '+x.lid_sin_telefono);
   console.log('Multimedia todavía en captura: '+x.adjuntos_pendientes);
+  console.log('En reintento automático: '+x.en_reintento);
+  console.log('EN CUARENTENA (requiere reprocesar): '+x.en_cuarentena);
  }
  console.log('Interpretación: si los mensajes no aparecen aquí, Baileys no está entregando el evento o falla el INSERT de inbox.');
  console.log('Si hay procesados sin mensaje, investigar la ingesta y duplicados; si existen chats sin agente, revisar el reparto.');
