@@ -130,6 +130,7 @@ export async function iniciar(canal) {
       if (S.sock !== sock) { clearInterval(estadoRecepcion); return; }
       if (S.estado !== 'conectado') return;
       console.log(`[wa:recepcion] estado=${S.estado} buffer=${Boolean(sock.ev?.isBuffering?.())} eventos=${S.eventosWA||0} mensajes=${S.mensajesWA||0} guardados=${S.totalEntradas||0} sin_contenido=${S.sinContenidoWA||0} no_admitidos=${S.tipoNoAdmitidoWA||0} errores=${S.erroresRecepcionWA||0} recuperados=${S.recuperadosWA||0} avisos_no_leidos=${S.noDescifradosWA||0} tardios=${S.tardiosWA||0} ediciones=${S.edicionesWA||0} esperando_descifrado=${S.noDescifrados?.size||0}`);
+      if (S.tiposNoAdmitidos?.size) console.log(`[wa:no_admitidos] ${[...S.tiposNoAdmitidos].map(([t,n])=>t+':'+n).join(' ')}`);
       console.log(`[wa:transporte] nodos=${transporte.nodos} cifrados=${transporte.cifrados} no_disponibles=${transporte.noDisponibles} msmsg=${transporte.msmsg} errores_cola=${transporte.erroresCola}`);
     },60000);
     estadoRecepcion.unref?.();
@@ -497,7 +498,19 @@ async function recibir(mod,m,canal,id){
   const hayMedia=['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage']
     .some(tipo=>Boolean(contenido[tipo]));
   const etiqueta=texto || (ubicacion?'[ubicación compartida]':especial({...m,message:contenido}));
-  if(!etiqueta && !hayMedia && !ubicacion){const s=sesiones.get(id);if(s)s.tipoNoAdmitidoWA=(s.tipoNoAdmitidoWA||0)+1;return;}
+  if(!etiqueta && !hayMedia && !ubicacion){
+    const s=sesiones.get(id);
+    if(s){
+      s.tipoNoAdmitidoWA=(s.tipoNoAdmitidoWA||0)+1;
+      // Diagnóstico sin contenido: solo nombres de campos del mensaje y tipo de protocolo.
+      const tipo=Object.keys(contenido).filter(k=>k!=='messageContextInfo').sort().join('+').slice(0,80)+
+        (contenido.protocolMessage?'/'+String(contenido.protocolMessage.type??'?'):'');
+      s.tiposNoAdmitidos ||= new Map();
+      if(s.tiposNoAdmitidos.has(tipo)||s.tiposNoAdmitidos.size<20)
+        s.tiposNoAdmitidos.set(tipo,(s.tiposNoAdmitidos.get(tipo)||0)+1);
+    }
+    return;
+  }
   const {pareja,remitente}=remitenteDe(m);
   const fecha=fechaDe(m);
   const S1=sesiones.get(id);

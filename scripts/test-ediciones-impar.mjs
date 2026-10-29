@@ -121,6 +121,12 @@ const edicion = (id, texto, ts, extra = {}) => ({
   await e.ctx.r(mod, { key: { id: 'PROTO-2', remoteJid: '595981000001@s.whatsapp.net', fromMe: false },
     message: { protocolMessage: { type: 0, key: { id: 'M5' } } } }, canal, 'c');
   assert.equal(e.inbox.size, 0);
+  // El diagnóstico registra solo el tipo, nunca el contenido.
+  await e.ctx.r(mod, { key: { id: 'R1', remoteJid: '595981000001@s.whatsapp.net', fromMe: false },
+    message: { reactionMessage: { text: '👍', key: { id: 'M5' } }, messageContextInfo: {} } }, canal, 'c');
+  const tipos = Object.fromEntries(e.sesiones.get('c').tiposNoAdmitidos);
+  assert.deepEqual(JSON.parse(JSON.stringify(tipos)), { 'protocolMessage/0': 1, reactionMessage: 1 });
+  assert.ok(!JSON.stringify(tipos).includes('👍'));
 }
 
 // 6) Integración.
@@ -128,6 +134,7 @@ const edicion = (id, texto, ts, extra = {}) => ({
   assert.ok(ba.includes('if (cambio?.update?.message?.editedMessage) {') && ba.includes('recibirEdicion(mod,cambio,canal,id)'),
     'messages.update deriva ediciones sin tocar acuses');
   assert.ok(ba.includes('ediciones=${S.edicionesWA||0}'), 'Contador de ediciones en el log');
+  assert.ok(ba.includes('[wa:no_admitidos]'), 'Diagnóstico de tipos no admitidos');
   assert.ok(leer('src/worker.mjs').includes('editado: m.payload?.editado || null'), 'Worker pasa la edición');
   const core = leer('src/core.mjs');
   assert.equal((core.match(/remitente_numero,cita,editado\)/g) || []).length, 2, 'Ambas inserciones guardan la edición');
