@@ -60,6 +60,7 @@ recuperar(){
     git reset --hard "$ANTES_SHA" || true
     npm ci --omit=dev || true
     node scripts/patch-baileys-lid.mjs || true
+    node scripts/patch-baileys-recepcion.mjs || true
   fi
   if [[ "$REINICIADO" == 1 ]]; then
     pm2 reload iciia-crm --update-env || true
@@ -79,6 +80,7 @@ echo '› Instalando dependencias…'
 npm ci --omit=dev
 echo '› Compatibilidad WhatsApp (sin borrar auth ni vinculación)…'
 node scripts/patch-baileys-lid.mjs
+node scripts/patch-baileys-recepcion.mjs
 
 echo '› Ejecutando verificaciones obligatorias…'
 node scripts/verificar.mjs
@@ -98,6 +100,7 @@ node scripts/test-historial-chat.mjs
 node scripts/test-wa-reintentos.mjs
 node scripts/test-wa-entregas-impar.mjs
 node scripts/test-wa-identidades-impar.mjs
+node scripts/test-recepcion-baileys-buffer-impar.mjs
 node scripts/test-recepcion-lid-historicos-impar.mjs
 node scripts/test-meta-cloud-impar.mjs
 node scripts/test-meta-laboratorio-impar.mjs
