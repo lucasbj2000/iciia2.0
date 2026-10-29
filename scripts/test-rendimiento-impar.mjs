@@ -28,6 +28,8 @@ assert.ok(board.includes('restantes>0')&&board.includes('limitesEtapa.set('));
 assert.ok(board.includes('filtradas().filter(x=>x.etapa===e.id).length'));
 assert.ok(routes.includes('SELECT_TABLERO} WHERE n.empresa_id'));
 assert.ok(routes.includes('SELECT_BASE} WHERE n.id'));
+assert.ok(routes.includes("r.get('/:id/resumen', requiere()"));
+assert.ok(board.includes('get(`/negociaciones/${id}/resumen`)'), 'SSE no solicita historial completo');
 for(const ix of ['idx_impar_tablero_actualizado','idx_impar_ubicaciones_por_negociacion','idx_impar_login_usuario'])
  assert.ok(sql.includes(ix));
 assert.ok(!/DELETE\s+FROM|TRUNCATE|DROP\s+TABLE/i.test(sql));
