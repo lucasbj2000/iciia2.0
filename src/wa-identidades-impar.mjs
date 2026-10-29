@@ -10,10 +10,21 @@ const validoLID = valor => /^([0-9]{6,22})@lid$/.test(valor);
 
 export function parejaDesdeEventoWA(clave){
   if(!clave || typeof clave!=='object')return null;
-  const remoto=base(clave.remoteJid),pnAlt=base(clave.senderPn||clave.remoteJidAlt),
-    lidAlt=base(clave.senderLid||clave.remoteJidAlt);
-  if(validoLID(remoto)&&validoPN(pnAlt))return {pn:pnAlt,lid:remoto};
-  if(validoPN(remoto)&&validoLID(lidAlt))return {pn:remoto,lid:lidAlt};
+  const remoto=base(clave.remoteJid);
+  // Baileys 6.7.24 no utiliza siempre el mismo campo para el JID alternativo.
+  // El receptor antiguo de IMPAR ya contemplaba participantPn/participantAlt.
+  const alternos=[
+    clave.senderPn,clave.remoteJidAlt,clave.participantPn,
+    clave.participantAlt,clave.senderLid
+  ].map(base).filter(Boolean);
+  if(validoLID(remoto)){
+    const pn=alternos.find(validoPN);
+    if(pn)return {pn,lid:remoto};
+  }
+  if(validoPN(remoto)){
+    const lid=alternos.find(validoLID);
+    if(lid)return {pn:remoto,lid};
+  }
   return null;
 }
 export function validarParejaWA(pn,lid){
