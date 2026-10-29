@@ -13,6 +13,7 @@ import { guardarOriginal, recuperarOriginal } from '../wa-reintentos.mjs';
 import { crearCacheContadorReintentos } from '../wa-cache-reintentos.mjs';
 import { registrarActualizacionImpar } from '../wa-entregas-impar.mjs';
 import { registrarParejaWA, parejaDesdeEventoWA, validarParejaWA, rutaParaEnvioWA, resolverRemitenteWA } from '../wa-identidades-impar.mjs';
+import { vigilarBuffer } from '../wa-vigilancia-buffer.mjs';
 
 const AUTH_DIR = process.env.WA_AUTH_DIR || './auth';
 if (!existsSync(AUTH_DIR)) mkdirSync(AUTH_DIR, { recursive: true });
@@ -42,6 +43,11 @@ export function estadoSesion(canalId) {
                  recepcionEnBuffer: Boolean(s.sock?.ev?.isBuffering?.()),
                  pendientesIniciales: s.pendientesIniciales !== false,
                  totalEntradas: s.totalEntradas||0,
+                 eventosWA: s.eventosWA || 0,
+                 mensajesWA: s.mensajesWA || 0,
+                 sinContenidoWA: s.sinContenidoWA || 0,
+                 tipoNoAdmitidoWA: s.tipoNoAdmitidoWA || 0,
+                 erroresRecepcionWA: s.erroresRecepcionWA || 0,
                  recuperacionesBuffer: s.recuperacionesBuffer||0 }
            : { estado: 'desconectado', qr: null, numero: '', error: null };
 }
@@ -93,6 +99,21 @@ export async function iniciar(canal) {
     });
     S.sock = sock;
     S.pendientesIniciales=true;
+    const detenerVigilancia = vigilarBuffer({
+      sock, vigente: () => S.sock === sock, conectado: () => S.estado === 'conectado',
+      alLiberar: () => {
+        S.recuperacionesBuffer=(S.recuperacionesBuffer||0)+1;
+        console.warn('[wa:recepcion] Buffer prolongado liberado sin cerrar sesión.');
+      }
+    });
+    // Resumen por canal sin números, IDs ni contenido. Sirve para distinguir
+    // ausencia de eventos de descartes y fallos de escritura.
+    const estadoRecepcion = setInterval(() => {
+      if (S.sock !== sock) { clearInterval(estadoRecepcion); return; }
+      if (S.estado !== 'conectado') return;
+      console.log(`[wa:recepcion] estado=${S.estado} buffer=${Boolean(sock.ev?.isBuffering?.())} eventos=${S.eventosWA||0} mensajes=${S.mensajesWA||0} guardados=${S.totalEntradas||0} sin_contenido=${S.sinContenidoWA||0} no_admitidos=${S.tipoNoAdmitidoWA||0} errores=${S.erroresRecepcionWA||0}`);
+    },60000);
+    estadoRecepcion.unref?.();
     // Si el servidor de WhatsApp no termina el lote offline, Baileys 6.7.24
     // puede quedar conectado pero sin emitir messages.upsert (#2810).
     let timerBuffer=null;
@@ -103,7 +124,7 @@ export async function iniciar(canal) {
         S.pendientesIniciales=false;
         cancelarVigilancia();
       }
-      if(u.connection==='close')cancelarVigilancia();
+      if(u.connection==='close'){cancelarVigilancia();detenerVigilancia();clearInterval(estadoRecepcion);}
       if(u.connection!=='open')return;
       cancelarVigilancia();
       timerBuffer=setTimeout(()=>{
@@ -200,13 +221,15 @@ export async function iniciar(canal) {
     });
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
       if (S.sock !== sock || !['notify','append'].includes(type)) return;
+      S.eventosWA=(S.eventosWA||0)+1;
+      S.mensajesWA=(S.mensajesWA||0)+(messages||[]).length;
       for (const m of messages || []) {
         // No descartar 'append' por fecha: WhatsApp puede reenviar mensajes
         // retenidos durante una desconexión con hora ausente o atrasada.
         // La deduplicación durable depende del ID real de WhatsApp en inbox,
         // no de una ventana arbitraria de 72 horas.
         try { await recibir(mod, m, canal, id); }
-        catch (e) { console.error(`[wa:${canal.nombre}] recibir:`, e.message); }
+        catch (e) { S.erroresRecepcionWA=(S.erroresRecepcionWA||0)+1; console.error(`[wa:${canal.nombre}] recibir:`, e.message); }
       }
     });
   } catch (e) {
@@ -245,7 +268,7 @@ async function recibir(mod,m,canal,id){
   const contenido=mod.normalizeMessageContent?.(m.message) ||
     m.message?.ephemeralMessage?.message ||
     m.message?.viewOnceMessageV2?.message || m.message;
-  if(!contenido)return;
+  if(!contenido){const s=sesiones.get(id);if(s)s.sinContenidoWA=(s.sinContenidoWA||0)+1;return;}
   const texto=contenido.conversation ||
     contenido.extendedTextMessage?.text ||
     contenido.imageMessage?.caption ||
@@ -261,7 +284,7 @@ async function recibir(mod,m,canal,id){
   const hayMedia=['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage']
     .some(tipo=>Boolean(contenido[tipo]));
   const etiqueta=texto || (ubicacion?'[ubicación compartida]':especial({...m,message:contenido}));
-  if(!etiqueta && !hayMedia && !ubicacion)return;
+  if(!etiqueta && !hayMedia && !ubicacion){const s=sesiones.get(id);if(s)s.tipoNoAdmitidoWA=(s.tipoNoAdmitidoWA||0)+1;return;}
   const pareja=parejaDesdeEventoWA(m.key);
   const remitente=pareja?.pn?.split('@')[0] ||
     (jid.endsWith('@s.whatsapp.net')?jid.split('@')[0]:jid);
