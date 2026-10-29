@@ -175,7 +175,10 @@ export async function iniciar(canal) {
               iniciar(canal).catch(e => console.error(`[wa:${canal.nombre}] reintento:`,e.message));
             },espera);
           } else {
-            rmSync(carpeta, { recursive: true, force: true });
+            // 401 implica que WhatsApp invalidó el enlace. No intentar reuso
+            // automático, pero conservar el material Signal para diagnóstico
+            // y respaldo. Borrar auth/ sin autorización sería irreversible.
+            console.error('[wa] WhatsApp invalidó el dispositivo vinculado; credenciales conservadas, requiere revisión del administrador.');
             await avisar(canal,'desvinculada');
           }
         }
