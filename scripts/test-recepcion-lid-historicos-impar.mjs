@@ -51,8 +51,13 @@ assert.equal(parejaDesdeEventoWA({remoteJid:pn,participantAlt:lid})?.lid,lid,
 const ba=leer('src/channels/baileys.mjs');
 assert.ok(ba.includes("!['notify','append'].includes(type)"),
   'Recuperar mensajes append tras desconexión');
-assert.ok(ba.includes('hora<Date.now()-72*60*60*1000'),
-  'Append antiguo se filtra para no duplicar históricos');
+assert.ok(!ba.includes('hora<Date.now()-72*60*60*1000'),
+  'No descartar mensajes retenidos durante un corte prolongado');
+assert.ok(ba.includes("ON CONFLICT(canal_id,ext_id) DO NOTHING"),
+  'La deduplicación se realiza con el ID WhatsApp real');
+assert.ok(ba.includes('buttonsResponseMessage?.selectedDisplayText') &&
+  ba.includes('listResponseMessage?.title'),
+  'Las respuestas de botones/listas tampoco se deben perder');
 assert.ok(ba.includes('const remitente=pareja?.pn?.split('),'Usar PN verificado en el propio evento');
 assert.ok(leer('src/worker.mjs').includes('await resolverRemitenteWA('),'Resolver LID pendiente antes de ingresar mensaje');
 assert.ok(ba.includes('registrarParejaWA(canal,pareja).catch('),
