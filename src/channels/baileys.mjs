@@ -99,6 +99,21 @@ export async function iniciar(canal) {
     });
     S.sock = sock;
     S.pendientesIniciales=true;
+    // Observar antes del descifrado y de messages.upsert, sin registrar
+    // identificadores, contenido, teléfonos ni material Signal.
+    const transporte = { nodos:0, cifrados:0, noDisponibles:0, msmsg:0, erroresCola:0 };
+    sock.ws?.on('CB:message', node => {
+      if(S.sock!==sock)return;
+      transporte.nodos++;
+      for(const hijo of Array.isArray(node?.content)?node.content:[]){
+        if(hijo?.tag==='enc'){
+          transporte.cifrados++;
+          if(hijo.attrs?.type==='msmsg')transporte.msmsg++;
+        }
+        if(hijo?.tag==='unavailable')transporte.noDisponibles++;
+      }
+    });
+    sock.ev.on('impar.recepcion.error',()=>{if(S.sock===sock)transporte.erroresCola++;});
     const detenerVigilancia = vigilarBuffer({
       sock, vigente: () => S.sock === sock, conectado: () => S.estado === 'conectado',
       alLiberar: () => {
@@ -112,6 +127,7 @@ export async function iniciar(canal) {
       if (S.sock !== sock) { clearInterval(estadoRecepcion); return; }
       if (S.estado !== 'conectado') return;
       console.log(`[wa:recepcion] estado=${S.estado} buffer=${Boolean(sock.ev?.isBuffering?.())} eventos=${S.eventosWA||0} mensajes=${S.mensajesWA||0} guardados=${S.totalEntradas||0} sin_contenido=${S.sinContenidoWA||0} no_admitidos=${S.tipoNoAdmitidoWA||0} errores=${S.erroresRecepcionWA||0}`);
+      console.log(`[wa:transporte] nodos=${transporte.nodos} cifrados=${transporte.cifrados} no_disponibles=${transporte.noDisponibles} msmsg=${transporte.msmsg} errores_cola=${transporte.erroresCola}`);
     },60000);
     estadoRecepcion.unref?.();
     // Si el servidor de WhatsApp no termina el lote offline, Baileys 6.7.24
