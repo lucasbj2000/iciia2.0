@@ -63,6 +63,10 @@ assert.ok(leer('src/worker.mjs').includes('await resolverRemitenteWA('),'Resolve
 assert.ok(ba.includes('registrarParejaWA(canal,pareja).catch('),
   'Persistir equivalencia antes de resolver el remitente');
 assert.ok(ba.includes('normalizeMessageContent'),'Contenido efímero desembalado');
+assert.ok(!ba.includes('rmSync(carpeta,'),
+  'Un 401 de WhatsApp nunca debe borrar credenciales automáticamente');
+assert.ok(ba.includes('rmSync(join(AUTH_DIR, String(canal.id))'),
+  'El borrado explícito por administrador sigue disponible');
 assert.ok(ba.includes("hayMedia?'capturando':'pendiente'"),'Persistencia antes de descarga');
 assert.ok(ba.includes('[imagen recibida · adjunto no disponible]'),
   'Descargas fallidas no descartan eventos de imagen');
