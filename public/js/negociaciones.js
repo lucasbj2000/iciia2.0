@@ -143,7 +143,7 @@ function pintarColumnas() {
     if (c) c.textContent = ns.filter(n => n.etapa === e.id).length;
   });
   if ($('#b-rapida')) $('#b-rapida').onclick = modalNegociacionRapida;
-  $('[data-mas-etapa]').forEach(b=>b.onclick=()=>{
+  $$('[data-mas-etapa]').forEach(b=>b.onclick=()=>{
     const et=b.dataset.masEtapa;
     limitesEtapa.set(et,(limitesEtapa.get(et)||BLOQUE_TARJETAS)+BLOQUE_TARJETAS);
     pintarColumnas();
