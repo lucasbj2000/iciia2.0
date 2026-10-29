@@ -12,7 +12,7 @@ import { guardarBuffer, MEDIA_DIR } from '../archivos.mjs';
 import { guardarOriginal, recuperarOriginal } from '../wa-reintentos.mjs';
 import { crearCacheContadorReintentos } from '../wa-cache-reintentos.mjs';
 import { registrarActualizacionImpar } from '../wa-entregas-impar.mjs';
-import { registrarParejaWA, parejaDesdeEventoWA, validarParejaWA, rutaParaEnvioWA } from '../wa-identidades-impar.mjs';
+import { registrarParejaWA, parejaDesdeEventoWA, validarParejaWA, rutaParaEnvioWA, resolverRemitenteWA } from '../wa-identidades-impar.mjs';
 
 const AUTH_DIR = process.env.WA_AUTH_DIR || './auth';
 if (!existsSync(AUTH_DIR)) mkdirSync(AUTH_DIR, { recursive: true });
@@ -167,8 +167,15 @@ export async function iniciar(canal) {
         .catch(e=>console.warn('[wa:ruta] No se guardó equivalencia:',e.message));
     });
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
-      if (S.sock !== sock || type !== 'notify') return;
-      for (const m of messages) {
+      if (S.sock !== sock || !['notify','append'].includes(type)) return;
+      for (const m of messages || []) {
+        // Los mensajes pendientes pueden llegar como 'append' tras reconexión.
+        // Admitir únicamente mensajes recientes para no reimportar históricos masivos.
+        if(type==='append'){
+          const hora=Number(m.messageTimestamp||0)*1000;
+          if(!Number.isFinite(hora)||hora<Date.now()-72*60*60*1000||
+             hora>Date.now()+10*60*1000)continue;
+        }
         try { await recibir(mod, m, canal, id); }
         catch (e) { console.error(`[wa:${canal.nombre}] recibir:`, e.message); }
       }
@@ -183,12 +190,12 @@ export async function iniciar(canal) {
 }
 
 async function recibir(mod, m, canal, id) {
-  if (m.key.fromMe) return;
+  if (!m?.key?.id || m.key.fromMe) return;
   const jid = m.key.remoteJid || '';
   if (jid.endsWith('@g.us') || jid === 'status@broadcast' || jid.endsWith('@newsletter')) return;
   // Sólo confiamos en identidades que traiga la sesión real de WhatsApp.
   const pareja=parejaDesdeEventoWA(m.key);
-  if(pareja)registrarParejaWA(canal,pareja).catch(e=>
+  if(pareja)await registrarParejaWA(canal,pareja).catch(e=>
     console.warn('[wa:ruta] Identidad no registrada:',e.message));
 
   /*
@@ -197,35 +204,38 @@ async function recibir(mod, m, canal, id) {
    * existente. Si no existe PN, preservamos el @lid completo para poder
    * responder al mismo chat sin inventar un @s.whatsapp.net inválido.
    */
-  const alternos = [
-    m.key.remoteJidAlt,
-    m.key.senderPn,
-    m.key.participantPn,
-    m.key.participantAlt
-  ].filter(Boolean);
-  const pnJid = jid.endsWith('@s.whatsapp.net')
-    ? jid
-    : alternos.find(x => String(x).endsWith('@s.whatsapp.net'));
-  const remitente = pnJid ? String(pnJid).split('@')[0] : jid;
+  const remitente = await resolverRemitenteWA(canal,m.key);
+  if(!remitente)return;
 
-  const texto = m.message?.conversation ||
-    m.message?.extendedTextMessage?.text ||
-    m.message?.imageMessage?.caption ||
-    m.message?.videoMessage?.caption ||
-    m.message?.documentMessage?.caption || '';
+  // Mensajes efímeros y de visualización única llegan envueltos por WhatsApp.
+  const contenido=mod.normalizeMessageContent?.(m.message) ||
+    m.message?.ephemeralMessage?.message ||
+    m.message?.viewOnceMessageV2?.message || m.message;
+  if(!contenido)return;
+  const texto = contenido?.conversation ||
+    contenido?.extendedTextMessage?.text ||
+    contenido?.imageMessage?.caption ||
+    contenido?.videoMessage?.caption ||
+    contenido?.documentMessage?.caption || '';
 
   /* ubicación nativa */
   let ubicacion = null;
-  const loc = m.message?.locationMessage || m.message?.liveLocationMessage;
+  const loc = contenido?.locationMessage || contenido?.liveLocationMessage;
   if (loc) ubicacion = { lat: loc.degreesLatitude, lon: loc.degreesLongitude,
     nombre: loc.name || '', direccion: loc.address || '' };
 
   /* adjunto */
   let media = null;
-  try { media = await bajarMedia(mod, m, canal); }
+  try {
+    // No permitir que una descarga bloqueada impida guardar el texto entrante.
+    media = await Promise.race([
+      bajarMedia(mod,{...m,message:contenido},canal),
+      new Promise(resolve=>setTimeout(()=>resolve(null),8000))
+    ]);
+  }
   catch (e) { console.error(`[wa:${canal.nombre}] adjunto:`, e.message); }
 
-  const etiqueta = texto || (ubicacion ? '[ubicación compartida]' : (media ? '' : especial(m)));
+  const etiqueta = texto || (ubicacion ? '[ubicación compartida]' : (media ? '' : especial({...m,message:contenido})));
   if (!etiqueta && !media && !ubicacion) return;
 
   await q(
