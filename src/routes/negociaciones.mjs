@@ -176,7 +176,7 @@ r.patch('/:id/bot', requiere(), async (req, res) => {
     return res.status(409).json({error:'Las respuestas automáticas están pausadas en IMPAR. Solo el administrador puede reactivarlas desde Administración → Bot.'});
   if(activo && req.empresa.codigo==='impar') {
     const {rows}=await q(`SELECT 1 FROM contactos c WHERE c.id=$1 AND c.empresa_id=$2 AND c.responsable_id IS NULL
-      AND NOT EXISTS(SELECT 1 FROM mensajes m WHERE m.negociacion_id=$3 AND m.empresa_id=$2 AND m.dir='out' AND m.bot=FALSE)`,
+      AND NOT EXISTS(SELECT 1 FROM mensajes m WHERE m.negociacion_id=$3 AND m.empresa_id=$2 AND m.dir='out' AND m.bot=FALSE AND NOT m.carga_historica)`,
       [n.contacto_id,req.empresaId,n.id]);
     if(!rows.length || n.agente_id || n.bot_recepcion?.elegible!==true || n.bot_recepcion?.version!==2 || n.bot_recepcion?.fase==='finalizado')
       return res.status(409).json({error:'La recepción solo atiende clientes nuevos sin responsable y sin atención manual.'});
