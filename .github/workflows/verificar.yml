@@ -28,6 +28,8 @@ jobs:
         run: node scripts/test-horarios.mjs
       - name: Pruebas de login y recuperación de interfaz
         run: node scripts/test-login.mjs
+      - name: Rendimiento de acceso, cache y tablero progresivo sin perder permisos
+        run: node scripts/test-rendimiento-impar.mjs
       - name: Pruebas de canales y reconexión WhatsApp
         run: node scripts/test-canales-estables.mjs
       - name: IMPAR sin respuestas automáticas durante migración
