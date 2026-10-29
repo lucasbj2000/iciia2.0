@@ -19,6 +19,7 @@ import * as baileys from './channels/baileys.mjs';
 import * as meta from './channels/meta.mjs';
 
 import rNegociaciones from './routes/negociaciones.mjs';
+import rHistoricosImpar from './routes/historicos-impar.mjs';
 import rContactos from './routes/contactos.mjs';
 import rAdmin from './routes/admin.mjs';
 import rCatalogosImpar from './routes/catalogos-impar.mjs';
@@ -156,6 +157,7 @@ app.get('/api/contexto', requiere(), async (req, res) => {
 app.get('/api/stream', requiere(), sseHandler);
 
 app.use('/api/negociaciones', rNegociaciones);
+app.use('/api/negociaciones', rHistoricosImpar);
 app.use('/api/negociaciones', rColaboracion);
 app.use('/api/contactos', rContactos);
 app.use('/api/admin/accesos', rAccesos);
