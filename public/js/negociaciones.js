@@ -11,14 +11,25 @@ export const F = { q: '', origen: '', agente: '', marcador: '' };
 export let SEL = new Set(), MODO_SEL = false;
 let usuarios = [], canales = [];
 const bloqueadas = new Set();
+const limitesEtapa = new Map();
+const BLOQUE_TARJETAS = 60;
+let ultimaCarga=0;
 
 export async function vistaNegociaciones() {
+  const revision=++ultimaCarga;
   $('#view').innerHTML = `<div class="section">${skeleton(4)}</div>`;
-  const [negs, us, cs] = await Promise.all([
-    get('/negociaciones'), get('/admin/usuarios'), get('/canales').catch(() => [])
-  ]);
-  S.negociaciones = negs; usuarios = us; canales = cs;
+  // El tablero es la prioridad: usuarios y canales no deben impedir mostrar tarjetas.
+  const resultado=await get('/negociaciones');
+  if(revision!==ultimaCarga || S.vista!=='neg')return;
+  S.negociaciones=resultado;
   pintarShell();
+  Promise.allSettled([get('/admin/usuarios'),get('/canales')]).then(([u,c])=>{
+    if(revision!==ultimaCarga || S.vista!=='neg')return;
+    if(u.status==='fulfilled')usuarios=u.value;
+    if(c.status==='fulfilled')canales=c.value;
+    // Actualizar sólo cuando llegaron metadatos secundarios.
+    pintarShell();
+  });
 }
 
 export async function ubicarNegociacion(id, etapaId) {
@@ -99,14 +110,19 @@ function pintarColumnas() {
     lista.sort(e.id === 'espera'
       ? (a, b) => new Date(a.entrada_etapa) - new Date(b.entrada_etapa)
       : (a, b) => new Date(b.actualizado) - new Date(a.actualizado));
+    const limite=limitesEtapa.get(e.id)||BLOQUE_TARJETAS;
+    const visibles=lista.slice(0,limite);
+    const restantes=lista.length-visibles.length;
     return `<div class="col ${S.etapaMovil === e.id ? 'movil-visible' : ''}" data-col="${e.id}" style="animation-delay:${i * .05}s">
       <div class="col-h"><span class="dot" style="background:${e.color}"></span><b>${esc(e.nombre)}</b>
         ${e.activa ? '<span class="tag t-fecha" title="Etapa activa: sin duplicados">activa</span>' : ''}
         <span class="count">${lista.length}</span></div>
       ${e.id === 'nuevo' && esAdmin() && fx('cargaManual') ? '<div class="col-quick"><button type="button" class="btn ghost sm" id="b-rapida">+ Crear negociación rápida</button></div>' : ''}
       <div class="col-b" data-body="${e.id}">
-        ${lista.map(n => tarjeta(n)).join('') || vacio('◇', 'Sin negociaciones',
+        ${visibles.map(n => tarjeta(n)).join('') || vacio('◇', 'Sin negociaciones',
           e.id === 'nuevo' ? 'Los contactos entrantes caen acá' : '')}
+        ${restantes>0 ? `<button class="btn ghost sm" type="button" data-mas-etapa="${e.id}"
+          style="width:100%;margin:10px 0">Mostrar ${Math.min(restantes,BLOQUE_TARJETAS)} más · quedan ${restantes}</button>`:''}
       </div></div>`;
   }).join('');
   (S.empresa.etapas || []).forEach(e => {
@@ -114,6 +130,11 @@ function pintarColumnas() {
     if (c) c.textContent = ns.filter(n => n.etapa === e.id).length;
   });
   if ($('#b-rapida')) $('#b-rapida').onclick = modalNegociacionRapida;
+  $('[data-mas-etapa]').forEach(b=>b.onclick=()=>{
+    const et=b.dataset.masEtapa;
+    limitesEtapa.set(et,(limitesEtapa.get(et)||BLOQUE_TARJETAS)+BLOQUE_TARJETAS);
+    pintarColumnas();
+  });
   conectarDrag();
   const sn = $('#sel-n'); if (sn) sn.textContent = SEL.size;
 }
@@ -166,7 +187,8 @@ export function quitarTarjetas(ids) {
 function actualizarContadores() {
   (S.empresa.etapas || []).forEach(e => {
     const body = $(`[data-body="${e.id}"]`); if (!body) return;
-    const n = body.querySelectorAll('.card').length;
+    // Los contadores representan toda la cartera, no solo las tarjetas del bloque visible.
+    const n=filtradas().filter(x=>x.etapa===e.id).length;
     const c = body.closest('.col')?.querySelector('.count');
     if (c && c.textContent !== String(n)) { c.textContent = n; animarContador(c); }
     const t = $(`[data-cnt="${e.id}"]`); if (t) t.textContent = n;
