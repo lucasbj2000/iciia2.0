@@ -56,7 +56,7 @@ export async function drenarInbox() {
           origen: ORIGEN[m.tipo] || 'otro', externoTipo: EXTERNO[m.tipo],
           extId: m.ext_id, remitente, nombre: m.nombre, texto: m.txt,
           mediaUrl: m.media_url, mediaTipo: m.media_tipo, mediaNombre: m.media_nombre,
-          archivoId: m.payload?.archivoId || null, ubicacion: m.ubicacion,
+          archivoId: m.payload?.archivoId || null, ubicacion: m.ubicacion, cita: m.payload?.cita || null,
           ts: m.payload?.ts || m.ts
         });
         await q(`UPDATE inbox SET estado='procesado', procesado=now(), error=NULL, proximo_intento=NULL WHERE id=$1`, [m.id]);
@@ -133,8 +133,9 @@ export async function drenarOutbox() {
       const cuerpo = o.txt || '';
 
       let enviadoWA=null;
-      if (o.tipo === 'whatsapp_qr') enviadoWA=await baileys.enviar(canal, o.destino, cuerpo, adjunto);
-      else if (o.tipo === 'whatsapp_api') enviadoWA=await meta.enviarWhatsAppAPI(canal, o.destino, cuerpo, adjunto);
+      const opcionesEnvio = o.cita ? { cita: o.cita } : {};
+      if (o.tipo === 'whatsapp_qr') enviadoWA=await baileys.enviar(canal, o.destino, cuerpo, adjunto, opcionesEnvio);
+      else if (o.tipo === 'whatsapp_api') enviadoWA=await meta.enviarWhatsAppAPI(canal, o.destino, cuerpo, adjunto, opcionesEnvio);
       else if (o.tipo === 'messenger' || o.tipo === 'instagram') await meta.enviarMeta(canal, o.destino, cuerpo, adjunto);
       else throw new Error(`tipo de canal no soportado: ${o.tipo}`);
 

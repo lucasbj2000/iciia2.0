@@ -117,6 +117,7 @@ function pintar() {
          <button class="btn" style="flex:none" id="f-rege">Enviar y re gestionar</button></div></div>`
      : `<div class="chat-compose">${herramientasHTML('msg')}
         <div id="adj-barra" hidden></div>
+        <div id="f-cita" class="cita-barra" hidden></div>
         <div class="row chat-input-row" style="margin-top:8px;align-items:center;position:relative">
         ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj" type="button" title="Adjuntar archivo (o pegá con Ctrl+V)">📎</button>` : ''}
         <textarea id="msg" rows="3" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje, pegar o arrastrar un archivo…"></textarea>
@@ -168,6 +169,15 @@ function pintar() {
   conectar(n);
 }
 
+const ETIQUETA_MEDIA = { imagen: '📷 Imagen', video: '🎥 Video', audio: '🎤 Audio', documento: '📄 Documento' };
+const vistaCita = m => (String(m.txt || '').replace(/\s+/g, ' ').trim() || ETIQUETA_MEDIA[m.media_tipo] || 'Mensaje').slice(0, 300);
+const quienCita = dir => dir === 'out' ? 'Nosotros' : 'Cliente';
+function citaHTML(c) {
+  if (!c) return '';
+  return `<button type="button" class="msg-cita ${c.dir === 'out' ? 'out' : 'in'}" data-ir-cita="${esc(c.id || '')}"
+    title="Ver el mensaje citado"><b>${quienCita(c.dir)}</b><span>${esc(c.txt || 'Mensaje')}</span></button>`;
+}
+
 function mensajeHTML(m) {
        const media = mediaHTML(m);
        const u = m.ubicacion;
@@ -181,8 +191,10 @@ function mensajeHTML(m) {
        const tramo = m.inicioConversacion
          ? `<div class="historial-tramo ${m.anterior?'anterior':''}">${m.anterior?'↶ Conversación anterior':'Conversación actual'}
               · ${fd(m.creado_negociacion)}${m.titulo_negociacion?' · '+esc(m.titulo_negociacion):''}</div>` : '';
+       const responder = /^\d+$/.test(String(m.id || ''))
+         ? `<button type="button" class="msg-responder" data-responder="${m.id}" title="Responder citando este mensaje" aria-label="Responder citando este mensaje">↩</button>` : '';
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
-          ${tramo}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${mapaUbi}
+          ${tramo}${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${mapaUbi}
           <small>${m.carga_historica ? '✎ Carga histórica (admin) · ' : ''}${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ' · 📱 '+esc(m.remitente_numero) : ''}
           ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}${estadoWA}${esAdmin()?botonAnclarHistorico(m):''}</small></div>`;
 }
@@ -431,10 +443,45 @@ function conectar(n) {
       toast('Confirmá el destinatario y presioná Enviar en WhatsApp. El CRM no enviará una copia.','warn','WhatsApp oficial');
     };
   }
+  // Ir al mensaje citado (también en negociaciones cerradas).
+  const cajaChat = $('#chatbox');
+  cajaChat?.addEventListener('click', e => {
+    const ir = e.target.closest('[data-ir-cita]');
+    if (!ir) return;
+    if (!ir.dataset.irCita) return toast('El mensaje citado no está registrado en el CRM.', 'warn');
+    const destino = [...cajaChat.children].find(el => el.dataset.mensajeId === ir.dataset.irCita);
+    if (!destino) return toast('El mensaje citado es anterior. Cargá los mensajes anteriores para verlo.', 'warn');
+    destino.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    destino.classList.add('msg-resaltado');
+    setTimeout(() => destino.classList.remove('msg-resaltado'), 1600);
+  });
   if ($('#f-enviar')) {
     if (fx('adjuntos')) adj = conectarAdjuntos({ inputSel: '#msg', barraSel: '#adj-barra', botonSel: '#f-adj', zonaSel: '#t-chat' });
     let enviando = false;
     const input = $('#msg'), boton = $('#f-enviar'), adjuntos = adj;
+    // Responder citando: el agente elige un mensaje con ↩ y se envía como respuesta de WhatsApp.
+    let citando = null;
+    const barraCita = $('#f-cita');
+    const pintarCita = () => {
+      if (!barraCita) return;
+      barraCita.hidden = !citando;
+      barraCita.innerHTML = citando
+        ? `<div class="msg-cita ${citando.dir === 'out' ? 'out' : 'in'}"><b>Respondiendo a ${quienCita(citando.dir).toLowerCase()}</b><span>${esc(citando.txt)}</span></div>
+           <button type="button" class="btn ghost sm" data-cancelar-cita aria-label="Cancelar respuesta citada">✕</button>` : '';
+    };
+    if (cajaChat) cajaChat.dataset.citable = '1';
+    cajaChat?.addEventListener('click', e => {
+      const r = e.target.closest('[data-responder]');
+      if (!r) return;
+      const m = (historialVista?.mensajes || n.mensajes || []).find(x => String(x.id) === r.dataset.responder);
+      if (!m) return;
+      citando = { id: m.id, dir: m.dir, txt: vistaCita(m) };
+      pintarCita(); input.focus();
+    });
+    barraCita?.addEventListener('click', e => {
+      if (e.target.closest('[data-cancelar-cita]')) { citando = null; pintarCita(); input.focus(); }
+    });
+    input.addEventListener('keydown', e => { if (e.key === 'Escape' && citando) { citando = null; pintarCita(); } });
     boton.onpointerdown = e => { if (document.activeElement === input) e.preventDefault(); };
     const enviar = async () => {
       if (enviando) return;
@@ -442,14 +489,17 @@ function conectar(n) {
       const archivoId = adjuntos?.archivo?.id || null;
       if (!txt && !archivoId) return;
       enviando = true; input.value = ''; boton.disabled = true;
+      const citaEnvio = citando;
       const pendiente = mostrarMensajePendiente($('#chatbox'), {
-        dir: 'out', txt, autor_id: S.usuario.id, archivo_id: archivoId,
+        dir: 'out', txt, autor_id: S.usuario.id, archivo_id: archivoId, cita: citaEnvio,
         media_url: adjuntos?.archivo?.url || null, media_tipo: adjuntos?.archivo?.tipo || null,
         media_nombre: adjuntos?.archivo?.nombre || null
       }, mensajeHTML);
       try {
-        const r = await post(`/negociaciones/${n.id}/mensajes`, { texto: txt, archivoId, clienteId: pendiente.id });
+        const r = await post(`/negociaciones/${n.id}/mensajes`, { texto: txt, archivoId, clienteId: pendiente.id,
+          ...(citaEnvio ? { citaId: citaEnvio.id } : {}) });
         pendiente.confirmar(r.mensaje);
+        if (citando === citaEnvio) { citando = null; pintarCita(); }
       } catch (e) {
         if (pendiente.fallar()) {
           input.value = input.value ? borrador + '\n' + input.value : borrador;

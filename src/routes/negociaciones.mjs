@@ -11,6 +11,7 @@ import * as ubi from '../ubicaciones.mjs';
 import { obtenerHistorialContacto } from '../historial-contacto-impar.mjs';
 import { telefonosContacto, normalizarNumero } from '../telefonos-impar.mjs';
 import { estadoRutaWA, elegirRutaWA } from '../wa-identidades-impar.mjs';
+import { citaParaEnvio } from '../citas-impar.mjs';
 
 const r = Router();
 
@@ -300,6 +301,10 @@ r.post('/:id/mensajes', requiere(), async (req, res) => {
   }
   const n = await obtenerNegociacionVisible(req, req.params.id);
   if (!n) return res.status(404).json({ error: 'no encontrada' });
+  // Validar la cita antes de cualquier cambio de etapa o bot.
+  let cita = null;
+  try { cita = await citaParaEnvio(q, req.empresaId, n.contacto_id, req.body?.citaId); }
+  catch (e) { return res.status(e.status || 500).json({ error: e.status ? e.message : 'No se pudo preparar la cita.' }); }
 
   if (emp.flags?.botAutoOff && n.bot_activo) {
     await q('UPDATE negociaciones SET bot_activo=FALSE WHERE id=$1 AND empresa_id=$2', [n.id, req.empresaId]);
@@ -310,7 +315,7 @@ r.post('/:id/mensajes', requiere(), async (req, res) => {
                agente_id=COALESCE(agente_id,$2) WHERE id=$1 AND empresa_id=$3`, [n.id, req.user.id, req.empresaId]);
     await historial(req.empresaId, n.id, `${nombreEtapa(emp, n.etapa)} → Contactado (respuesta del agente)`, req.user.nombre);
   }
-  const mensaje = await encolarSalida(req, n, texto, adjunto);
+  const mensaje = await encolarSalida(req, n, texto, adjunto, cita);
   const clienteId = typeof req.body?.clienteId === 'string' && req.body.clienteId.length <= 80
     && /^local-\d+-\d+$/.test(req.body.clienteId) ? req.body.clienteId : null;
   emitir(req.empresaId, 'neg:patch', { id: n.id, mensajeId: mensaje.id, clienteId });
@@ -356,7 +361,7 @@ r.post('/:id/regestionar', requiere(), async (req, res) => {
   res.json({ ok: true, id: n.id });
 });
 
-async function encolarSalida(req, n, texto, adjunto) {
+async function encolarSalida(req, n, texto, adjunto, cita = null) {
   const { rows: cs } = await q('SELECT * FROM contactos WHERE id=$1 AND empresa_id=$2',
     [n.contacto_id, req.empresaId]);
   const c = cs[0];
@@ -372,19 +377,20 @@ async function encolarSalida(req, n, texto, adjunto) {
   const estado = canal && destino ? 'pendiente' : 'ok';
 
   const { rows: mensajes } = await q(
-    `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,autor_id,estado,archivo_id,media_url,media_tipo,media_nombre,media_bytes)
-     VALUES ($1,$2,'out',$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+    `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,autor_id,estado,archivo_id,media_url,media_tipo,media_nombre,media_bytes,cita)
+     VALUES ($1,$2,'out',$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
     [req.empresaId, n.id, texto, req.user.id, estado, adjunto?.id || null, adjunto?.url || null,
-     adjunto?.tipo || null, adjunto?.nombre || null, adjunto?.bytes || null]);
+     adjunto?.tipo || null, adjunto?.nombre || null, adjunto?.bytes || null, cita ? JSON.stringify(cita) : null]);
   await q('UPDATE negociaciones SET actualizado=now() WHERE id=$1 AND empresa_id=$2', [n.id, req.empresaId]);
   await historial(req.empresaId, n.id, adjunto ? `Adjunto enviado: ${adjunto.nombre}` : 'Mensaje enviado', req.user.nombre);
 
   if (canal && destino) {
     await q(
-      `INSERT INTO outbox (empresa_id,canal_id,negociacion_id,destino,txt,archivo_id,media_url,media_tipo,media_nombre,mensaje_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      `INSERT INTO outbox (empresa_id,canal_id,negociacion_id,destino,txt,archivo_id,media_url,media_tipo,media_nombre,mensaje_id,cita)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [req.empresaId, canal.id, n.id, destino, texto, adjunto?.id || null,
-       adjunto?.url || null, adjunto?.tipo || null, adjunto?.nombre || null, mensajes[0].id]);
+       adjunto?.url || null, adjunto?.tipo || null, adjunto?.nombre || null, mensajes[0].id,
+       cita?.ext ? JSON.stringify(cita) : null]);
 
     // Intentar el envío inmediatamente. El worker periódico conserva la garantía de reintento.
     import('../worker.mjs')

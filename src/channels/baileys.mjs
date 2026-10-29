@@ -186,6 +186,7 @@ export async function iniciar(canal) {
           S.estado = 'conectado'; S.arrancando = false;
           S.qr = null; S.intentos = 0;
           S.numero = (sock.user?.id || '').split(':')[0];
+          S.lid = String(sock.user?.lid || '').split('@')[0].split(':')[0];
           await actualizar(id, 'conectado', S.numero, true);
           if (cambioReal) emitir(canal.empresa_id, 'canal:estado', { canalId: id, estado: 'conectado', numero: S.numero });
           // Conexión transitoria recuperada: no generar notificaciones invasivas.
@@ -379,6 +380,24 @@ async function reemplazarNoDescifrado(mod,m,contenido,canal,id,{etiqueta,ubicaci
   return true;
 }
 
+/** Respuesta citada: ID WhatsApp del mensaje citado y vista previa corta. */
+function extraerCita(contenido,propios=[]){
+  let ctx=null;
+  for(const v of Object.values(contenido||{})){
+    if(v && typeof v==='object' && v.contextInfo?.stanzaId){ctx=v.contextInfo;break;}
+  }
+  if(!ctx)return null;
+  const qm=ctx.quotedMessage||{};
+  const txt=qm.conversation || qm.extendedTextMessage?.text || qm.imageMessage?.caption ||
+    qm.videoMessage?.caption || qm.documentMessage?.caption ||
+    (qm.imageMessage?'📷 Imagen':qm.videoMessage?'🎥 Video':qm.audioMessage?'🎤 Audio':
+     qm.documentMessage?'📄 '+(qm.documentMessage.fileName||'Documento'):
+     qm.stickerMessage?'Sticker':qm.locationMessage?'📍 Ubicación':'');
+  const autor=String(ctx.participant||'').split('@')[0].split(':')[0];
+  return {ext:String(ctx.stanzaId).slice(0,180),txt:String(txt).slice(0,300),
+    dir:autor && propios.includes(autor)?'out':'in'};
+}
+
 async function recibir(mod,m,canal,id){
   if(!m?.key?.id || m.key.fromMe)return;
   const jid=String(m.key.remoteJid||'');
@@ -418,13 +437,15 @@ async function recibir(mod,m,canal,id){
   if(!etiqueta && !hayMedia && !ubicacion){const s=sesiones.get(id);if(s)s.tipoNoAdmitidoWA=(s.tipoNoAdmitidoWA||0)+1;return;}
   const {pareja,remitente}=remitenteDe(m);
   const fecha=fechaDe(m);
+  const S1=sesiones.get(id);
+  const cita=extraerCita(contenido,[S1?.numero,S1?.lid].filter(Boolean));
   const {rows}=await q(
     'INSERT INTO inbox (empresa_id,canal_id,tipo,ext_id,remitente,nombre,txt,'+
     "ubicacion,payload,estado) VALUES($1,$2,'whatsapp_qr',$3,$4,$5,$6,$7,$8,$9) "+
     'ON CONFLICT(canal_id,ext_id) DO NOTHING RETURNING id',
     [canal.empresa_id,id,String(m.key.id),remitente,m.pushName||'',etiqueta,
      ubicacion?JSON.stringify(ubicacion):null,
-     JSON.stringify({ts:fecha,archivoId:null}),hayMedia?'capturando':'pendiente']);
+     JSON.stringify({ts:fecha,archivoId:null,...(cita?{cita}:{})}),hayMedia?'capturando':'pendiente']);
   const entrada=rows[0]?.id;
   if(!entrada){
     await reemplazarNoDescifrado(mod,m,contenido,canal,id,{etiqueta,ubicacion,hayMedia});
@@ -495,7 +516,7 @@ async function bajarMedia(mod, m, canal) {
   return { id: a.id, url: a.url, tipo: a.tipo, nombre: a.nombre };
 }
 
-export async function enviar(canal, destino, texto, adjunto) {
+export async function enviar(canal, destino, texto, adjunto, opciones = {}) {
   const S = sesiones.get(canal.id);
   const sock=S?.sock;
   if (!sock || !S || S.estado !== 'conectado') throw new Error('sesión de WhatsApp no conectada');
@@ -519,10 +540,15 @@ export async function enviar(canal, destino, texto, adjunto) {
 
   // Cada salida se registra en el almacén de recuperación por su propio
   // identificador original (no se duplican envíos para intentar repararla).
+  // Respuesta citada: WhatsApp solo necesita el ID original y una vista previa.
+  const cita=opciones?.cita;
+  let quoted=cita?.ext ? { key:{ remoteJid:jid, id:String(cita.ext), fromMe:cita.dir==='out' },
+    message:{ conversation:String(cita.txt||'…') } } : null;
   const transmitir=async contenido=>{
     if(S.sock!==sock || S.estado!=='conectado')
       throw new Error('Sesión WhatsApp cambió durante el envío. Reintentá cuando figure conectada.');
-    const enviado=await sock.sendMessage(jid,contenido);
+    const enviado=await sock.sendMessage(jid,contenido,quoted?{quoted}:undefined);
+    quoted=null; // solo el primer envío (texto o adjunto) lleva la cita
     await guardarOriginal({q,proto:(await cargarBaileys())?.proto,
       canalId:canal.id,empresaId:canal.empresa_id,enviado,cache:S.retryCache});
     return enviado;

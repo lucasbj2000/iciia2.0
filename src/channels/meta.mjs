@@ -95,7 +95,8 @@ async function procesarWhatsAppAPI(body) {
         if (!texto && !media && !ubicacion) continue;
         await guardarInbox(canal, 'whatsapp_api', m.id, m.from, perfil?.profile?.name || '', texto, {
           mediaUrl: media?.url, mediaTipo: media?.tipo, mediaNombre: media?.nombre, ubicacion,
-          payload: { ts: Number(m.timestamp) * 1000, archivoId: media?.id }
+          payload: { ts: Number(m.timestamp) * 1000, archivoId: media?.id,
+            ...(m.context?.id ? { cita: { ext: String(m.context.id).slice(0, 180), txt: '', dir: 'in' } } : {}) }
         });
       }
     }
@@ -229,7 +230,7 @@ async function nombrePerfil(id, canal) {
 }
 
 /* ---------- ENVÍO ---------- */
-export async function enviarWhatsAppAPI(canal, destino, texto, adjunto) {
+export async function enviarWhatsAppAPI(canal, destino, texto, adjunto, opciones = {}) {
   const { phone_number_id } = canal.config || {};
   const token = resolverToken(canal.config?.token);
   if (!token || !phone_number_id) throw new Error('canal sin token o phone_number_id');
@@ -237,11 +238,14 @@ export async function enviarWhatsAppAPI(canal, destino, texto, adjunto) {
   let num = String(destino).replace(/\D/g, '');
   if (num.length <= 10 && !num.startsWith(prefijo)) num = prefijo + num.replace(/^0/, '');
 
+  // Respuesta citada: solo el primer envío lleva el contexto del mensaje original.
+  let contexto = opciones?.cita?.ext ? { context: { message_id: String(opciones.cita.ext) } } : {};
   const post = async cuerpo => {
+    const extra = contexto; contexto = {};
     const r = await fetch(`${WA_API}/${phone_number_id}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messaging_product: 'whatsapp', to: num, ...cuerpo })
+      body: JSON.stringify({ messaging_product: 'whatsapp', to: num, ...extra, ...cuerpo })
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error?.message || 'error de WhatsApp Cloud API');
