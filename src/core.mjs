@@ -4,6 +4,7 @@ import { emitir } from './realtime.mjs';
 import * as ubi from './ubicaciones.mjs';
 import { programarBot } from './bot.mjs';
 import { resolverCitaEntrante } from './citas-impar.mjs';
+import { leerEnlace } from './enlaces-agentes-impar.mjs';
 
 /* ================= NOTIFICACIONES ================= */
 export async function destinatarios(empresa, dest, base = []) {
@@ -236,6 +237,13 @@ export async function ingresarMensaje(empresa, {
     .catch(e => { console.warn('[citas] Vínculo no resuelto:', e.name); return null; }) : null;
   const citaJSON = citaFinal ? JSON.stringify(citaFinal) : null;
   const editadoJSON = editado && typeof editado === 'object' ? JSON.stringify(editado) : null;
+  // Enlace de WhatsApp del agente: el cliente queda con quien le envió el enlace.
+  let enlace = null;
+  if (origen === 'whatsapp' && texto) {
+    const leido = await leerEnlace(q, empresa.id, texto)
+      .catch(e => { console.warn('[enlaces] No se pudo leer el enlace:', e.name); return null; });
+    if (leido) { texto = leido.texto; enlace = leido.agente; }
+  }
   const telefonoWhatsApp = origen === 'whatsapp' && !String(remitente || '').includes('@')
     ? String(remitente)
     : null;
@@ -283,6 +291,16 @@ export async function ingresarMensaje(empresa, {
   const abierta = empresa.flags?.antiDuplicado ? await negActivaDeContacto(empresa, contacto.id) : null;
 
   if (abierta) {
+    if (enlace && abierta.agente_id !== enlace.id) {
+      await q(`UPDATE negociaciones SET agente_id=$3, enlace_agente_id=$3, bot_activo=FALSE,
+                 sucursal=COALESCE((SELECT NULLIF(sucursal,'') FROM usuarios WHERE id=$3 AND empresa_id=$2), sucursal)
+               WHERE id=$1 AND empresa_id=$2`, [abierta.id, empresa.id, enlace.id]);
+      await q('UPDATE contactos SET responsable_id=$3 WHERE id=$1 AND empresa_id=$2', [contacto.id, empresa.id, enlace.id]);
+      await historial(empresa.id, abierta.id, `🔗 Asignado a ${enlace.nombre} por su enlace de WhatsApp`, 'Sistema');
+      await notificar(empresa, 'transfer', { origenUsr: 'Tu enlace de WhatsApp', cliente: contacto.nombre }, [enlace.id], abierta.id);
+      abierta.agente_id = enlace.id;
+      contacto.responsable_id = enlace.id;
+    }
     await q(
       `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita,editado)
        VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT DO NOTHING`,
@@ -315,9 +333,9 @@ export async function ingresarMensaje(empresa, {
   const responsableAnterior = responsables[0]?.id || (reingreso
     ? await responsableUltimoCierre(empresa, contacto.id) : null);
   const esImpar = empresa.codigo === 'impar';
-  const recepcionImpar = !!(esImpar && !reingreso && !contacto.responsable_id && !responsableAnterior
+  const recepcionImpar = !!(!enlace && esImpar && !reingreso && !contacto.responsable_id && !responsableAnterior
     && empresa.flags?.bot && empresa.bot?.activo && empresa.bot?.recepcionImpar !== false);
-  const agente = responsableAnterior || (recepcionImpar ? null
+  const agente = enlace?.id || responsableAnterior || (recepcionImpar ? null
     : await asignarEquitativo(empresa, { sucursal: canalSucursal, linea: canalLinea }));
   const { rows: owner } = agente ? await q('SELECT sucursal FROM usuarios WHERE id=$1 AND empresa_id=$2',[agente,empresa.id]) : { rows: [] };
 
@@ -353,10 +371,15 @@ export async function ingresarMensaje(empresa, {
   if (empresa.flags?.bot && empresa.bot?.activo) programarBot(empresa,neg.id);
   await historial(empresa.id, neg.id,
     `Ingreso automático por ${origen}`
-      + (responsableAnterior
+      + (enlace ? ' · asignado por enlace de WhatsApp del agente'
+        : responsableAnterior
         ? ' · conserva responsable de la última negociación cerrada'
         : (agente ? ' · asignado por reparto equitativo entre agentes activos' : recepcionImpar ? ' · recepción pendiente de elección de sucursal' : ' · sin agentes activos disponibles')),
     'Bot');
+  if (enlace) {
+    await q('UPDATE negociaciones SET enlace_agente_id=$3 WHERE id=$1 AND empresa_id=$2', [neg.id, empresa.id, enlace.id]);
+    await historial(empresa.id, neg.id, `🔗 Asignado a ${enlace.nombre} por su enlace de WhatsApp`, 'Sistema');
+  }
   await notificar(empresa, 'nuevo', { cliente: contacto.nombre, origen }, [agente], neg.id);
   if (det) await guardarUbicacion(empresa, contacto, neg, det);
   emitir(empresa.id, 'neg:nueva', { id: neg.id });

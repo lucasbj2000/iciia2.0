@@ -65,6 +65,8 @@ jobs:
         run: node scripts/test-citas-impar.mjs
       - name: Mensajes editados por clientes
         run: node scripts/test-ediciones-impar.mjs
+      - name: Enlaces de WhatsApp por agente
+        run: node scripts/test-enlaces-agentes-impar.mjs
       - name: Vigilancia de buffer prolongado de WhatsApp
         run: node scripts/test-wa-vigilancia-buffer.mjs
       - name: Recepción LID, append, medios e inserción de mensajes históricos

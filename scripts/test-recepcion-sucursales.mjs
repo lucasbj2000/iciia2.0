@@ -149,7 +149,7 @@ console.log('✓ Sin Matriz alerta y reintenta; menú estable ante sucursales de
 const core=leer('src/core.mjs');
 const ingesta=core.slice(core.indexOf('export async function ingresarMensaje'),core.indexOf('\nasync function guardarUbicacion'))
   .replace('export ','');
-async function ingresar({previo=false,responsable=null,concurrente=false,pausado=false}={}){
+async function ingresar({previo=false,responsable=null,concurrente=false,pausado=false,enlace=null}={}){
   const consultas=[];
   const contacto={id:'contacto',nombre:'Cliente',tel:'595981000001',externos:{whatsapp:'595981000001'},responsable_id:responsable};
   const empresa={id:'impar',codigo:'impar',flags:{bot:!pausado},bot:{activo:!pausado}};
@@ -164,7 +164,8 @@ async function ingresar({previo=false,responsable=null,concurrente=false,pausado
     buscarContacto:async()=>previo?contacto:null,
     crearContacto:async()=>({contacto,creado:!concurrente}),etiquetaAnonima:()=> 'Cliente',
     responsableUltimoCierre:async()=>null,asignarEquitativo:async()=> 'reparto',
-    historial:async()=>{},notificar:async()=>{},emitir:()=>{},programarBot:()=>{}});
+    historial:async()=>{},notificar:async()=>{},emitir:()=>{},programarBot:()=>{},
+    leerEnlace:async(_q,_e,t)=>({texto:t,agente:enlace})});
   await fn(empresa,{origen:'whatsapp',remitente:contacto.tel,texto:'Hola'});
   return consultas.find(x=>x.sql.includes('INSERT INTO negociaciones')).p;
 }
@@ -174,6 +175,13 @@ for(const caso of [{previo:true},{previo:true,responsable:'dueno'},{concurrente:
   if(caso.responsable)assert.equal(p[4],caso.responsable);
 }
 console.log('✓ Ingesta real: solo altas nuevas elegibles; fichas previas, responsable previo y duplicado concurrente excluidos');
+// Cliente nuevo por el enlace de un agente: va directo a ese agente, sin bot de recepción.
+for(const caso of [{},{previo:true,responsable:'dueno'}]){
+  const p=await ingresar({...caso,enlace:{id:'agente-enlace',nombre:'Ana Paula Ferreira'}});
+  assert.equal(p[4],'agente-enlace','Asignado al agente del enlace');assert.equal(p[8],false,'Sin bot de recepción');
+  assert.deepEqual(JSON.parse(p[11]),{});
+}
+console.log('✓ Ingesta real: el enlace del agente asigna directo y omite la recepción');
 // Ejecutar el worker real: revalidar al enviar evita saludos tras una intervención manual.
 const worker=leer('src/worker.mjs').replace(/^import .*\n/gm,'').replace(/^export /gm,'');
 async function enviar({automatico=true,permitido=true,cambios={}}={}){

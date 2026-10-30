@@ -34,6 +34,7 @@ import rAyudas from './routes/ayudas.mjs';
 import rHorarios from './routes/horarios.mjs';
 import rBitrix from './routes/importar-bitrix.mjs';
 import rVarios from './routes/varios.mjs';
+import rEnlaces, { redirigirEnlace, limiteEnlaces } from './routes/enlaces-impar.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -82,6 +83,9 @@ app.use((req, res, next) => {
   if (['/api/archivos', '/api/proyecto/documentos', '/api/admin/catalogos/importar'].includes(req.path) && req.method === 'POST') return next();
   express.json({ limit: '5mb', verify: (r2, _s, buf) => { r2.rawBody = buf; } })(req, res, next);
 });
+
+/* ---------- Enlaces de WhatsApp por agente (público) ---------- */
+app.get('/w/:usuario', limiteEnlaces, redirigirEnlace);
 
 /* ---------- Webhook de Meta ---------- */
 app.get('/webhook/meta', meta.verificarWebhook);
@@ -173,6 +177,7 @@ app.use('/api/proyecto', rProyecto);
 app.use('/api/ayudas', rAyudas);
 app.use('/api/horarios', rHorarios);
 app.use('/api/bitrix', rBitrix);
+app.use('/api/enlaces', rEnlaces);
 app.use('/api', rVarios);
 
 app.get('/api/health', async (_req, res) => {

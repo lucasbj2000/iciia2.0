@@ -106,6 +106,7 @@ node scripts/test-wa-no-descifrados-impar.mjs
 node scripts/test-citas-impar.mjs
 node scripts/test-ediciones-impar.mjs
 node scripts/test-ediciones-secretas-impar.mjs
+node scripts/test-enlaces-agentes-impar.mjs
 node scripts/test-wa-vigilancia-buffer.mjs
 node scripts/test-recepcion-lid-historicos-impar.mjs
 node scripts/test-meta-cloud-impar.mjs

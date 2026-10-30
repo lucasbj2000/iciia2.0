@@ -346,6 +346,7 @@ function reloj() {
   f(); clearInterval(window._reloj); window._reloj = setInterval(f, 30000);
 }
 
+if ($('#btn-enlace')) $('#btn-enlace').onclick = () => import('./enlaces-impar.js').then(m => m.abrirMiEnlace());
 $('#btn-salir').onclick = () => {
   document.body.classList.remove('nav-open');
   cerrarAyudas();
