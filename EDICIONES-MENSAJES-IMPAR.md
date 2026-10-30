@@ -13,6 +13,15 @@
   Se aplica una sola vez gracias a la hora de la edición.
 - Se ignoran ediciones propias, de grupos y de estados. Las ediciones de nuestros mensajes desde el
   teléfono principal no modifican el CRM.
+- **Formato actual de WhatsApp:** las ediciones llegan como `secretEncryptedMessage`
+  (diagnóstico en producción del 29/10: `[wa:no_admitidos] secretEncryptedMessage:1`), cifradas con
+  la clave del mensaje original (`messageContextInfo.messageSecret`). Baileys 6.7.24 no las descifra.
+  El CRM guarda esa clave **solo en memoria durante 30 minutos** (WhatsApp permite editar 15) y
+  descifra con el algoritmo de whatsmeow (`msgsecret.go`): HKDF-SHA256 sobre
+  `idOriginal + autor + editor + "Message Edit"` y AES-256-GCM sin datos adicionales. Prueba las
+  identidades PN y LID del cliente; la autenticación GCM confirma la correcta.
+- Límite: si el CRM se reinicia (por ejemplo, un despliegue) entre el mensaje y su edición, la clave
+  se pierde y esa edición no se puede aplicar (`ignoradas=secreta_sin_clave`).
 - Alcance: WhatsApp QR (Baileys). WhatsApp Cloud API no está incluido en este cambio.
 
 ## Archivos
@@ -21,7 +30,7 @@
 - `src/channels/baileys.mjs`: `messages.update` con `editedMessage` → `recibirEdicion`; contador `ediciones=`.
 - `src/worker.mjs`, `src/core.mjs`: la edición en cola llega a la conversación con su marca.
 - `public/js/ficha.js`, `public/citas.css`: marca «✎ Editado» y texto anterior.
-- `scripts/test-ediciones-impar.mjs`: en `actualizar.sh` y CI.
+- `scripts/test-ediciones-impar.mjs` y `scripts/test-ediciones-secretas-impar.mjs` (cifrado real): en `actualizar.sh` y CI.
 
 ## Despliegue y verificación
 

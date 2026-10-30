@@ -3,6 +3,7 @@
  * Una sesión por canal, credenciales en disco, reconexión automática.
  */
 import QRCode from 'qrcode';
+import { hkdfSync, createDecipheriv } from 'node:crypto';
 import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { q } from '../db.mjs';
@@ -391,6 +392,51 @@ async function reemplazarNoDescifrado(mod,m,contenido,canal,id,{etiqueta,ubicaci
 }
 
 /** El cliente editó un mensaje: actualizar el texto y conservar el original. */
+// Ediciones cifradas (secretEncryptedMessage): WhatsApp cifra la edición con la
+// clave propia del mensaje original (messageContextInfo.messageSecret). Se guarda
+// solo en memoria, 30 min (WhatsApp permite editar durante 15), nunca en disco ni logs.
+// Algoritmo de referencia: whatsmeow msgsecret.go (HKDF-SHA256 + AES-256-GCM, "Message Edit").
+const secretosMensajes=new Map();
+const VIDA_SECRETO_MS=30*60*1000, MAX_SECRETOS=5000;
+const jidBase=j=>{const t=String(j||'');const at=t.indexOf('@');
+  return at<1?'':t.slice(0,at).split(':')[0]+'@'+t.slice(at+1);};
+const jidsDe=k=>[...new Set([k?.remoteJid,k?.senderPn,k?.senderLid,k?.remoteJidAlt,
+  k?.participant,k?.participantPn,k?.participantAlt].map(jidBase)
+  .filter(j=>j && !j.endsWith('@g.us') && !j.endsWith('@broadcast')))];
+
+function guardarSecretoMensaje(m,id){
+  const secreto=m.message?.messageContextInfo?.messageSecret;
+  if(!secreto || !m.key?.id)return;
+  const bytes=Buffer.from(secreto);
+  if(bytes.length!==32)return;
+  const ahora=Date.now();
+  for(const [k,v] of secretosMensajes){
+    if(v.vence<ahora || secretosMensajes.size>=MAX_SECRETOS)secretosMensajes.delete(k); else break;
+  }
+  secretosMensajes.set(id+':'+m.key.id,{secreto:bytes,jids:jidsDe(m.key),vence:ahora+VIDA_SECRETO_MS});
+}
+
+function descifrarEdicionSecreta(mod,m,cifrado,id){
+  const original=String(cifrado.targetMessageKey?.id||'');
+  const reg=secretosMensajes.get(id+':'+original);
+  if(!reg || reg.vence<Date.now())return {motivo:'secreta_sin_clave'};
+  const iv=Buffer.from(cifrado.encIv||[]), datos=Buffer.from(cifrado.encPayload||[]);
+  if(iv.length!==12 || datos.length<17)return {motivo:'secreta_formato'};
+  const candidatos=[...new Set([...reg.jids,...jidsDe(m.key)])];
+  for(const autor of candidatos)for(const editor of candidatos){
+    try{
+      const clave=Buffer.from(hkdfSync('sha256',reg.secreto,Buffer.alloc(0),
+        Buffer.from(original+autor+editor+'Message Edit'),32));
+      const d=createDecipheriv('aes-256-gcm',clave,iv);
+      d.setAuthTag(datos.subarray(datos.length-16));
+      const plano=Buffer.concat([d.update(datos.subarray(0,datos.length-16)),d.final()]);
+      const msg=mod.proto.Message.decode(plano);
+      return {mensaje:msg.protocolMessage?.editedMessage || msg};
+    }catch{}
+  }
+  return {motivo:'secreta_no_descifrada'};
+}
+
 function ignorarEdicion(id,motivo){
   const S=sesiones.get(id);
   if(S){S.edicionesIgnoradas ||= new Map();S.edicionesIgnoradas.set(motivo,(S.edicionesIgnoradas.get(motivo)||0)+1);}
@@ -479,6 +525,19 @@ async function recibir(mod,m,canal,id){
     clearTimeout(espera.timer);S0.noDescifrados.delete(String(m.key.id));
     S0.recuperadosWA=(S0.recuperadosWA||0)+1;
   }
+  // Formato actual de WhatsApp: edición cifrada con la clave del mensaje original.
+  const secreta=contenido.secretEncryptedMessage;
+  const EDICION_SECRETA=mod.proto?.Message?.SecretEncryptedMessage?.SecretEncType?.MESSAGE_EDIT ?? 2;
+  if(secreta && Number(secreta.secretEncType)===EDICION_SECRETA && secreta.targetMessageKey?.id){
+    const S3=sesiones.get(id);
+    if(S3){S3.protocolosVistos ||= new Map();S3.protocolosVistos.set('secreta',(S3.protocolosVistos.get('secreta')||0)+1);}
+    const r=descifrarEdicionSecreta(mod,m,secreta,id);
+    if(!r.mensaje){ignorarEdicion(id,r.motivo);return;}
+    await recibirEdicion(mod,{key:{...m.key,id:String(secreta.targetMessageKey.id)},
+      update:{message:{editedMessage:{message:r.mensaje}},messageTimestamp:m.messageTimestamp}},canal,id);
+    return;
+  }
+  guardarSecretoMensaje(m,id);
   // La edición también llega como protocolMessage por messages.upsert. Procesarla
   // aquí cubre el caso en que Baileys no emite messages.update; el control por
   // hora de edición evita aplicarla dos veces.
