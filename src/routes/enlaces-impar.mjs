@@ -10,7 +10,7 @@ const base = req => (process.env.PUBLIC_URL || `https://${req.get('host')}`).rep
 const ficha = (req, u) => ({
   usuarioId: u.id, nombre: u.nombre, usuario: u.usuario, rol: u.rol, sucursal: u.sucursal, activo: u.activo,
   enlace: enlacePublico(base(req), u), whatsapp: enlaceWhatsApp(u),
-  mensaje: textoPrecargado(u).replace(/[​-‍]/g, ''), numero: NUMERO_ENLACE,
+  mensaje: textoPrecargado(u).replace(/[\u200B-\u200D]/g, ''), numero: NUMERO_ENLACE,
   clics30: Number(u.clics30 || 0), negociaciones30: Number(u.negociaciones30 || 0)
 });
 const METRICAS = `,(SELECT COUNT(*) FROM enlaces_clics_impar c WHERE c.usuario_id=u.id AND c.ts>now()-interval '30 days') AS clics30,

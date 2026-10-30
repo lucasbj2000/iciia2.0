@@ -18,6 +18,7 @@ const q = async (sql, p) => {
   const activos = USUARIOS.filter(u => u.activo);
   if (sql.includes("lower(usuario)='impar.'||$2"))
     return { rows: activos.filter(u => u.usuario === p[1] || u.usuario === 'impar.' + p[1]).map(({ id, nombre }) => ({ id, nombre })) };
+  if (sql.startsWith('SELECT id,nombre,usuario FROM usuarios WHERE empresa_id=$1 AND activo')) return { rows: activos.map(({ id, nombre, usuario }) => ({ id, nombre, usuario })) };
   if (sql.startsWith('SELECT id,nombre FROM usuarios WHERE empresa_id=$1 AND activo')) return { rows: activos.map(({ id, nombre }) => ({ id, nombre })) };
   throw new Error('SQL inesperado');
 };
@@ -25,7 +26,7 @@ const q = async (sql, p) => {
 // 1) Cada usuario: marca invisible que se lee aunque el cliente agregue su consulta.
 for (const u of USUARIOS) {
   const t = E.textoPrecargado(u);
-  assert.equal(E.decodificar(t), E.slugDeUsuario(u.usuario));
+  assert.equal(E.leerCodigo(t), E.codigoDe(E.slugDeUsuario(u.usuario)));
   assert.equal(E.quitarMarca(t), `Hola, vengo de parte de ${u.nombre} 👋`, 'El cliente ve un saludo normal');
   const escrito = t + '\nNecesito 3 resmas A4 y cartulina 🙏';
   const r = await E.leerEnlace(q, 'impar', escrito);
@@ -35,9 +36,17 @@ for (const u of USUARIOS) {
   assert.equal(E.enlacePublico('https://crm.iciia.tech/', u), 'https://crm.iciia.tech/w/' + E.slugDeUsuario(u.usuario));
   const wa = new URL(E.enlaceWhatsApp(u));
   assert.equal(wa.origin + wa.pathname, 'https://wa.me/595976992667');
-  assert.equal(E.decodificar(wa.searchParams.get('text')), E.slugDeUsuario(u.usuario), 'La marca viaja en el enlace');
+  assert.equal(E.leerCodigo(wa.searchParams.get('text')), E.codigoDe(E.slugDeUsuario(u.usuario)), 'La marca viaja en el enlace');
+  assert.ok(E.enlaceWhatsApp(u).length < 400, 'Enlace directo de largo razonable');
 }
 assert.equal(new Set(USUARIOS.map(u => E.slugDeUsuario(u.usuario))).size, USUARIOS.length, 'Enlaces únicos');
+assert.equal(new Set(USUARIOS.map(u => E.codigoDe(E.slugDeUsuario(u.usuario)))).size, USUARIOS.length, 'Códigos únicos entre los usuarios');
+// La marca larga anterior sigue funcionando.
+{
+  const u = USUARIOS[3], t = 'Hola,' + E.codificarLargo(E.slugDeUsuario(u.usuario)) + ' vengo';
+  const r = await E.leerEnlace(q, 'impar', t);
+  assert.equal(r.agente?.id, u.id); assert.equal(r.texto, 'Hola, vengo');
+}
 
 // 2) Respaldo por nombre si WhatsApp quitara los caracteres invisibles; nombres repetidos no confunden.
 {
@@ -52,13 +61,13 @@ assert.equal(new Set(USUARIOS.map(u => E.slugDeUsuario(u.usuario))).size, USUARI
 {
   const u = USUARIOS.find(x => x.usuario === 'impar.noemi.diaz'); u.activo = false;
   const r = await E.leerEnlace(q, 'impar', E.textoPrecargado(u));
-  assert.equal(r.agente, null); assert.ok(!/[​‌]/.test(r.texto));
+  assert.equal(r.agente, null); assert.ok(!/[\u200B\u200C]/.test(r.texto));
   u.activo = true;
 }
 
 // 4) Emojis compuestos intactos; textos sin marca sin cambios; slugs inválidos rechazados.
-assert.equal(E.quitarMarca('Familia 👨‍👩‍👧'), 'Familia 👨‍👩‍👧');
-assert.equal(E.decodificar('👨‍👩‍👧'), null);
+assert.equal(E.quitarMarca('Familia 👨\u200D👩\u200D👧'), 'Familia 👨\u200D👩\u200D👧');
+assert.equal(E.decodificar('👨\u200D👩\u200D👧'), null);
 assert.ok(!E.slugValido('../admin') && !E.slugValido('a') && E.slugValido('ana.ferreira'));
 
 // 5) Integración con la ingesta, la ruta pública y la interfaz.

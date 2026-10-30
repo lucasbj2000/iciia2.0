@@ -2,10 +2,12 @@
 
 ## Comportamiento
 
-- Cada usuario activo tiene un enlace fijo: `https://crm.iciia.tech/w/<usuario sin "impar.">`
-  (por ejemplo `/w/ana.ferreira`; el administrador, `/w/admin`).
-- Al abrirlo, el CRM registra la apertura y redirige a `https://wa.me/595976992667` con el saludo
-  «Hola, vengo de parte de <Nombre> 👋». El número se puede cambiar con `IMPAR_WA_ENLACE` en `.env`.
+- Cada usuario activo tiene un enlace **directo a WhatsApp**: `https://wa.me/595976992667?text=…`
+  con el saludo «Hola, vengo de parte de <Nombre> 👋» y la marca invisible. No pasa por el dominio
+  del CRM, por eso no se cuentan aperturas; sí se cuentan los clientes recibidos.
+  El número se puede cambiar con `IMPAR_WA_ENLACE` en `.env` (los enlaces ya enviados no cambian).
+- Opcional: `https://crm.iciia.tech/w/<usuario>` sigue disponible como enlace corto que redirige
+  al mismo `wa.me` y además registra aperturas.
 - Cuando el cliente envía ese saludo (puede agregar su consulta), la conversación se asigna
   directamente a ese usuario, sin bot de recepción ni reparto por sucursal, aunque el cliente
   ya tuviera otro responsable o una negociación abierta con otra persona. Queda en el historial
