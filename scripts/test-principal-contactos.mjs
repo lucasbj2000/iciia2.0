@@ -35,7 +35,11 @@ assert.ok(cola.includes('m.canal_compartido ? null : m.canal_sucursal'),
 assert.ok(neg.includes("((config->>'principal_global')='true') DESC"),
   'Una negociación sin canal usa por defecto el teléfono principal');
 
-assert.ok(routes.includes("r.patch('/:id/responsable',requiere('admin','gerente','jefe')"));
+assert.ok(routes.includes("r.patch('/:id/responsable',requiere(),"),'Todos los usuarios pueden tomar o pasar contactos');
+assert.ok(routes.includes("r.get('/responsables/disponibles', requiere(),"));
+assert.ok(routes.includes("const global = busca.length >= 2 || libres;"),'La búsqueda recorre todos los contactos');
+assert.ok(routes.includes("if (libres) cond.push('c.responsable_id IS NULL');"),'Filtro de contactos libres');
+assert.ok(front.includes('data-tomar-contacto=') && front.includes("responsableId:S.usuario.id"),'Tomar un contacto libre en un clic');
 assert.ok(routes.includes('cambiarResponsable(req,req.params.id'));
 assert.ok(front.includes('data-cambiar-responsable='));
 assert.ok(front.includes("patch(\`/contactos/\${id}/responsable\`"));
@@ -87,10 +91,23 @@ assert.ok(consultas.some(x=>x.sql.startsWith('INSERT INTO historial')));
 const sel=consultas.find(x=>x.sql.startsWith('SELECT id,marcadores FROM negociaciones'));
 assert.deepEqual([...sel.params[2]],activas,
   'Solo se cambian negociaciones abiertas, nunca ganadas/cerradas');
-const bajo={...req,user:{id:'id-agente',rol:'agente',nombre:'Agente'}};
-await assert.rejects(()=>fn.cambiarResponsable(bajo,contactoId,nuevoId),/permiso/);
-const intruso={...req,user:{id:'jefe',rol:'jefe',usuario:'jefe.otro',sucursal:'Otro',nombre:'Jefe'}};
-await assert.rejects(()=>fn.cambiarResponsable(intruso,contactoId,nuevoId),/equipo/);
+// Agentes y jefes de cualquier equipo pueden pasar el contacto a otro empleado activo.
+const agente={...req,user:{id:'id-agente',rol:'agente',nombre:'Agente',activo:true}};
+assert.equal((await fn.cambiarResponsable(agente,contactoId,nuevoId)).destino,'Nuevo agente');
+const jefeOtro={...req,user:{id:'jefe',rol:'jefe',usuario:'jefe.otro',sucursal:'Otro',nombre:'Jefe',activo:true}};
+assert.equal((await fn.cambiarResponsable(jefeOtro,contactoId,nuevoId)).destino,'Nuevo agente');
+const inactivo={...req,user:{id:'x',rol:'agente',nombre:'Ex agente',activo:false}};
+await assert.rejects(()=>fn.cambiarResponsable(inactivo,contactoId,nuevoId),/permiso/);
+// Destino oculto, inactivo o admin: rechazado sin cambios.
+for(const malo of [{oculto:true},{activo:false},{rol:'admin'}]){
+  const i=users.findIndex(u=>u.id===nuevoId),orig=users[i];users[i]={...orig,...malo};
+  await assert.rejects(()=>fn.cambiarResponsable(agente,contactoId,nuevoId),/activo y habilitado/);
+  users[i]=orig;
+}
+// Destinos: todos los empleados activos visibles, con el propio usuario marcado.
+const destinos=await fn.consultarDestinos({...agente,user:{...agente.user,id:nuevoId}});
+assert.equal(destinos.length,users.length);
+assert.equal(destinos.find(d=>d.id===nuevoId).yo,true);
 
 /* El único número activo de IMPAR debe servir para cualquier sucursal,
    aunque el administrador lo haya llamado de otra forma. */

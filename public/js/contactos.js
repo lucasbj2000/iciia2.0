@@ -9,6 +9,8 @@ import { activarVisor } from './adjuntos.js';
 import { conectarEmojis } from './emojis.js';
 
 let QC = '';
+let QF = ''; // '' = mis contactos (agente) / todos (mandos) · 'libres' = sin responsable
+const puedeTomar = () => S.usuario?.rol !== 'admin';
 let ultimaCargaFicha=0;
 let ultimaConsultaContactos=0;
 
@@ -30,7 +32,7 @@ export async function vistaContactos() {
   let cs,pend;
   try{
     [cs,pend]=await Promise.all([
-      get(`/contactos?q=${encodeURIComponent(busqueda)}`),
+      get(`/contactos?q=${encodeURIComponent(busqueda)}${QF ? '&filtro=' + QF : ''}`),
       get('/contactos/solicitudes/pendientes').catch(()=>[])
     ]);
   }catch(e){
@@ -60,7 +62,10 @@ export async function vistaContactos() {
    <div class="row" style="margin-bottom:12px;align-items:center">
      <input id="c-buscar" placeholder="Buscar por nombre, teléfono, email o dirección…" value="${esc(QC)}"
        style="padding:10px 13px;background:var(--surface2);border:1px solid var(--line);border-radius:10px">
-     <small id="c-busqueda-estado" aria-live="polite" style="color:var(--muted)">${busqueda ? cs.length+' resultado(s)' : ''}</small>
+     <small id="c-busqueda-estado" aria-live="polite" style="color:var(--muted)">${busqueda ? cs.length+' resultado(s)'+(busqueda.trim().length>=2?' en todos los contactos de IMPAR':'') : QF==='libres' ? cs.length+' contacto(s) libre(s)' : ''}</small>
+     <div class="seg" role="group" aria-label="Filtro de contactos" style="flex:none;display:flex;gap:4px">
+       <button class="btn ${QF ? 'ghost' : ''} sm" data-filtro-contactos="">${S.usuario.rol==='agente' ? 'Mis contactos' : 'Todos'}</button>
+       <button class="btn ${QF==='libres' ? '' : 'ghost'} sm" data-filtro-contactos="libres" title="Contactos sin responsable: cualquiera puede tomarlos">Libres</button></div>
      <div style="flex:none;display:flex;gap:8px;flex-wrap:wrap">
        <button class="btn" id="c-nuevo">+ Nuevo contacto</button>
        <button class="btn ghost" id="c-buscar-registrado" title="Buscar cliente de cualquier sucursal para iniciar conversación">Buscar registrado en IMPAR</button>
@@ -73,9 +78,12 @@ export async function vistaContactos() {
      <td class="hide-m">${esc(c.tel || '—')}</td>
      <td class="hide-m">${c.direccion ? `<span title="${esc(c.direccion)}">📍 ${esc(c.direccion.slice(0, 32))}${c.direccion.length > 32 ? '…' : ''}</span>` : '—'}</td>
      <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-       <span>${esc(c.responsable || 'Libre')}</span>
-       ${['admin','gerente','jefe'].includes(S.usuario.rol) ?
-         `<button class="btn ghost sm" data-cambiar-responsable="${c.id}" title="Reasignar contacto">Cambiar</button>` : ''}
+       <span>${c.responsable ? esc(c.responsable) : '<b style="color:var(--warn)">Libre</b>'}</span>
+       ${!c.responsable_id && puedeTomar() ?
+         `<button class="btn sm" data-tomar-contacto="${c.id}" title="Asignármelo">Tomar</button>` : ''}
+       ${c.responsable_id !== S.usuario.id || !puedeTomar() ?
+         `<button class="btn ghost sm" data-cambiar-responsable="${c.id}" title="Asignar a otro empleado o a mí">Cambiar</button>` :
+         `<button class="btn ghost sm" data-cambiar-responsable="${c.id}" title="Pasar a otro empleado">Pasar</button>`}
        </div></td>
      <td>${c.etapa_abierta ? `<span class="tag t-re">Abierta · ${esc(etapa(c.etapa_abierta).nombre)}</span>`
        : `<span style="color:var(--muted)">${c.n_negociaciones} cerradas</span>`}</td>
@@ -101,6 +109,15 @@ export async function vistaContactos() {
   $$('[data-360]').forEach(b => b.onclick = () => ficha360(b.dataset['360']));
   $$('[data-cambiar-responsable]').forEach(b=>b.onclick=()=>cambiarResponsableContacto(
     b.dataset.cambiarResponsable,cs.find(c=>c.id===b.dataset.cambiarResponsable)));
+  $$('[data-tomar-contacto]').forEach(b=>b.onclick=async()=>{
+    if(b.disabled)return;b.disabled=true;b.textContent='Tomando…';
+    try{
+      const r=await patch(`/contactos/${b.dataset.tomarContacto}/responsable`,{responsableId:S.usuario.id});
+      toast(`${r.cliente} ahora es tu contacto${r.movidas?` · ${r.movidas} negociación(es) abierta(s) a tu cargo`:''}.`,'ok');
+      await vistaContactos();
+    }catch(e){toast(e.message,'bad','Tomar contacto');b.disabled=false;b.textContent='Tomar';}
+  });
+  $$('[data-filtro-contactos]').forEach(b=>b.onclick=()=>{QF=b.dataset.filtroContactos;vistaContactos();});
   $$('[data-conversacion]').forEach(b => b.onclick = async () => {
     b.disabled = true;
     try { await abrirConversacion(b.dataset.conversacion); }
@@ -145,8 +162,8 @@ async function cambiarResponsableContacto(id,contacto) {
       <p class="sub">Responsable actual: <b>${esc(contacto?.responsable||'Sin asignar')}</b></p>
       <div class="field"><label for="c-nuevo-responsable">Nuevo responsable</label>
        <select id="c-nuevo-responsable"><option value="">Seleccioná un empleado…</option>
-         ${disponibles.map(u=>`<option value="${esc(u.id)}" ${actual===u.id?'selected':''}>
-           ${esc(u.nombre)} · ${esc(u.sucursal||'Sin sucursal')} (${esc(u.rol)})</option>`).join('')}
+         ${[...disponibles].sort((a,b)=>(b.yo?1:0)-(a.yo?1:0)).map(u=>`<option value="${esc(u.id)}" ${actual===u.id?'selected':''}>
+           ${u.yo?'Yo · ':''}${esc(u.nombre)} · ${esc(u.sucursal||'Sin sucursal')} (${esc(u.rol)})</option>`).join('')}
        </select></div>
       <p class="sub">Se transferirán las negociaciones abiertas de este cliente.
       Se conservarán los mensajes, adjuntos y negociaciones cerradas.</p>
@@ -393,7 +410,7 @@ export async function ficha360(id) {
        <div class="field"><label>Documento</label><input id="f-doc" value="${esc(c.doc || '')}"></div></div>
       <div class="row"><div class="field"><label>Ciudad</label><input id="f-ciu" value="${esc(c.ciudad || '')}"></div>
        <div class="field"><label>Responsable</label><input value="${esc(c.responsable || 'Libre')}" disabled>
-        ${['admin','gerente','jefe'].includes(S.usuario.rol) ? '<button class="btn ghost sm" type="button" id="f-cambiar-responsable" style="margin-top:6px">Cambiar responsable</button>' : ''}
+        <button class="btn ghost sm" type="button" id="f-cambiar-responsable" style="margin-top:6px">Cambiar responsable</button>
       </div></div>
       <div class="field"><label>Dirección ${c.lat != null ? '· <span style="color:var(--ok)">ubicada en el mapa</span>' : ''}</label>
         <input id="f-dir" value="${esc(c.direccion || '')}"></div>

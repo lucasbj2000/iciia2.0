@@ -51,12 +51,12 @@ r.post('/:id/conversacion', requiere(), async (req, res) => {
   } catch (e) { if (!e.status) console.error('[conversación contacto]', e.message); res.status(e.status || 500).json({ error: e.status ? e.message : 'No se pudo iniciar la conversación. Intentá nuevamente.' }); }
 });
 
-/* Reasignación desde Contactos: admin, gerencia y jefaturas de su equipo. */
-r.get('/responsables/disponibles', requiere('admin','gerente','jefe'), async(req,res)=>{
+/* Reasignación desde Contactos: todos los usuarios toman contactos libres o los pasan a otro empleado. */
+r.get('/responsables/disponibles', requiere(), async(req,res)=>{
   try{res.set('Cache-Control','no-store');res.json(await consultarDestinos(req));}
   catch(e){res.status(e.status||500).json({error:e.status?e.message:'Error consultando responsables.'});}
 });
-r.patch('/:id/responsable',requiere('admin','gerente','jefe'),async(req,res)=>{
+r.patch('/:id/responsable',requiere(),async(req,res)=>{
   try{
     const resultado=await cambiarResponsable(req,req.params.id,req.body?.responsableId);
     if(!resultado.sinCambios){
@@ -64,9 +64,11 @@ r.patch('/:id/responsable',requiere('admin','gerente','jefe'),async(req,res)=>{
         resultado.cliente+': '+resultado.anterior+' → '+resultado.destino,req.ip)
         .catch(e=>console.warn('[contactos] auditoría:',e.message));
       emitir(req.empresaId,'neg:recargar',{});
-      await notificar(req.empresa,'transfer',
-        {origenUsr:req.user.nombre,cliente:resultado.cliente},
-        [resultado.destinoId]).catch(e=>console.warn('[contactos] aviso:',e.message));
+      // Avisar al nuevo responsable, salvo que se lo haya asignado él mismo.
+      if(resultado.destinoId!==req.user.id)
+        await notificar(req.empresa,'transfer',
+          {origenUsr:req.user.nombre,cliente:resultado.cliente},
+          [resultado.destinoId]).catch(e=>console.warn('[contactos] aviso:',e.message));
     }
     res.json({ok:true,...resultado});
   }catch(e){
@@ -77,22 +79,27 @@ r.patch('/:id/responsable',requiere('admin','gerente','jefe'),async(req,res)=>{
 
 r.get('/', requiere(), async (req, res) => {
   const busca = String(req.query.q || '').trim().toLowerCase();
+  const libres = req.query.filtro === 'libres';
+  // Al buscar o al pedir los libres, todos ven la base completa de IMPAR.
+  // Sin búsqueda, cada agente ve sus contactos (lista corta y útil).
+  const global = busca.length >= 2 || libres;
   const cond = ['c.empresa_id = $1'], params = [req.empresaId];
   let agenteParam = '';
 
   if (req.user.rol === 'agente') {
     params.push(req.user.id);
     agenteParam = `$${params.length}`;
-    cond.push(`(c.responsable_id = ${agenteParam}
+    if (!global) cond.push(`(c.responsable_id = ${agenteParam}
       OR EXISTS (SELECT 1 FROM negociaciones nx
                   WHERE nx.contacto_id=c.id AND nx.empresa_id=c.empresa_id AND nx.agente_id=${agenteParam}))`);
-  } else if (req.user.rol === 'jefe') {
+  } else if (req.user.rol === 'jefe' && !global) {
     const { rows } = await q('SELECT id FROM usuarios WHERE empresa_id=$1 AND (equipo=$2 OR id=$3)',
       [req.empresaId, req.user.usuario, req.user.id]);
     params.push(rows.map(x => x.id));
     cond.push(`(c.responsable_id = ANY($${params.length}::uuid[]) OR c.responsable_id IS NULL)`);
   }
 
+  if (libres) cond.push('c.responsable_id IS NULL');
   if (busca) {
     params.push(`%${busca}%`);
     cond.push(`(lower(c.nombre) LIKE $${params.length} OR c.tel LIKE $${params.length}
@@ -109,9 +116,9 @@ r.get('/', requiere(), async (req, res) => {
   const { rows } = await q(
     `SELECT c.*, u.nombre AS responsable,
             (SELECT COUNT(*) FROM negociaciones n
-              WHERE n.contacto_id=c.id${filtroAgente}) AS n_negociaciones,
+              WHERE n.contacto_id=c.id AND n.empresa_id=c.empresa_id) AS n_negociaciones,
             (SELECT n.etapa FROM negociaciones n
-              WHERE n.contacto_id=c.id AND n.etapa = ANY(${activasParam})${filtroAgente}
+              WHERE n.contacto_id=c.id AND n.empresa_id=c.empresa_id AND n.etapa = ANY(${activasParam})
               ORDER BY n.creado ASC LIMIT 1) AS etapa_abierta,
             (SELECT n.id FROM negociaciones n
               WHERE n.contacto_id=c.id AND n.etapa = ANY(${activasParam})${filtroAgente}

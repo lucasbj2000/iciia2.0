@@ -1,26 +1,25 @@
 /** IMPAR: asignación manual de responsable en Contactos.
- * Preserva autoría e historial de todas las conversaciones cerradas.
+ * Todo usuario puede tomar un contacto libre o pasarlo a otro empleado activo
+ * (pedido de IMPAR, 30/10/2026: había contactos mal asignados o libres que nadie podía tomar).
+ * Preserva autoría e historial de todas las conversaciones cerradas; queda auditado.
  */
 import {q,tx} from './db.mjs';
 
 const fallo=(status,error)=>{throw Object.assign(new Error(error),{status});};
 const encargado=(u)=>u && u.activo && !u.oculto && u.rol!=='admin';
-const mando=(u)=>['admin','gerente','jefe'].includes(u?.rol);
+const habilitado=(u)=>u && u.activo!==false;
 
 export async function consultarDestinos(req){
-  if(!mando(req.user))fallo(403,'No tenés permiso para cambiar responsables.');
+  if(!habilitado(req.user))fallo(403,'No tenés permiso para cambiar responsables.');
   const {rows}=await q(
-    "SELECT id,nombre,usuario,rol,sucursal,equipo FROM usuarios "+
+    "SELECT id,nombre,usuario,rol,sucursal FROM usuarios "+
     "WHERE empresa_id=$1 AND activo AND NOT oculto AND rol<>'admin' ORDER BY sucursal,nombre",
     [req.empresaId]);
-  const visibles=req.user.rol==='jefe'
-    ? rows.filter(u=>u.id===req.user.id || u.equipo===req.user.usuario)
-    : rows;
-  return visibles.map(({id,nombre,usuario,rol,sucursal})=>({id,nombre,usuario,rol,sucursal}));
+  return rows.map(({id,nombre,usuario,rol,sucursal})=>({id,nombre,usuario,rol,sucursal,yo:id===req.user.id}));
 }
 
 export async function cambiarResponsable(req,contactoId,destinoId){
-  if(!mando(req.user))fallo(403,'No tenés permiso para cambiar responsables.');
+  if(!habilitado(req.user))fallo(403,'No tenés permiso para cambiar responsables.');
   if(!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(contactoId)) ||
      !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(destinoId)))
     fallo(422,'Seleccioná un contacto y un empleado válidos.');
@@ -35,14 +34,6 @@ export async function cambiarResponsable(req,contactoId,destinoId){
       [req.empresaId,destinoId,c.responsable_id]);
     const nuevo=us.find(x=>x.id===destinoId),anterior=us.find(x=>x.id===c.responsable_id);
     if(!encargado(nuevo))fallo(422,'Elegí un responsable activo y habilitado.');
-    if(req.user.rol==='jefe'){
-      if(c.responsable_id && c.responsable_id!==req.user.id && anterior?.equipo!==req.user.usuario)
-        fallo(403,'Solo podés reasignar contactos de tu equipo.');
-      if(!c.responsable_id && c.sucursal!==req.user.sucursal)
-        fallo(403,'Este contacto no pertenece a tu sucursal.');
-      if(nuevo.id!==req.user.id && nuevo.equipo!==req.user.usuario)
-        fallo(403,'Elegí un empleado de tu equipo.');
-    }
     if(c.responsable_id===nuevo.id)return {
       sinCambios:true,cliente:c.nombre,destino:nuevo.nombre,movidas:0
     };
@@ -65,13 +56,14 @@ export async function cambiarResponsable(req,contactoId,destinoId){
         'INSERT INTO transferencias (empresa_id,negociacion_id,de_nombre,a_nombre,por,nota) '+
         'VALUES ($1,$2,$3,$4,$5,$6)',
         [req.empresaId,n.id,anterior?.nombre||'Sin asignar',nuevo.nombre,req.user.nombre,
-          'Responsable cambiado directamente desde Contactos']);
+          (anterior?'Responsable cambiado desde Contactos':'Contacto libre tomado desde Contactos')]);
       await db.query(
         'INSERT INTO historial (empresa_id,negociacion_id,txt,por) VALUES ($1,$2,$3,$4)',
         [req.empresaId,n.id,'Responsable actualizado desde Contactos: '+
           (anterior?.nombre||'Sin asignar')+' → '+nuevo.nombre,req.user.nombre]);
     }
     return {sinCambios:false,cliente:c.nombre,destino:nuevo.nombre,
-      destinoId:nuevo.id,anterior:anterior?.nombre||'Sin asignar',movidas:abiertas.length};
+      destinoId:nuevo.id,anterior:anterior?.nombre||'Sin asignar',anteriorId:anterior?.id||null,
+      movidas:abiertas.length};
   });
 }
