@@ -100,6 +100,8 @@ const edicion = (id, texto, ts, extra = {}) => ({
   assert.equal(await e.recibirEdicion(mod, edicion('M4', '   ', 1800000100), canal, 'c'), false);
   assert.equal(e.mensajes.get('M4').txt, 'x');
   assert.equal(e.inbox.size, 0);
+  const motivos = Object.fromEntries(e.sesiones.get('c').edicionesIgnoradas);
+  assert.equal(motivos.propia, 1); assert.equal(motivos.chat_excluido, 2); assert.equal(motivos['sin_texto:conversation'], 1);
 }
 
 // 5) La edición llega por messages.upsert (protocolMessage) y también por messages.update: se aplica una vez.
@@ -134,7 +136,7 @@ const edicion = (id, texto, ts, extra = {}) => ({
   assert.ok(ba.includes('if (cambio?.update?.message?.editedMessage) {') && ba.includes('recibirEdicion(mod,cambio,canal,id)'),
     'messages.update deriva ediciones sin tocar acuses');
   assert.ok(ba.includes('ediciones=${S.edicionesWA||0}'), 'Contador de ediciones en el log');
-  assert.ok(ba.includes('[wa:no_admitidos]'), 'Diagnóstico de tipos no admitidos');
+  assert.ok(ba.includes('[wa:no_admitidos]') && ba.includes('[wa:ediciones] por_update='), 'Diagnósticos sin contenido');
   assert.ok(leer('src/worker.mjs').includes('editado: m.payload?.editado || null'), 'Worker pasa la edición');
   const core = leer('src/core.mjs');
   assert.equal((core.match(/remitente_numero,cita,editado\)/g) || []).length, 2, 'Ambas inserciones guardan la edición');

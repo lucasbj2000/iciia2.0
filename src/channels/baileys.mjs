@@ -130,6 +130,9 @@ export async function iniciar(canal) {
       if (S.sock !== sock) { clearInterval(estadoRecepcion); return; }
       if (S.estado !== 'conectado') return;
       console.log(`[wa:recepcion] estado=${S.estado} buffer=${Boolean(sock.ev?.isBuffering?.())} eventos=${S.eventosWA||0} mensajes=${S.mensajesWA||0} guardados=${S.totalEntradas||0} sin_contenido=${S.sinContenidoWA||0} no_admitidos=${S.tipoNoAdmitidoWA||0} errores=${S.erroresRecepcionWA||0} recuperados=${S.recuperadosWA||0} avisos_no_leidos=${S.noDescifradosWA||0} tardios=${S.tardiosWA||0} ediciones=${S.edicionesWA||0} esperando_descifrado=${S.noDescifrados?.size||0}`);
+      const mapa=m=>m?.size?[...m].map(([t,n])=>t+':'+n).join(','):'-';
+      if (S.edicionesPorUpdate || S.protocolosVistos?.size || S.edicionesIgnoradas?.size)
+        console.log(`[wa:ediciones] por_update=${S.edicionesPorUpdate||0} protocolos=${mapa(S.protocolosVistos)} ignoradas=${mapa(S.edicionesIgnoradas)}`);
       if (S.tiposNoAdmitidos?.size) console.log(`[wa:no_admitidos] ${[...S.tiposNoAdmitidos].map(([t,n])=>t+':'+n).join(' ')}`);
       console.log(`[wa:transporte] nodos=${transporte.nodos} cifrados=${transporte.cifrados} no_disponibles=${transporte.noDisponibles} msmsg=${transporte.msmsg} errores_cola=${transporte.erroresCola}`);
     },60000);
@@ -231,6 +234,7 @@ export async function iniciar(canal) {
       if (S.sock !== sock) return;
       for (const cambio of cambios || []) {
         if (cambio?.update?.message?.editedMessage) {
+          S.edicionesPorUpdate=(S.edicionesPorUpdate||0)+1;
           recibirEdicion(mod,cambio,canal,id).catch(e =>
             console.warn('[wa:ediciones] Edición no registrada:',e.name));
           continue;
@@ -387,16 +391,22 @@ async function reemplazarNoDescifrado(mod,m,contenido,canal,id,{etiqueta,ubicaci
 }
 
 /** El cliente editó un mensaje: actualizar el texto y conservar el original. */
+function ignorarEdicion(id,motivo){
+  const S=sesiones.get(id);
+  if(S){S.edicionesIgnoradas ||= new Map();S.edicionesIgnoradas.set(motivo,(S.edicionesIgnoradas.get(motivo)||0)+1);}
+  return false;
+}
 async function recibirEdicion(mod,cambio,canal,id){
   const key=cambio?.key;
-  if(!key?.id || key.fromMe)return false;
+  if(!key?.id)return ignorarEdicion(id,'sin_id');
+  if(key.fromMe)return ignorarEdicion(id,'propia');
   const jid=String(key.remoteJid||'');
-  if(!jid || jid.endsWith('@g.us') || jid.endsWith('@broadcast') || jid.endsWith('@newsletter'))return false;
+  if(!jid || jid.endsWith('@g.us') || jid.endsWith('@broadcast') || jid.endsWith('@newsletter'))return ignorarEdicion(id,'chat_excluido');
   const bruto=cambio.update?.message?.editedMessage?.message;
   const c=mod.normalizeMessageContent?.(bruto) || bruto;
   const texto=String(c?.conversation || c?.extendedTextMessage?.text || c?.imageMessage?.caption ||
     c?.videoMessage?.caption || c?.documentMessage?.caption || '').trim();
-  if(!texto)return false;
+  if(!texto)return ignorarEdicion(id,'sin_texto:'+Object.keys(c||{}).sort().join('+').slice(0,60));
   const ts=fechaDe({messageTimestamp:cambio.update?.messageTimestamp});
   const ext=String(key.id);
   const S=sesiones.get(id);
@@ -427,7 +437,7 @@ async function recibirEdicion(mod,cambio,canal,id){
     [canal.empresa_id,id,ext,remitente,'',texto,null,
      JSON.stringify({ts,archivoId:null,editado:{original:null,veces:1,ts}}),'pendiente']);
   if(nuevo[0]?.id){despertarWorker();return aplicada();}
-  return false;
+  return ignorarEdicion(id,'sin_cambio');
 }
 
 /** Respuesta citada: ID WhatsApp del mensaje citado y vista previa corta. */
@@ -475,6 +485,9 @@ async function recibir(mod,m,canal,id){
   const EDICION=mod.proto?.Message?.ProtocolMessage?.Type?.MESSAGE_EDIT ?? 14;
   const protocolo=contenido.protocolMessage;
   if(protocolo){
+    const S2=sesiones.get(id);
+    if(S2){const t=String(protocolo.type??'?');S2.protocolosVistos ||= new Map();
+      S2.protocolosVistos.set(t,(S2.protocolosVistos.get(t)||0)+1);}
     if(Number(protocolo.type)===EDICION && protocolo.key?.id && protocolo.editedMessage){
       const ms=Number(protocolo.timestampMs?.toNumber?.() ?? protocolo.timestampMs);
       await recibirEdicion(mod,{key:{...m.key,id:String(protocolo.key.id)},
