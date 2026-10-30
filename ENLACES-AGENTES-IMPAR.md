@@ -3,7 +3,7 @@
 ## Comportamiento
 
 - Cada usuario activo tiene un enlace **directo a WhatsApp**: `https://wa.me/595976992667?text=…`
-  con el saludo «Hola, vengo de parte de <Nombre> 👋» y la marca invisible. No pasa por el dominio
+  con el saludo «Hola, vengo de parte de <Nombre>». No pasa por el dominio
   del CRM, por eso no se cuentan aperturas; sí se cuentan los clientes recibidos.
   El número se puede cambiar con `IMPAR_WA_ENLACE` en `.env` (los enlaces ya enviados no cambian).
 - Opcional: `https://crm.iciia.tech/w/<usuario>` sigue disponible como enlace corto que redirige
@@ -12,13 +12,13 @@
   directamente a ese usuario, sin bot de recepción ni reparto por sucursal, aunque el cliente
   ya tuviera otro responsable o una negociación abierta con otra persona. Queda en el historial
   «🔗 Asignado a <Nombre> por su enlace de WhatsApp» y el usuario recibe la notificación.
-- Atribución: WhatsApp no informa desde qué enlace llegó un cliente, por eso viaja en el saludo:
-  1. Marca invisible con el usuario (caracteres U+200B/U+200C entre delimitadores U+200D).
-     Se quita del mensaje guardado; solo se borra la marca exacta (los emojis compuestos usan U+200D).
-  2. Respaldo: el nombre completo del agente en «vengo de parte de …» (sin tildes ni mayúsculas;
-     un nombre incompleto o repetido no asigna).
-  Si el cliente borra el saludo entero y escribe otra cosa, no hay forma de saber de qué enlace vino:
-  entra por el flujo normal.
+- Atribución: WhatsApp no informa desde qué enlace llegó un cliente, por eso viaja en el saludo
+  «Hola, vengo de parte de <Nombre completo>». Se compara sin tildes ni mayúsculas, y una letra
+  dañada por WhatsApp (signo de reemplazo) cuenta como comodín. Un nombre incompleto o repetido no asigna.
+  Si el cliente borra el saludo entero y escribe otra cosa, entra por el flujo normal.
+- Prueba real del 29/10/2026: la primera versión llevaba una marca invisible y un emoji; WhatsApp los
+  mostró como signos de reemplazo. El saludo actual no lleva ninguno de los dos. Los mensajes que
+  lleguen con la marca anterior se siguen reconociendo.
 - Usuarios: botón 🔗 junto a «Cerrar sesión» con su enlace, botón Copiar y métricas de 30 días.
 - Administración → «🔗 Enlaces WhatsApp»: todos los enlaces, aperturas y clientes recibidos.
 - Usuarios inactivos: su enlace abre WhatsApp sin saludo y no asigna.

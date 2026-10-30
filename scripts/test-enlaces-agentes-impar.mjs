@@ -23,30 +23,37 @@ const q = async (sql, p) => {
   throw new Error('SQL inesperado');
 };
 
-// 1) Cada usuario: marca invisible que se lee aunque el cliente agregue su consulta.
+// 1) Cada usuario: saludo simple (sin marca ni emoji) que asigna aunque el cliente agregue su consulta.
 for (const u of USUARIOS) {
   const t = E.textoPrecargado(u);
-  assert.equal(E.leerCodigo(t), E.codigoDe(E.slugDeUsuario(u.usuario)));
-  assert.equal(E.quitarMarca(t), `Hola, vengo de parte de ${u.nombre} 👋`, 'El cliente ve un saludo normal');
-  const escrito = t + '\nNecesito 3 resmas A4 y cartulina 🙏';
-  const r = await E.leerEnlace(q, 'impar', escrito);
+  assert.equal(t, `Hola, vengo de parte de ${u.nombre}`);
+  assert.ok(!/[\u200B-\u200D\uFFFD]|\p{Extended_Pictographic}/u.test(t), 'Sin caracteres que WhatsApp corrompe');
+  const r = await E.leerEnlace(q, 'impar', t + '\nNecesito 3 resmas A4 y cartulina 🙏');
   assert.equal(r.agente?.id, u.id, 'Asigna a ' + u.nombre);
-  assert.equal(r.via, 'marca');
-  assert.equal(r.texto, `Hola, vengo de parte de ${u.nombre} 👋\nNecesito 3 resmas A4 y cartulina 🙏`, 'Se guarda sin la marca');
+  assert.equal(r.via, 'nombre');
   assert.equal(E.enlacePublico('https://crm.iciia.tech/', u), 'https://crm.iciia.tech/w/' + E.slugDeUsuario(u.usuario));
   const wa = new URL(E.enlaceWhatsApp(u));
   assert.equal(wa.origin + wa.pathname, 'https://wa.me/595976992667');
-  assert.equal(E.leerCodigo(wa.searchParams.get('text')), E.codigoDe(E.slugDeUsuario(u.usuario)), 'La marca viaja en el enlace');
-  assert.ok(E.enlaceWhatsApp(u).length < 400, 'Enlace directo de largo razonable');
+  assert.equal(wa.searchParams.get('text'), t);
+  assert.ok(E.enlaceWhatsApp(u).length < 120, 'Enlace corto');
 }
 assert.equal(new Set(USUARIOS.map(u => E.slugDeUsuario(u.usuario))).size, USUARIOS.length, 'Enlaces únicos');
-assert.equal(new Set(USUARIOS.map(u => E.codigoDe(E.slugDeUsuario(u.usuario)))).size, USUARIOS.length, 'Códigos únicos entre los usuarios');
-// La marca larga anterior sigue funcionando.
+
+// 1b) Mensaje real recibido con el enlace anterior (marca y emoji dañados por WhatsApp).
 {
-  const u = USUARIOS[3], t = 'Hola,' + E.codificarLargo(E.slugDeUsuario(u.usuario)) + ' vengo';
-  const r = await E.leerEnlace(q, 'impar', t);
-  assert.equal(r.agente?.id, u.id); assert.equal(r.texto, 'Hola, vengo');
+  const r = await E.leerEnlace(q, 'impar', 'Hola,\uFFFD\uFFFD\uFFFD\uFFFD vengo de parte de Administrador IMPAR \uFFFD');
+  assert.equal(r.agente?.nombre, 'Administrador IMPAR');
+  assert.equal((await E.leerEnlace(q, 'impar', 'Hola, vengo de parte de Ariel Pav\uFFFD\uFFFDn, ¿tienen sobres?')).agente?.nombre, 'Ariel Pavón', 'Tilde dañada');
+  assert.equal((await E.leerEnlace(q, 'impar', 'Hola, vengo de parte de \uFFFD\uFFFD')).agente, null, 'Sin nombre legible no asigna');
 }
+// 1c) Enlaces anteriores con marca invisible siguen reconociéndose.
+for (const u of [USUARIOS[1], USUARIOS[3]]) {
+  const corto = await E.leerEnlace(q, 'impar', 'Hola,' + E.codificar(E.slugDeUsuario(u.usuario)) + ' hola');
+  const largo = await E.leerEnlace(q, 'impar', 'Hola,' + E.codificarLargo(E.slugDeUsuario(u.usuario)) + ' hola');
+  assert.equal(corto.agente?.id, u.id); assert.equal(largo.agente?.id, u.id);
+  assert.equal(corto.texto, 'Hola, hola'); assert.equal(corto.via, 'marca');
+}
+assert.equal(new Set(USUARIOS.map(u => E.codigoDe(E.slugDeUsuario(u.usuario)))).size, USUARIOS.length, 'Códigos únicos entre los usuarios');
 
 // 2) Respaldo por nombre si WhatsApp quitara los caracteres invisibles; nombres repetidos no confunden.
 {
