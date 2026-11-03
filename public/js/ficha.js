@@ -1,4 +1,5 @@
 /* ============ Ficha de negociación · adjuntos · botones · ubicaciones ============ */
+import { tildesHTML } from './animaciones.js';
 import {
   $, $$, esc, S, get, post, patch, put, del, gs, fdate, fd, ago, toast, modal, cerrar,
   confirmar, fx, esAdmin, esMando, etapa, ORIGENES, vacio, vibrar, esMovil
@@ -164,6 +165,9 @@ function pintar() {
   $('.modal').querySelectorAll('details.ficha-contexto, details.ficha-transferencias, details.chat-tools').forEach(panel => { panel.open = false; });
   $('.mask')?.classList.add('conversation-mask');
   $('.modal').dataset.negociacionId = n.id;
+  // Escuchar si el cliente está escribiendo (WhatsApp); se renueva mientras la conversación siga abierta.
+  const suscribir = () => { if ($('.conversation-modal')?.dataset.negociacionId === n.id) post(`/negociaciones/${n.id}/presencia`, {}).catch(() => {}); else clearInterval(window._presenciaTimer); };
+  clearInterval(window._presenciaTimer); suscribir(); window._presenciaTimer = setInterval(suscribir, 8 * 60000);
   const cb = $('#chatbox'); if (cb) { cb.innerHTML = ''; actualizarMensajes(cb, historialVista?.mensajes || n.mensajes || [], mensajeHTML, true); activarVisor(cb); }
   conectar(n);
 }
@@ -190,9 +194,7 @@ function mensajeHTML(m) {
          ? `<a class="ubi" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener">
               <span class="pin">📍</span><div style="min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.nombre || 'Ubicación compartida')}</b>
               <small style="color:var(--muted)">${esc(u.direccion || `${u.lat}, ${u.lon}`)}</small></div></a>` : '';
-       const estadoWA=m.wa_estado_meta==='failed' ? ' · ⚠ Meta no entregó' : m.wa_ack == null ? '' : Number(m.wa_ack)>=4
-         ? ' · ✓✓ Leído' : Number(m.wa_ack)>=3
-           ? ' · ✓✓ Entregado' : ' · ✓ Enviado, entrega no confirmada';
+       const estadoWA=m.wa_estado_meta==='failed' ? ' · ⚠ Meta no entregó' : m.wa_ack == null ? '' : ' · ' + tildesHTML(m.wa_ack);
        // WhatsApp avisó que el teléfono del cliente no pudo descifrarlo: probablemente ve «Esperando mensaje».
        // El CRM lo resuelve solo: reenvía por la otra ruta. El botón queda como respaldo si no hay otra ruta.
        const textoNoVisto = m.wa_rescate==='reenviado' ? '↻ El cliente no pudo leerlo; se reenvió automáticamente por la otra ruta.'

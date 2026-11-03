@@ -262,6 +262,17 @@ export async function iniciar(canal) {
           console.warn('[wa:entregas] Estado no registrado:',e.message));
       }
     });
+    // «Escribiendo…» / «grabando audio»: solo para contactos con una conversación abierta
+    // en el CRM (suscripción temporal). No se guarda nada; se avisa por tiempo real.
+    sock.ev.on('presence.update', ({ id: jidPres, presences }) => {
+      if (S.sock !== sock || !S.presencias?.size) return;
+      const clave = String(jidPres || '').replace(/:[0-9]+@/, '@');
+      const info = S.presencias.get(clave);
+      if (!info || info.hasta < Date.now()) return;
+      const estados = Object.values(presences || {}).map(p => p?.lastKnownPresence);
+      const escribiendo = estados.includes('composing'), grabando = estados.includes('recording');
+      emitir(canal.empresa_id, 'escribiendo', { id: info.negociacionId, escribiendo: escribiendo || grabando, grabando });
+    });
     sock.ev.on('chats.phoneNumberShare', par => {
       if(S.sock!==sock)return;
       const pareja=validarParejaWA(par?.jid,par?.lid);
@@ -737,6 +748,7 @@ export async function enviar(canal, destino, texto, adjunto, opciones = {}) {
   return transmitir({ text: texto });
 }
 
+/** Suscripción temporal (10 min) a la presencia de un contacto con la conversación abierta. */
 export async function desvincular(canal) {
   const S = sesiones.get(canal.id);
   if (S?.reintentoTimer) { clearTimeout(S.reintentoTimer); S.reintentoTimer = null; }
@@ -760,6 +772,23 @@ async function avisar(canal, estado) {
 }
 
 /** Pre-levanta las sesiones ya vinculadas y las vigila. */
+export async function suscribirPresencia(canal, destino, negociacionId) {
+  const S = sesiones.get(canal.id);
+  if (!S?.sock || S.estado !== 'conectado') return false;
+  const pn = String(destino || '').includes('@') ? String(destino) : `${String(destino || '').replace(/\D/g, '')}@s.whatsapp.net`;
+  const jids = new Set([pn]);
+  try { const r = await rutaParaEnvioWA(canal, pn); if (r?.destino) jids.add(r.destino); } catch {}
+  S.presencias ||= new Map();
+  const hasta = Date.now() + 10 * 60000;
+  for (const [k, v] of S.presencias) if (v.hasta < Date.now()) S.presencias.delete(k);
+  for (const jid of jids) {
+    if (!/@(s\.whatsapp\.net|lid)$/.test(jid)) continue;
+    S.presencias.set(jid, { negociacionId, hasta });
+    try { await S.sock.presenceSubscribe(jid); } catch (e) { console.warn('[wa:presencia] Suscripción no disponible:', e.name); }
+  }
+  return true;
+}
+
 export async function prelevantar() {
   const mod = await cargarBaileys();
   if (!mod) return;

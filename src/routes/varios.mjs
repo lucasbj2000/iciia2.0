@@ -38,6 +38,20 @@ r.post('/perfil/password', requiere(), async (req, res) => {
   res.json({ ok: true });
 });
 
+/** Resumen del día del usuario para el cierre de jornada (zona horaria de Paraguay). */
+r.get('/resumen-dia', requiere(), async (req, res) => {
+  const hoy = "date_trunc('day', now() AT TIME ZONE 'America/Asuncion') AT TIME ZONE 'America/Asuncion'";
+  const [atendidos, ganadas, mensajes] = await Promise.all([
+    q(`SELECT COUNT(DISTINCT n.contacto_id)::int AS n FROM mensajes m JOIN negociaciones n ON n.id=m.negociacion_id
+        WHERE m.empresa_id=$1 AND m.autor_id=$2 AND m.dir='out' AND NOT m.bot AND m.ts >= ${hoy}`, [req.empresaId, req.user.id]),
+    q(`SELECT COUNT(*)::int AS n, COALESCE(SUM(COALESCE(NULLIF(monto_cierre,0),valor,0)),0)::float AS monto FROM negociaciones
+        WHERE empresa_id=$1 AND agente_id=$2 AND etapa='ganado' AND actualizado >= ${hoy}`, [req.empresaId, req.user.id]),
+    q(`SELECT COUNT(*)::int AS n FROM mensajes WHERE empresa_id=$1 AND autor_id=$2 AND dir='out' AND NOT bot AND ts >= ${hoy}`,
+      [req.empresaId, req.user.id])
+  ]);
+  res.json({ clientes: atendidos.rows[0].n, ventas: ganadas.rows[0].n, monto: ganadas.rows[0].monto, mensajes: mensajes.rows[0].n });
+});
+
 r.post('/disponibilidad', requiere(), async (req, res) => {
   const estado = String(req.body?.estado || '');
   await q('UPDATE usuarios SET disponibilidad=$2 WHERE id=$1', [req.user.id, estado]);

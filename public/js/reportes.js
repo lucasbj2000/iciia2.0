@@ -97,7 +97,7 @@ function graficoEvolucion(ns, ancho0 = 720) {
       ${ticks.map(v => `<line class="rep-gl" x1="${izq}" x2="${W - der}" y1="${y(v)}" y2="${y(v)}"/>
         <text class="rep-ytick" x="${izq - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join('')}
       ${cs.map(barra).join('')}
-      <path class="rep-line" d="${linea}"/>
+      <path class="rep-line" d="${linea}" pathLength="1"/>
       ${cs.map((c, i) => c.ganadas || i === ultimo ? `<circle class="rep-dot" cx="${cx(i)}" cy="${y(c.ganadas)}" r="4"/>` : '').join('')}
       ${cs.map((c, i) => i % cadaCuanto === 0 || i === ultimo
         ? `<text class="rep-xtick" x="${cx(i)}" y="${H - 8}" text-anchor="middle">${esc(c.etiqueta)}</text>` : '').join('')}
@@ -327,7 +327,9 @@ function pintar(d) {
   let anchoPrevio = 0;
   const dibujar = () => {
     const w = evol.clientWidth; if (!w || Math.abs(w - anchoPrevio) < 4) return;
+    const primera = !anchoPrevio;
     anchoPrevio = w; evol.innerHTML = graficoEvolucion(ns, w); conectarGrafico(evol);
+    if (primera) evol.querySelector('svg')?.classList.add('entra'); // se dibuja solo al abrir, no al redimensionar
   };
   dibujar();
   if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!evol.isConnected) return ro.disconnect(); dibujar(); }); ro.observe(evol); }

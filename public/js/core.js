@@ -105,7 +105,7 @@ export function toast(msg, tono = 'ok', titulo) {
   const ic = { ok: '✅', warn: '⚠️', bad: '⛔' }[tono] || '🔔';
   const el = document.createElement('div');
   el.className = 'toast ' + tono;
-  el.innerHTML = `<span class="ti">${ic}</span><div><b>${esc(titulo || 'iciia2.0')}</b><small>${esc(msg)}</small></div>`;
+  el.innerHTML = `<span class="ti">${ic}</span><div><b>${esc(titulo || 'iciia2.0')}</b><small>${esc(msg)}</small></div><i class="toast-tiempo" aria-hidden="true"></i>`;
   $('#toasts').appendChild(el);
   if (fx('notiSonido')) beep(tono);
   if (localStorage.getItem('impar_avisos') == null && fx('notiEscritorio') && 'Notification' in window && Notification.permission === 'granted') {

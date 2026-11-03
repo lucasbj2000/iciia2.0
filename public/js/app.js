@@ -1,10 +1,11 @@
 /* ============ Arranque, navegación y realtime ============ */
 import './tooltips.js';
 import { iconoClima, saludoHora } from './clima-animado.js';
+import { mostrarEscribiendo, estadoWhatsApp, bienvenida, correr } from './animaciones.js';
 import {
   $, $$, esc, S, api, get, post, patch, toast, modal, cerrar, ago, iniciales,
   fechaISO, saludo, fx, esAdmin, aplicarTema, aplicarFX, salir, DISPONIBILIDAD,
-  vacio, confeti, vibrar
+  vacio, confeti, vibrar, gs
 } from './core.js';
 import { vistaNegociaciones, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { vistaContactos } from './contactos.js?v=impar-busqueda-principal-20261019-3';
@@ -120,7 +121,9 @@ async function arrancar(fresco, respuestaLogin=null) {
   try { iniciarRenovacion(conectarRealtime); } catch (e) { console.warn('[impar] Renovación no disponible:',e.message); }
   try { iniciarControlTurnos(); } catch (e) { console.warn('[impar] Horarios no disponibles:',e.message); }
 
+  get('/canales/estado-whatsapp').then(r => { if (r.estado && r.estado !== 'conectado') estadoWhatsApp(r.estado); }).catch(() => {});
   if (fresco) {
+    bienvenida(S.usuario.nombre.split(' ')[0], saludoHora());
     toast(`${saludo()}, ${S.usuario.nombre.split(' ')[0]}. Sesión en ${S.empresa?.nombre || 'iciia2.0'}.`, 'ok', 'Bienvenido');
     setTimeout(() => {
       if (S.usuario.rol !== 'admin' && fx('natalicioObligatorio') && !S.usuario.nacimiento) modalNacimiento();
@@ -147,6 +150,9 @@ export function aplicarFXGlobal() { aplicarFX(); }
 function pintarDisponibilidad() {
   const d = DISPONIBILIDAD.find(x => x.id === S.usuario.disponibilidad) || DISPONIBILIDAD[0];
   $('#disp-dot').style.background = d.c;
+  $('#disp-dot').style.setProperty('--onda', d.c);
+  // La onda solo late mientras el agente recibe asignaciones.
+  $('#disp-dot').classList.toggle('live', !!d.recibe);
   $('#disp-txt').textContent = d.t;
 }
 
@@ -251,8 +257,12 @@ function conectarRealtime() {
     S.empresa = ctx.empresa; S.sucursales = ctx.sucursales;
     aplicarMarca(); aplicarFX(); pintarNav();
   });
+  es.addEventListener('escribiendo', e => {
+    const d = JSON.parse(e.data);
+    if ($('.conversation-modal')?.dataset.negociacionId === d.id) mostrarEscribiendo($('#chatbox'), d.escribiendo, d.grabando);
+  });
   es.addEventListener('canal:estado', e => {
-    try { actualizarEstadoCanal(JSON.parse(e.data)); }
+    try { const d = JSON.parse(e.data); estadoWhatsApp(d.estado); actualizarEstadoCanal(d); }
     catch (err) { console.warn('[IMPAR] Evento de canal incorrecto:',err.message); }
   });
   es.onerror = () => { /* EventSource reconecta solo */ };
@@ -317,8 +327,31 @@ export function modalDisponibilidad() {
     await post('/disponibilidad', { estado: b.dataset.disp });
     S.usuario.disponibilidad = b.dataset.disp;
     pintarDisponibilidad(); cerrar(); vibrar(12);
-    toast(`Estado: ${DISPONIBILIDAD.find(d => d.id === b.dataset.disp).t}`, 'ok', 'Disponibilidad');
+    if (['fuera', 'salida'].includes(b.dataset.disp)) resumenJornada();
+    else toast(`Estado: ${DISPONIBILIDAD.find(d => d.id === b.dataset.disp).t}`, 'ok', 'Disponibilidad');
   });
+}
+
+/* Cierre de jornada: lo que el agente hizo hoy, con las cifras que corren. */
+async function resumenJornada() {
+  let r;
+  try { r = await get('/resumen-dia'); } catch { return; }
+  const nombre = S.usuario.nombre.split(' ')[0];
+  const frase = r.ventas ? '¡Buen cierre!' : r.clientes ? 'Gracias por tu trabajo de hoy.' : 'Hasta mañana.';
+  modal(`<div class="modal-h"><h3>${frase}</h3><button class="x" data-cerrar aria-label="Cerrar">✕</button></div>
+    <div class="modal-b jornada">
+      <p class="sub" style="margin-top:0">${esc(nombre)}, este es tu resumen de hoy.</p>
+      <div class="jornada-cifras">
+        <div><b data-correr>${r.clientes}</b><span>${r.clientes === 1 ? 'cliente atendido' : 'clientes atendidos'}</span></div>
+        <div><b data-correr>${r.mensajes}</b><span>mensajes enviados</span></div>
+        <div><b data-correr>${r.ventas}</b><span>${r.ventas === 1 ? 'venta cerrada' : 'ventas cerradas'}</span></div>
+      </div>
+      ${r.monto ? `<p class="jornada-monto">Vendiste <b data-correr>${gs(r.monto)}</b></p>` : ''}
+      <div class="sop-pie"><button class="btn" data-cerrar>Listo</button></div></div>`);
+  $('.modal')?.classList.add('modal-jornada');
+  $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
+  $$('[data-correr]').forEach(correr);
+  if (r.ventas) confeti(30);
 }
 
 function modalNacimiento() {

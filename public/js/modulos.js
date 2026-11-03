@@ -1,4 +1,5 @@
 /* ============ Comunicación · Calendario · Reportes · Configuración ============ */
+import { guirnalda } from './animaciones.js';
 import {
   $, $$, esc, S, get, post, patch, del, put, gs, fd, fdate, ago, fechaISO, iniciales, toast,
   modal, cerrar, confirmar, fx, esAdmin, esMando, etapa, bajar, vacio, skeleton,
@@ -180,7 +181,9 @@ function pintarCalendario() {
       ${evs.length > 3 ? `<div class="ev" style="background:transparent;color:var(--muted)">+${evs.length - 3} más</div>` : ''}</div>`;
   }
   const prox = proximos(30);
+  const cumpleHoy = fx('cumpleanos') ? (datosCal.cumples || []).filter(c => c.md === hoy.slice(5)).map(c => c.nombre.split(' ')[0]) : [];
   $('#view').innerHTML = `<div class="section fx-vista">
+   ${cumpleHoy.length ? guirnalda(cumpleHoy) : ''}
    <div class="row" style="align-items:center;margin-bottom:14px">
      <div style="flex:none;display:flex;gap:7px;align-items:center">
        <button class="btn ghost sm" id="cal-prev">‹</button>
@@ -207,7 +210,7 @@ function pintarCalendario() {
          || vacio('📅', 'Sin eventos próximos', '')}</div>
        <div class="card-box"><h3>🎂 Cumpleaños del equipo</h3>
         ${(datosCal.cumples || []).map(c => `<div style="display:flex;gap:9px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)">
-          <div class="avatar" style="width:28px;height:28px;font-size:11px">${c.foto ? `<img src="${esc(c.foto)}" alt="">` : iniciales(c.nombre)}</div>
+          <div class="avatar" style="width:28px;height:28px;font-size:12px">${c.foto ? `<img src="${esc(c.foto)}" alt="">` : iniciales(c.nombre)}</div>
           <div style="flex:1"><b style="font-size:var(--fs-sm)">${esc(c.nombre)}</b></div>
           <small style="color:var(--muted)">${c.md.slice(3)}/${c.md.slice(0,2)}</small></div>`).join('')
           || vacio('🎂', 'Sin fechas cargadas', 'Se completan desde el perfil')}</div></div></div></div>`;

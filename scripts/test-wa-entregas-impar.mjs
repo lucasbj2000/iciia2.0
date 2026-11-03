@@ -57,7 +57,7 @@ assert.ok(worker.includes('await registrarEnvioImpar'),'Persistir ID de mensaje'
 assert.ok(worker.includes(".catch(e=>console.warn('[wa:entregas]"),'No duplicar envío ante error de auditoría');
 assert.ok(ruta.includes('media_nombre,mensaje_id'),'Correlación exacta outbox con mensaje interno');
 assert.ok(historico.includes('we.ack AS wa_ack'),'Mostrar estado real');
-assert.ok(ficha.includes('✓ Enviado, entrega no confirmada'),'No declarar entrega sin ACK');
+assert.ok(ficha.includes('tildesHTML(m.wa_ack)') && leer('public/js/animaciones.js').includes("enviado: 'Enviado, entrega no confirmada'"),'No declarar entrega sin ACK');
 // El atajo manual a WhatsApp Web se retiró de la conversación a pedido de IMPAR:
 // el CRM resuelve los envíos (ruta automática y rescate) sin salir de la bandeja.
 assert.ok(!ficha.includes('f-wa-web') && !ficha.includes('WhatsApp Web (manual)'),'Sin atajo manual a WhatsApp Web');

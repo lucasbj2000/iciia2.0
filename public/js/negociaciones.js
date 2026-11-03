@@ -1,4 +1,5 @@
 /* ============ Tablero de negociaciones ============ */
+import { volar, volarDesde } from './animaciones.js';
 import {
   $, $$, esc, S, get, post, patch, gs, fd, ago, toast, modal, cerrar, confirmar,
   fx, esAdmin, etapa, etapaActiva, ORIGENES, vacio, skeleton, confeti, vibrar,
@@ -176,12 +177,18 @@ export async function patchTarjeta(id, opts = {}) {
     const nueva = tmp.firstElementChild;
 
     if (vieja && vieja.closest('.col-b') === destino) {
+      // Si todavía está viajando, la nueva sigue el vuelo desde donde va (sin saltos).
+      const enVuelo = vieja.classList.contains('volando') ? vieja.getBoundingClientRect() : null;
       vieja.replaceWith(nueva);
+      if (enVuelo) volarDesde(nueva, enVuelo);
     } else {
+      // Cambió de etapa (otro agente o el sistema): la tarjeta viaja hasta su nueva columna.
+      const desde = vieja ? vieja.getBoundingClientRect() : null;
       if (vieja) vieja.remove();
       const vac = destino.querySelector('.empty'); if (vac) vac.remove();
       if (n.etapa === 'espera') destino.appendChild(nueva); else destino.prepend(nueva);
       if (opts.nueva) { nueva.classList.add('nueva'); vibrar(22); }
+      if (desde) volarDesde(nueva, desde);
     }
     conectarTarjeta(nueva);
     if (opts.destacar) destacar(nueva);
@@ -227,18 +234,20 @@ function tarjeta(n) {
     ? `<b style="color:var(--ok)">${gs(n.monto_cierre)}</b>`
     : (n.valor ? gs(n.valor) : '');
 
-  let sla = '';
+  let sla = '', plazo = '';
   if (n.etapa === 'contactado' || n.etapa === 'espera') {
     const horas = (Date.now() - new Date(n.entrada_etapa)) / 3600000;
     const limite = S.empresa.reglas?.slaHoras || 24;
     const pct = Math.min(100, horas / limite * 100);
     const nivel = pct >= 90 ? 'r' : pct >= 55 ? 'a' : 'v';
     const color = nivel === 'r' ? 'var(--bad)' : nivel === 'a' ? 'var(--warn)' : 'var(--ok)';
+    // El cliente espera respuesta: respira en ámbar cerca del plazo; borde rojo si lo superó.
+    if (n.etapa === 'espera') plazo = pct >= 100 ? ' plazo-vencido' : pct >= 75 ? ' plazo-cerca' : '';
     sla = `<div class="sla ${nivel}"><i style="width:${pct}%"></i></div>
       <div class="sla-txt" style="color:${color}">⏱ ${n.etapa === 'espera' ? 'Esperando' : 'En seguimiento'} hace ${ago(n.entrada_etapa)}</div>`;
   }
 
-  return `<div class="card ${SEL.has(n.id) ? 'sel' : ''}" data-id="${n.id}"
+  return `<div class="card ${SEL.has(n.id) ? 'sel' : ''}${plazo}" data-id="${n.id}"
       style="--acc:${etapa(n.etapa).color}" draggable="${MODO_SEL ? 'false' : 'true'}">
     ${MODO_SEL ? `<input type="checkbox" class="chk" ${SEL.has(n.id) ? 'checked' : ''} data-chk="${n.id}">` : ''}
     <span class="nom">${esc(n.cliente || '—')}</span>
@@ -302,7 +311,7 @@ export async function mover(id, destino, extra = {}) {
   if (el && body) {
     bloquear(id);
     const vac = body.querySelector('.empty'); if (vac) vac.remove();
-    destino === 'espera' ? body.appendChild(el) : body.prepend(el);
+    volar(el, () => { destino === 'espera' ? body.appendChild(el) : body.prepend(el); });
     el.style.setProperty('--acc', etapa(destino).color);
     actualizarContadores();
   }
@@ -319,7 +328,7 @@ export async function mover(id, destino, extra = {}) {
   } catch (e) {
     bloqueadas.delete(id);
     const vuelta = $(`[data-body="${etapaPrevia}"]`);
-    if (el && vuelta) { vuelta.prepend(el); el.style.setProperty('--acc', etapa(etapaPrevia).color); actualizarContadores(); }
+    if (el && vuelta) { volar(el, () => vuelta.prepend(el)); el.style.setProperty('--acc', etapa(etapaPrevia).color); actualizarContadores(); }
     if (e.data?.error === 'duplicado') {
       toast(e.data.mensaje || 'Ya existe una negociación abierta', 'warn', 'Duplicado evitado');
       if (e.data.negociacionId) fichaNeg(e.data.negociacionId);

@@ -21,6 +21,15 @@ function sanear(c) {
 }
 
 /* ---------- LISTADO ---------- */
+/** Solo el estado (sin QR ni datos del canal): para el indicador del encabezado de todos los usuarios. */
+r.get('/estado-whatsapp', requiere(), async (req, res) => {
+  const { rows } = await q("SELECT id FROM canales WHERE empresa_id=$1 AND activo AND tipo='whatsapp_qr'", [req.empresaId]);
+  if (!rows.length) return res.json({ estado: null });
+  const estados = rows.map(c => baileys.estadoSesion(c.id).estado || 'desconectado');
+  const peor = ['desconectado', 'error', 'pendiente', 'reconectando', 'conectando'].find(e => estados.includes(e));
+  res.json({ estado: peor || 'conectado' });
+});
+
 r.get('/', requiere(), async (req, res) => {
   const { rows } = await q(
     `SELECT c.*, s.nombre AS sucursal_nombre, s.ciudad AS sucursal_ciudad

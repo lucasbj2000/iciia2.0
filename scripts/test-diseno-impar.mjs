@@ -53,4 +53,18 @@ assert.ok(admin.includes("r.post('/rapidas-personales'") && admin.includes("r.pa
 assert.ok(/r\.put\('\/rapidas-personales'[\s\S]{0,120}status\(409\)/.test(admin), 'Una pestaña vieja no puede pisar la lista');
 assert.ok(rp.includes("COALESCE(rapidas,'[]'::jsonb) || jsonb_build_array($2::jsonb)"), 'Alta atómica');
 assert.ok(!ficha.includes("put('/admin/rapidas-personales'"), 'El navegador ya no envía la lista completa');
+// Animaciones con intención (sin sello de «Ganada»): todas quietas con «reducir movimiento».
+const anim = leer('public/js/animaciones.js');
+for (const f of ['volar', 'volarDesde', 'tildesHTML', 'mostrarEscribiendo', 'avisarMensajesNuevos', 'estadoWhatsApp', 'bienvenida', 'guirnalda', 'correr'])
+  assert.ok(new RegExp(`export (async )?function ${f}\\(`).test(anim), 'Animación ' + f);
+assert.ok(!/sello|ganada/i.test(anim), 'Sin sello de negociación ganada');
+assert.ok(leer('src/routes/negociaciones.mjs').includes("r.post('/:id/presencia'"), 'Suscripción a «escribiendo…»');
+assert.ok(leer('src/routes/canales.mjs').includes("r.get('/estado-whatsapp'"), 'Estado de WhatsApp sin QR');
+assert.ok(!/estado-whatsapp[\s\S]{0,600}\bqr\b/.test(leer('src/routes/canales.mjs')), 'El estado no expone el QR');
+assert.ok(leer('src/routes/varios.mjs').includes("r.get('/resumen-dia'"), 'Resumen de la jornada');
+assert.ok(leer('src/channels/baileys.mjs').includes("'presence.update'") && leer('src/channels/baileys.mjs').includes('export async function suscribirPresencia'));
+const reducir = css.slice(css.lastIndexOf('@media (prefers-reduced-motion:reduce)'));
+for (const sel of ['.escribiendo-flotante', '#disp-dot.live::after', '.toast-tiempo', '.rep-chart svg.entra', '#wa-estado.on'])
+  assert.ok(reducir.includes(sel), 'Quieto con reducir movimiento: ' + sel);
+assert.ok((anim.match(/menosMovimiento\(\)/g) || []).length >= 4, 'Vuelo de tarjetas, bienvenida y contadores respetan reducir movimiento');
 console.log('✔ IMPAR: diseño propio, fondo de pliegos, clima animado, logo adaptable y respuestas rápidas sin pérdidas.');

@@ -1,9 +1,13 @@
+import { mostrarEscribiendo, avisarMensajesNuevos } from './animaciones.js';
 // Conserva los nodos existentes, el audio en reproducción y la posición de lectura.
 export function actualizarMensajes(caja, mensajes, render, seguir = false) {
   const alFinal = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 64;
   const posicion = caja.scrollTop;
   const existentes = new Map([...caja.children].filter(el => el.dataset.mensajeId)
     .map(el => [el.dataset.mensajeId, el]));
+  // Primera carga: sin animaciones. Después: lo nuevo entra y lo que cambia de estado se marca.
+  const enVivo = existentes.size > 0;
+  let entrantesNuevos = 0;
   if (mensajes.length) caja.querySelectorAll('.empty').forEach(el => el.remove());
   let anterior = null;
   for (const mensaje of mensajes) {
@@ -13,8 +17,12 @@ export function actualizarMensajes(caja, mensajes, render, seguir = false) {
       const plantilla = document.createElement('template'); plantilla.innerHTML = html;
       const nuevo = plantilla.content.firstElementChild;
       nuevo.dataset.mensajeId = id; nuevo._mensajeHTML = html;
-      if (nodo) { nuevo.style.animation = 'none'; nodo.replaceWith(nuevo); }
-      else caja.append(nuevo);
+      if (nodo) { nuevo.style.animation = 'none'; nuevo.classList.add('actualizado'); nodo.replaceWith(nuevo); }
+      else {
+        caja.append(nuevo);
+        if (enVivo && !/^local-/.test(id)) { nuevo.classList.add('recien'); if (mensaje.dir === 'in') entrantesNuevos++; }
+        else if (!enVivo) nuevo.style.animation = 'none';
+      }
       nodo = nuevo;
     }
     // Si se cargaron mensajes anteriores, reinsertar solo lo necesario en orden
@@ -28,6 +36,10 @@ export function actualizarMensajes(caja, mensajes, render, seguir = false) {
   // Los mensajes locales esperan la confirmación del POST; un SSE temprano no los borra.
   existentes.forEach(el => { if (!el.dataset.local) el.remove(); });
   caja.scrollTop = seguir || alFinal ? caja.scrollHeight : posicion;
+  if (entrantesNuevos) {
+    mostrarEscribiendo(caja, false); // el cliente terminó de escribir
+    if (!(seguir || alFinal)) avisarMensajesNuevos(caja, entrantesNuevos);
+  }
 }
 
 let secuencia = 0;

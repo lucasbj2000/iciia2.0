@@ -368,3 +368,153 @@ aside{background:color-mix(in srgb,var(--surface) 94%,transparent)}
   body::before{left:-12vmin}
 }
 @media(max-width:420px){ #wx .wx-txt{display:none} #wx{padding:0 6px!important;width:44px;justify-content:center} }
+
+/* =====================================================================
+   Animaciones con intención · segunda tanda
+   ===================================================================== */
+/* Tablero: tarjeta que viaja entre columnas */
+.card.volando{position:relative;z-index:5;box-shadow:0 14px 30px -14px rgba(0,0,0,.35)}
+.count.cambio{animation:contador-salta 300ms var(--curva)}
+@keyframes contador-salta{40%{transform:translateY(-4px) scale(1.15)}}
+/* Cliente que espera: respira en ámbar cerca del plazo; borde rojo si lo superó */
+.card.plazo-cerca,.card.plazo-vencido{position:relative}
+.card.plazo-cerca::after{content:"";position:absolute;inset:-1px;border-radius:inherit;pointer-events:none;
+  border:2px solid var(--warn);box-shadow:0 0 0 4px color-mix(in srgb,var(--warn) 18%,transparent);opacity:.35}
+.card.plazo-vencido{border-color:var(--bad);box-shadow:inset 3px 0 0 var(--bad)}
+.card.plazo-vencido .sla-txt{font-weight:600}
+
+/* Conversación */
+.msg{animation:msg-entra 200ms var(--curva) both}
+.msg.recien.in{animation:msg-rebote 300ms var(--curva) both}
+.msg.out[data-local]{animation:msg-sale 200ms var(--curva) both}
+@keyframes msg-entra{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes msg-rebote{0%{opacity:0;transform:translateY(10px) scale(.97)}70%{opacity:1;transform:translateY(-2px) scale(1.01)}100%{transform:none}}
+@keyframes msg-sale{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+.tildes{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.tildes svg{width:16px;height:12px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tildes.leido{color:var(--verde-texto);font-weight:600}
+.msg.actualizado .tildes path{stroke-dasharray:1;animation:tilde-dibuja 200ms ease-out both}
+.msg.actualizado .tildes path.t2{animation-delay:120ms}
+@keyframes tilde-dibuja{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.chat-zona{position:relative}
+.escribiendo-flotante{position:absolute;left:14px;bottom:12px;z-index:4;display:inline-flex;align-items:center;gap:8px;
+  padding:8px 12px;border-radius:4px 14px 14px 14px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--sombra);
+  font-size:var(--fs-xs);font-weight:600;color:var(--muted);opacity:0;transform:translateY(6px);pointer-events:none;
+  transition:opacity var(--t-medio),transform var(--t-medio) var(--curva)}
+.escribiendo-flotante.on{opacity:1;transform:none}
+.escribiendo-flotante .puntos{display:inline-flex;gap:3px}
+.escribiendo-flotante .puntos i{width:6px;height:6px;border-radius:50%;background:var(--verde)}
+.escribiendo-flotante.on .puntos i{animation:punto-salta 1s ease-in-out infinite}
+.escribiendo-flotante .puntos i:nth-child(2){animation-delay:150ms}.escribiendo-flotante .puntos i:nth-child(3){animation-delay:300ms}
+@keyframes punto-salta{0%,60%,100%{transform:none;opacity:.5}30%{transform:translateY(-4px);opacity:1}}
+.nuevos-flotante{position:absolute;left:50%;bottom:14px;z-index:4;min-height:36px;padding:6px 14px;border-radius:999px;
+  background:var(--verde);color:var(--sobre-verde);font-weight:600;font-size:var(--fs-sm);border:0;box-shadow:var(--sombra);
+  opacity:0;transform:translate(-50%,10px);pointer-events:none;transition:opacity var(--t-medio),transform var(--t-medio) var(--curva)}
+.nuevos-flotante.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+
+/* Disponibilidad: onda mientras recibe asignaciones */
+#disp-dot{position:relative}
+.dot.live{animation:none!important}
+#disp-dot.live::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--onda,var(--ok));
+  animation:onda 2.4s ease-out infinite}
+@keyframes onda{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.8);opacity:0}}
+
+/* Avisos (toasts): entran desde el borde con barra de tiempo */
+.toast{position:relative;overflow:hidden;animation:toast-entra 200ms var(--curva) both}
+.toast.out{animation:toast-sale 200ms ease-in both}
+@keyframes toast-entra{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+@keyframes toast-sale{to{opacity:0;transform:translateX(24px)}}
+.toast-tiempo{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--verde);transform-origin:left;animation:toast-tiempo 4400ms linear both}
+.toast.warn .toast-tiempo{background:var(--warn)}.toast.bad .toast-tiempo{background:var(--bad)}
+@keyframes toast-tiempo{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
+/* Estado de WhatsApp en el encabezado */
+#wa-estado{display:none;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:10px;font-size:var(--fs-sm);font-weight:600;
+  border:1px solid var(--line);background:var(--surface)}
+#wa-estado.on{display:inline-flex;animation:chip-entra 200ms var(--curva) both}
+#wa-estado .wa-ico{width:16px;height:16px;border-radius:50%;flex:none}
+#wa-estado.reconectando{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
+#wa-estado.reconectando .wa-ico{border:2px solid currentColor;border-right-color:transparent;animation:girar 800ms linear infinite}
+#wa-estado.caido{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+#wa-estado.caido .wa-ico{background:currentColor;-webkit-mask:radial-gradient(circle,#000 40%,transparent 42%);mask:radial-gradient(circle,#000 40%,transparent 42%)}
+#wa-estado.ok{color:var(--ok)}
+#wa-estado.ok .wa-ico{background:currentColor;clip-path:polygon(14% 52%,38% 76%,88% 22%,96% 30%,38% 92%,6% 60%);animation:tilde-pop 300ms var(--curva) both}
+@keyframes chip-entra{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes girar{to{transform:rotate(360deg)}}
+@keyframes tilde-pop{from{transform:scale(.3)}to{transform:none}}
+
+/* Bienvenida: el logo se arma por partes */
+.bienvenida-impar{position:fixed;inset:0;z-index:600;display:grid;place-items:center;background-color:var(--bg);
+  background-image:var(--fondo-marcas),var(--fondo-grano);background-size:160px 160px,220px 220px;transition:opacity 300ms ease-in}
+.bienvenida-impar.sale{opacity:0}
+.bv-centro{display:grid;justify-items:center;gap:18px}
+.bv-logo{width:min(320px,70vw)}
+.bv-logo img{animation:bv-color 300ms var(--curva) both}
+.bv-logo .logo-tinta{animation:bv-tinta 300ms var(--curva) 200ms both}
+.bv-saludo{margin:0;font-family:var(--f-titulo);font-weight:700;font-size:var(--fs-xl);animation:bv-color 300ms var(--curva) 450ms both}
+@keyframes bv-color{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes bv-tinta{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+
+/* Cumpleaños: guirnalda de papel picado */
+.guirnalda{margin:-6px 0 14px;text-align:center}
+.guirnalda svg{display:block;width:100%;height:30px;overflow:visible}
+.guirnalda svg path[style]{transform-box:fill-box;transform-origin:50% 0;animation:bandera-cae 300ms var(--curva) both,bandera-mece 1.6s ease-in-out 3 alternate;
+  animation-delay:calc(var(--i) * 25ms),calc(300ms + var(--i) * 25ms)}
+.guirnalda p{margin:6px 0 0;font-weight:600}
+@keyframes bandera-cae{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+@keyframes bandera-mece{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
+
+/* Fin de jornada */
+.modal-jornada{max-width:440px}
+.jornada-cifras{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:8px 0 12px}
+.jornada-cifras div{display:grid;gap:2px;padding:14px 10px;border:1px solid var(--line);border-radius:var(--esquina);background:var(--surface2);text-align:center}
+.jornada-cifras b{font-family:var(--f-titulo);font-size:28px;line-height:1.1}
+.jornada-cifras span{font-size:var(--fs-xs);color:var(--muted)}
+.jornada-monto{margin:4px 0 0;text-align:center}
+.jornada-monto b{font-family:var(--f-titulo);font-size:var(--fs-xl);color:var(--verde-texto)}
+
+/* Reportes: los gráficos se dibujan al abrir */
+.rep-chart svg.entra .rep-bar{transform-box:fill-box;transform-origin:50% 100%;animation:barra-crece 300ms var(--curva) both}
+.rep-chart svg.entra .rep-line{stroke-dasharray:1;animation:linea-traza 450ms ease-out 150ms both}
+.rep-chart svg.entra .rep-dot{animation:bv-color 200ms ease-out 450ms both}
+@keyframes barra-crece{from{transform:scaleY(0)}to{transform:none}}
+@keyframes linea-traza{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.rep .rep-pista i{transform-origin:left;animation:barra-llena 300ms var(--curva) both}
+@keyframes barra-llena{from{transform:scaleX(0)}to{transform:none}}
+
+/* Soporte: el recorrido avanza hasta la etapa actual */
+.sop-modal-det .sop-ruta li.p-hecha:not(:last-child)::after,.sop-modal-det .sop-ruta li.p-omitida:not(:last-child)::after{transform-origin:left;animation:barra-llena 200ms ease-out both}
+.sop-modal-det .sop-ruta li:nth-child(2)::after{animation-delay:150ms}
+.sop-modal-det .sop-ruta li:nth-child(3)::after{animation-delay:300ms}
+.sop-modal-det .sop-ruta .p-actual .sop-punto,.sop-modal-det .sop-ruta .p-rechazada .sop-punto{animation:punto-llega 300ms var(--curva) both;animation-delay:inherit}
+.sop-modal-det .sop-ruta li:nth-child(2) .sop-punto{animation-delay:200ms}
+.sop-modal-det .sop-ruta li:nth-child(3) .sop-punto{animation-delay:350ms}
+.sop-modal-det .sop-ruta li:nth-child(4) .sop-punto{animation-delay:500ms}
+@keyframes punto-llega{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.2);opacity:1}100%{transform:none}}
+
+@media (prefers-reduced-motion:no-preference){
+  .card.plazo-cerca::after{animation:respira 2.4s ease-in-out infinite}
+}
+@keyframes respira{0%,100%{opacity:.25}50%{opacity:.9}}
+
+@media(max-width:700px){
+  .sop-modal-det .sop-ruta li.p-hecha:not(:last-child)::after,.sop-modal-det .sop-ruta li.p-omitida:not(:last-child)::after{transform-origin:top;animation-name:barra-baja}
+  .jornada-cifras b{font-size:24px}
+}
+@keyframes barra-baja{from{transform:scaleY(0)}to{transform:none}}
+
+@media (prefers-reduced-motion:reduce){
+  .msg,.msg.recien.in,.msg.out[data-local],.toast,.toast.out,#wa-estado.on,.count.cambio,
+  .msg.actualizado .tildes path,.escribiendo-flotante.on .puntos i,#disp-dot.live::after,
+  #wa-estado.reconectando .wa-ico,#wa-estado.ok .wa-ico,.guirnalda svg path[style],
+  .rep-chart svg.entra .rep-bar,.rep-chart svg.entra .rep-line,.rep-chart svg.entra .rep-dot,.rep .rep-pista i,
+  .sop-modal-det .sop-ruta li::after,.sop-modal-det .sop-ruta .sop-punto{animation:none!important}
+  .toast-tiempo{animation:none!important;display:none}
+  .escribiendo-flotante,.nuevos-flotante{transition:none}
+}
+
+header.top:has(#wa-estado.on) #clock{display:none!important}
+@media(max-width:900px){
+  #wa-estado{height:44px;width:44px;padding:0;justify-content:center}
+  #wa-estado .wa-txt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+}

@@ -325,6 +325,17 @@ r.post('/:id/mensajes', requiere(), async (req, res) => {
   res.json({ ok: true, mensaje });
 });
 
+/** Conversación abierta: escuchar si el cliente está escribiendo (WhatsApp QR). Sin datos guardados. */
+r.post('/:id/presencia', requiere(), async (req, res) => {
+  const n = await obtenerNegociacionVisible(req, req.params.id);
+  if (!n) return res.status(404).json({ error: 'no encontrada' });
+  const { rows } = await q("SELECT * FROM canales WHERE id=$1 AND empresa_id=$2 AND activo AND tipo='whatsapp_qr'", [n.canal_id, req.empresaId]);
+  if (!rows[0]) return res.json({ ok: false });
+  const destino = n.telefono_destino || n.tel;
+  const ok = destino ? await import('../channels/baileys.mjs').then(b => b.suscribirPresencia(rows[0], destino, n.id)).catch(() => false) : false;
+  res.json({ ok });
+});
+
 /** Reenvía un mensaje que el teléfono del cliente no pudo descifrar («Esperando mensaje»).
  * Solo mensajes salientes con aviso de WhatsApp; usa la ruta actual (ya corregida). */
 r.post('/:id/mensajes/:mid/reenviar', requiere(), async (req, res) => {
