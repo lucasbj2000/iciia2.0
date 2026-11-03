@@ -158,11 +158,11 @@ function cerrarPanel(){
 }
 function quitarMarcas(){
   $$('.guia-mini').forEach(x=>x.remove());
-  $('[data-guia-activa]').forEach(e=>{
+  $$('[data-guia-activa]').forEach(e=>{
     if(e.dataset.guiaTituloGenerado==='1')e.removeAttribute('title');
     e.removeAttribute('data-guia-activa');e.removeAttribute('data-guia-titulo-generado');
   });
-  $('[data-guia-nav]').forEach(e=>{
+  $$('[data-guia-nav]').forEach(e=>{
     if(e.dataset.guiaTituloOriginal==='__ausente__')e.removeAttribute('title');
     else e.title=e.dataset.guiaTituloOriginal||'';
     e.removeAttribute('data-guia-nav');e.removeAttribute('data-guia-titulo-original');

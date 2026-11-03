@@ -1,4 +1,6 @@
 import 'dotenv/config';
+// Errores en rutas async → manejador de errores (antes un error podía detener todo el proceso).
+import './async-errors.mjs';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -34,6 +36,7 @@ import rAyudas from './routes/ayudas.mjs';
 import rHorarios from './routes/horarios.mjs';
 import rBitrix from './routes/importar-bitrix.mjs';
 import rVarios from './routes/varios.mjs';
+import rSoporte from './routes/soporte.mjs';
 import rEnlaces, { redirigirEnlace, limiteEnlaces } from './routes/enlaces-impar.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -178,6 +181,7 @@ app.use('/api/ayudas', rAyudas);
 app.use('/api/horarios', rHorarios);
 app.use('/api/bitrix', rBitrix);
 app.use('/api/enlaces', rEnlaces);
+app.use('/api/soporte', rSoporte);
 app.use('/api', rVarios);
 
 app.get('/api/health', async (_req, res) => {
@@ -230,6 +234,7 @@ app.get(/^(?!\/api|\/webhook|\/media).*/, (_req, res) => {
 
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);
+  if (res.headersSent) return;
   res.status(500).json({ error: 'error interno del servidor' });
 });
 

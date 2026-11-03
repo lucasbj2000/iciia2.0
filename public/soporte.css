@@ -1,0 +1,211 @@
+/* ============ Soporte IMPAR ============
+   Cada solicitud es un talón numerado (como un comprobante) con su recorrido:
+   Enviada → Gerencia → Administración → Resuelta.
+   Tipo: consulta azul, falla naranja, mejora aqua (orden validado para daltonismo);
+   el texto nunca toma el color del tipo, lo lleva la marca de al lado. */
+.sop,.sop-modal{--t-consulta:#2a78d6;--t-falla:#eb6834;--t-mejora:#1baf7a;--perfo:var(--line)}
+:root:not([data-tema="claro"]) .sop,:root:not([data-tema="claro"]) .sop-modal{--t-consulta:#3987e5;--t-falla:#d95926;--t-mejora:#199e70}
+.sop-modal{width:min(640px,100%)}
+.sop-modal.sop-modal-det{width:min(720px,100%)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Barra: pestañas + nueva solicitud */
+.sop-barra{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.sop-tabs{display:flex;gap:4px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:3px}
+.sop-tabs button{padding:8px 13px;border-radius:9px;font-size:var(--fs-sm);font-weight:600;color:var(--muted);min-height:36px}
+.sop-tabs button.on{background:var(--surface2);color:var(--txt);box-shadow:inset 0 -2px 0 var(--brand)}
+.sop-tabs button:not(.on):hover{color:var(--txt)}
+.sop-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brand);color:#fff;font-size:11px;margin-left:4px}
+#sop-nueva{margin-left:auto}
+
+/* Talón */
+.sop-lista{display:grid;gap:10px}
+.sop-ticket{display:grid;grid-template-columns:118px minmax(0,1fr) auto;align-items:stretch;width:100%;text-align:left;
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative;transition:border-color .2s,transform .2s var(--ease)}
+.sop-ticket:hover{border-color:color-mix(in srgb,var(--brand) 55%,var(--line))}
+.sop-ticket:active{transform:scale(.995)}
+.sop-talon{position:relative;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:14px 16px;
+  background:var(--surface2);border-right:2px dashed var(--perfo)}
+/* muescas del troquel */
+.sop-talon:before,.sop-talon:after{content:"";position:absolute;right:-9px;width:16px;height:16px;border-radius:50%;background:var(--bg);border:1px solid var(--line)}
+.sop-talon:before{top:-9px}.sop-talon:after{bottom:-9px}
+.sop-talon b{font-size:15px;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.sop-talon small{color:var(--muted);font-size:11.5px}
+.sop-ico{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;color:#fff;font-weight:800;font-size:14px;margin-bottom:4px}
+.t-consulta .sop-ico{background:var(--t-consulta)}.t-falla .sop-ico{background:var(--t-falla)}.t-mejora .sop-ico{background:var(--t-mejora)}
+.sop-cuerpo{display:flex;flex-direction:column;gap:5px;padding:14px 18px;min-width:0}
+.sop-titulo{font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sop-meta{color:var(--muted);font-size:12.5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.sop-urgente{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-weight:700;font-size:11.5px;
+  color:var(--txt);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+.sop-urgente:before{content:"!";display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;background:var(--bad);color:#fff;font-size:10px}
+.sop-estado{display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:3px;padding:14px 18px;font-weight:700;font-size:12.5px;white-space:nowrap}
+.sop-estado:before{content:"";width:9px;height:9px;border-radius:50%;margin-bottom:2px;background:var(--muted)}
+.sop-estado small{font-weight:600;font-size:11.5px;color:var(--brand)}
+.e-gerencia:before,.e-administracion:before{background:var(--warn)}
+.e-aprobada:before{background:var(--brand)}
+.e-resuelta:before{background:var(--ok)}
+.e-rechazada:before{background:var(--bad)}
+
+/* Recorrido */
+.sop-ruta{list-style:none;margin:6px 0 2px;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));counter-reset:p}
+.sop-ruta li{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.sop-ruta li:not(:last-child):after{content:"";position:absolute;left:14px;right:4px;top:6px;height:2px;background:var(--line);border-radius:2px}
+.sop-ruta li.p-hecha:not(:last-child):after{background:var(--brand)}
+.sop-ruta li.p-omitida:not(:last-child):after{background:repeating-linear-gradient(90deg,var(--brand) 0 5px,transparent 5px 9px)}
+.sop-punto{position:relative;z-index:1;width:14px;height:14px;border-radius:50%;background:var(--surface);border:2px solid var(--line)}
+.p-hecha .sop-punto{background:var(--brand);border-color:var(--brand)}
+.p-actual .sop-punto{border-color:var(--warn);box-shadow:0 0 0 4px color-mix(in srgb,var(--warn) 22%,transparent);background:var(--surface)}
+.p-omitida .sop-punto{border-style:dashed;border-color:var(--brand)}
+.p-rechazada .sop-punto{background:var(--bad);border-color:var(--bad)}
+.p-rechazada .sop-punto:after{content:"×";position:absolute;inset:-3px 0 0;color:#fff;font-size:12px;font-weight:800;text-align:center;line-height:14px}
+.sop-paso{display:flex;flex-direction:column;min-width:0;padding-right:6px}
+.sop-paso b{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-hecha .sop-paso b,.p-actual .sop-paso b,.p-rechazada .sop-paso b{color:var(--txt)}
+.sop-paso small{color:var(--muted);font-size:11.5px;line-height:1.35}
+.sop-ruta.compacta{margin-top:4px;max-width:520px}
+.sop-ruta:not(.compacta){margin:2px 0 18px;padding:14px 16px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface2)}
+
+/* Elección de tipo */
+.sop-tipos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.sop-tipo{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:18px 16px;text-align:left;border-radius:14px;
+  background:var(--surface2);border:1.5px solid var(--line);min-height:150px;transition:border-color .2s,transform .2s var(--ease)}
+.sop-tipo .sop-ico{width:34px;height:34px;font-size:18px;border-radius:10px}
+.sop-tipo b{font-size:15px}
+.sop-tipo small{color:var(--muted);font-size:12.5px;line-height:1.45}
+.sop-tipo:hover,.sop-tipo:focus-visible{border-color:var(--brand);transform:translateY(-2px)}
+.sop-aviso{color:var(--muted);font-size:12.5px;line-height:1.5;margin:14px 0 0}
+
+/* Formulario */
+.sop-form .field{margin-bottom:14px}
+.sop-form input,.sop-form select,.sop-form textarea,.sop-decision textarea,.sop-comentar textarea,.sop-buscar{
+  width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);line-height:1.45}
+.sop-form textarea{resize:vertical;min-height:120px}
+.sop-volver{color:var(--muted);font-size:12.5px;font-weight:600;margin:-4px 0 12px;padding:4px 0}
+.sop-volver:hover{color:var(--txt)}
+.sop-impacto{border:0;margin:0 0 14px;padding:0}
+.sop-impacto legend{font-size:var(--fs-xs);font-weight:600;color:var(--muted);margin-bottom:8px;padding:0}
+.sop-impacto label{display:inline-flex;margin:0 8px 8px 0}
+.sop-impacto input{position:absolute;opacity:0;pointer-events:none}
+.sop-impacto span{padding:8px 13px;border-radius:999px;border:1.5px solid var(--line);font-size:12.5px;font-weight:600;cursor:pointer}
+.sop-impacto input:checked+span{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 14%,transparent)}
+.sop-impacto input:focus-visible+span{outline:2px solid var(--brand);outline-offset:2px}
+.sop-opc{font-weight:400;color:var(--muted)}
+.sop-adj{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+.sop-pie{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:16px}
+
+/* Detalle */
+.sop-det-h{align-items:flex-start;border-top:4px solid var(--t-consulta)}
+.sop-det-h.t-falla{border-top-color:var(--t-falla)}.sop-det-h.t-mejora{border-top-color:var(--t-mejora)}
+.sop-det-h h3{margin:2px 0 0;line-height:1.25}
+.sop-numero{color:var(--muted);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.sop-datos{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px 16px;margin:0 0 14px}
+.sop-datos dt{color:var(--muted);font-size:11.5px;font-weight:600}
+.sop-datos dd{margin:2px 0 0;font-size:13px}
+.sop-desc{white-space:normal;line-height:1.6;font-size:14px;padding:14px 16px;border-left:3px solid var(--line);background:var(--surface2);border-radius:0 10px 10px 0}
+.sop-captura{display:block;margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden;max-width:360px}
+.sop-captura img{display:block;width:100%;height:auto}
+.sop-tecnico{margin-top:12px;font-size:12px;color:var(--muted)}
+.sop-tecnico summary{cursor:pointer;font-weight:600}
+.sop-tecnico p{margin:6px 0 0;overflow-wrap:anywhere}
+.sop-sub{margin:20px 0 10px;font-size:14px}
+.sop-historial{list-style:none;margin:0;padding:0 0 0 16px;border-left:2px solid var(--line);display:grid;gap:12px}
+.sop-historial li{position:relative;font-size:13px}
+.sop-historial li:before{content:"";position:absolute;left:-22px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--line)}
+.sop-historial li.ev-aprobada_gerencia:before,.sop-historial li.ev-confirmada:before{border-color:var(--brand);background:var(--brand)}
+.sop-historial li.ev-resuelta:before{border-color:var(--ok);background:var(--ok)}
+.sop-historial li.ev-rechazada:before{border-color:var(--bad);background:var(--bad)}
+.sop-historial small{display:block;color:var(--muted);font-size:11.5px}
+.sop-historial p{margin:6px 0 0;padding:9px 12px;border-radius:10px;background:var(--surface2);line-height:1.5}
+.sop-decision{margin-top:6px;padding:14px;border:1.5px solid color-mix(in srgb,var(--brand) 45%,var(--line));border-radius:12px}
+.sop-decision .sop-sub{margin-top:0}
+.sop-comentar{display:flex;gap:10px;align-items:flex-end;margin-top:16px}
+.sop-comentar textarea{flex:1;min-height:48px;resize:vertical}
+
+/* Resumen */
+.sop-res-barra{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.sop-res-barra .sop-aviso{margin:0}
+.sop-rango{margin-left:auto}
+.sop-cifras{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;padding:18px 6px;margin-bottom:14px}
+.sop-cifras>div{padding:2px 16px;border-left:1px solid var(--line);min-width:0}
+.sop-cifras>div:first-child{border-left:0}
+.sop-cifras span{display:block;color:var(--muted);font-size:12.5px;font-weight:600}
+.sop-cifras b{display:block;font-size:26px;font-weight:750;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.sop-cifras small{color:var(--muted);font-size:12px}
+.sop-cifras .alerta b{color:var(--bad)}
+.sop-res-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:14px}
+.sop-res-grid>.card-box{margin:0}
+.sop-res h3{margin:0 0 14px;font-size:15px}
+.sop-fila{margin-bottom:11px}
+.sop-fila-t{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-bottom:5px}
+.sop-pista{height:8px;border-radius:4px;background:color-mix(in srgb,var(--txt) 8%,transparent);overflow:hidden}
+.sop-pista i{display:block;height:100%;min-width:2px;border-radius:0 4px 4px 0;background:var(--muted)}
+.sop-sw{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:7px}
+.sop-sw.t-consulta,.b-consulta{background:var(--t-consulta)!important}
+.sop-sw.t-falla,.b-falla{background:var(--t-falla)!important}
+.sop-sw.t-mejora,.b-mejora{background:var(--t-mejora)!important}
+.sop-pista i.e-gerencia,.sop-pista i.e-administracion{background:var(--warn)}
+.sop-pista i.e-aprobada{background:var(--brand)}
+.sop-pista i.e-resuelta{background:var(--ok)}
+.sop-pista i.e-rechazada{background:var(--bad)}
+.sop-pista i[class^="e-"]:before{display:none}
+.sop-leyenda{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:-6px 0 12px}
+.sop-semanas{display:grid;gap:8px}
+.sop-sem{display:grid;grid-template-columns:44px minmax(0,1fr) 30px;align-items:center;gap:10px;font-size:12.5px}
+.sop-sem-l{color:var(--muted)}
+.sop-sem-b{display:flex;gap:2px;height:14px;min-width:4px}
+.sop-sem-b i{display:block;height:100%}
+.sop-sem-b i:first-child{border-radius:3px 0 0 3px}.sop-sem-b i:last-child{border-radius:0 3px 3px 0}
+.sop-sem-b i:only-child{border-radius:3px}
+.sop-sem b{text-align:right;font-variant-numeric:tabular-nums}
+
+/* Configuración */
+.sop-config{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.sop-config>.card-box{margin:0}
+.sop-config .sop-pie{grid-column:1 / -1;margin-top:0}
+.sop-config h3{margin:0}
+.sop-config .sop-aviso{margin:6px 0 14px}
+.sop-buscar{margin-bottom:10px}
+.sop-checks{display:grid;gap:4px;max-height:360px;overflow:auto}
+.sop-check{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:10px;cursor:pointer}
+.sop-check:hover{background:var(--surface2)}
+.sop-check input{width:18px;height:18px;accent-color:var(--brand);flex:none}
+.sop-check b{display:block;font-size:13px}
+.sop-check small{color:var(--muted);font-size:11.5px}
+.sop-check[hidden]{display:none}
+
+@media(max-width:1000px){
+  .sop-res-grid{grid-template-columns:1fr}
+  .sop-cifras{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 0}
+  .sop-cifras>div:nth-child(4){border-left:0}
+  .sop-config{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+  .sop-barra{gap:10px}
+  .sop-tabs{width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .sop-tabs::-webkit-scrollbar{display:none}
+  .sop-tabs button{flex:none;white-space:nowrap}
+  #sop-nueva{margin-left:0;width:100%;min-height:46px}
+  .sop-ticket{grid-template-columns:86px minmax(0,1fr)}
+  .sop-talon{padding:12px 10px}
+  .sop-talon b{font-size:13px}
+  .sop-cuerpo{padding:12px 14px 12px 16px}
+  .sop-titulo{white-space:normal}
+  .sop-estado{grid-column:1 / -1;flex-direction:row;justify-content:flex-start;align-items:center;gap:8px;padding:9px 14px;border-top:1px solid var(--line);white-space:normal}
+  .sop-estado:before{margin:0}
+  /* En el celular el talón muestra solo los puntos; el estado se lee en la línea de abajo. */
+  .sop-ruta.compacta .sop-paso b{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .sop-ruta.compacta{max-width:220px}
+  .sop-tipos{grid-template-columns:1fr}
+  .sop-tipo{min-height:0;flex-direction:row;align-items:center;flex-wrap:wrap;column-gap:12px}
+  .sop-tipo small{flex-basis:100%;padding-left:46px;margin-top:-4px}
+  .sop-ruta:not(.compacta){grid-template-columns:1fr;gap:12px}
+  .sop-ruta:not(.compacta) li{flex-direction:row;align-items:flex-start;gap:12px}
+  .sop-ruta:not(.compacta) li:not(:last-child):after{left:6px;right:auto;top:16px;bottom:-14px;width:2px;height:auto}
+  .sop-ruta:not(.compacta) li.p-omitida:not(:last-child):after{background:repeating-linear-gradient(180deg,var(--brand) 0 5px,transparent 5px 9px)}
+  .sop-cifras{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sop-cifras>div{border-left:0;padding:2px 12px}
+  .sop-rango{margin-left:0;width:100%}
+  .sop-comentar{flex-direction:column;align-items:stretch}
+}
+@media(prefers-reduced-motion:reduce){.sop-ticket,.sop-tipo{transition:none}}

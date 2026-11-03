@@ -87,6 +87,8 @@ jobs:
         run: node scripts/test-enlaces-chat.mjs
       - name: IMPAR Central única y clientes registrados de otras sucursales
         run: node scripts/test-central-unica-impar.mjs
+      - name: Soporte interno, reportes y cierre de sesión
+        run: node scripts/test-soporte-impar.mjs
       - name: Verificar formulario único y chequeo público
         run: |
           node scripts/test-publicacion-central.mjs
@@ -154,3 +156,7 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
         run: node scripts/test-recepcion-sucursales-pg.mjs
+      - name: Migración de soporte interno en PostgreSQL real
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
+        run: node scripts/test-soporte-pg.mjs

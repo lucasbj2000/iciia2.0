@@ -50,9 +50,10 @@ export const put = (r, body) => api(r, { method: 'PUT', body });
 export const del = r => api(r, { method: 'DELETE' });
 
 export function salir() {
-  localStorage.removeItem('iciia_token');
+  try { localStorage.removeItem('iciia_token'); } catch (_) {}
   S.token = ''; S.usuario = null; S.empresa = null;
-  window.dispatchEvent(new Event('impar:salir'));
+  // Cada módulo limpia lo suyo; si uno falla, el cierre de sesión continúa.
+  try { window.dispatchEvent(new Event('impar:salir')); } catch (e) { console.warn('Limpieza al salir:', e); }
   if (window._sse) { window._sse.close(); window._sse = null; }
   $('#app').classList.add('hidden');
   $('#login').classList.remove('hidden');

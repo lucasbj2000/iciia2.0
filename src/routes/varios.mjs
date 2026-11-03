@@ -246,9 +246,18 @@ r.get('/reportes', requiere(), async (req, res) => {
       WHERE n.empresa_id=$1 AND n.creado >= now() - ($2 || ' days')::interval ${where}
       GROUP BY 1,2,3 ORDER BY total DESC`, [req.empresaId, String(dias), ...params]);
 
+  // Período anterior de la misma duración y con el mismo alcance de permisos, para comparar.
+  const { rows: ant } = await q(
+    `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE n.etapa='ganado')::int AS ganadas,
+            COALESCE(SUM(CASE WHEN n.etapa='ganado' THEN COALESCE(NULLIF(n.monto_cierre,0),n.valor,0) END),0)::float AS monto
+       FROM negociaciones n
+      WHERE n.empresa_id=$1 AND n.creado >= now() - ($2::int * 2 || ' days')::interval
+        AND n.creado < now() - ($2 || ' days')::interval ${where}`,
+    [req.empresaId, String(dias), ...params]);
+
   const r2 = emp.reglas || {};
   res.json({
-    negociaciones: negs, universo, porCanal, etapasActivas: activas,
+    negociaciones: negs, universo, porCanal, etapasActivas: activas, anterior: ant[0], dias,
     colaEspera: espera.map(e => ({ ...e, horasLab: Number(horasLaborales(e.entrada_etapa, new Date(), r2).toFixed(1)) })),
     primeraRespuestaMin: Math.round(Number(tr[0]?.minutos) || 0),
     slaHoras: r2.slaHoras || 24

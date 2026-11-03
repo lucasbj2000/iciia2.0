@@ -29,14 +29,16 @@ const NAV = [
   { id: 'cal', t: 'Calendario', ic: '▦', mod: 'calendario', flag: 'calendario' },
   { id: 'rep', t: 'Reportes', ic: '▤', mod: 'reportes' },
   { id: 'proy', t: 'Avances del CRM', ic: '◷', proyecto: true },
+  { id: 'sop', t: 'Soporte', ic: '⚑', siempre: true },
   { id: 'cfg', t: 'Configuración', ic: '⚙', mod: 'configuracion' },
   { id: 'org', t: 'Organigrama', ic: '▥', mando: true },
   { id: 'adm', t: 'Administración', ic: '★', admin: true }
 ];
 const VISTAS = { neg: vistaNegociaciones, con: vistaContactos, com: vistaComunicacion,
-  cal: vistaCalendario, rep: vistaReportes, proy: vistaProyecto, cfg: vistaConfig, org: vistaOrganigrama, adm: vistaAdmin };
+  cal: vistaCalendario, rep: vistaReportes, proy: vistaProyecto,
+  sop: () => import('./soporte.js').then(m => m.vistaSoporte()), cfg: vistaConfig, org: vistaOrganigrama, adm: vistaAdmin };
 const TITULOS = { neg: 'Negociaciones', con: 'Contactos', com: 'Comunicación interna',
-  cal: 'Calendario', rep: 'Reportes', proy: 'Avances del proyecto CRM', cfg: 'Configuración', org: 'Organigrama', adm: 'Administración' };
+  cal: 'Calendario', rep: 'Reportes', proy: 'Avances del proyecto CRM', sop: 'Soporte', cfg: 'Configuración', org: 'Organigrama', adm: 'Administración' };
 
 /* ================= LOGIN ================= */
 $('#form-login').onsubmit = async e => {
@@ -149,7 +151,7 @@ function pintarDisponibilidad() {
 export function pintarNav() {
   const mods = S.empresa?.modulos || [];
   $('#nav').innerHTML = NAV
-    .filter(n => n.proyecto ? (esAdmin() || !!S.proyectoAcceso?.visible) : n.mando ? ['admin','gerente'].includes(S.usuario.rol) : n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
+    .filter(n => n.siempre ? true : n.proyecto ? (esAdmin() || !!S.proyectoAcceso?.visible) : n.mando ? ['admin','gerente'].includes(S.usuario.rol) : n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
     .map(n => `<button class="nav-i ${S.vista === n.id ? 'active' : ''}" data-nav="${n.id}">
       <span class="ic">${n.ic}</span>${n.t}${n.id === 'com' ? '<span class="bdg" style="display:none"></span>' : ''}</button>`).join('')
     ;
@@ -206,6 +208,7 @@ function conectarRealtime() {
   });
   es.addEventListener('com', e => { if (S.vista === 'com') refrescarChat(JSON.parse(e.data)); else cargarNotificaciones(); });
   es.addEventListener('calendario', () => { if (S.vista === 'cal') vistaCalendario(); });
+  es.addEventListener('soporte', () => { if (S.vista === 'sop') import('./soporte.js').then(m => m.refrescarSoporte()).catch(() => {}); });
   es.addEventListener('guias:cambio', () => { actualizarAyudas().catch(() => {}); });
   es.addEventListener('horarios:cambio', () => { comprobarSalida().catch(()=>{}); });
   es.addEventListener('horarios:respuesta', () => {
@@ -263,7 +266,8 @@ $('#noti-btn').onclick = e => {
     await post('/notificaciones/leer', { ids: [Number(el.dataset.noti)] });
     p.remove(); cargarNotificaciones();
     const ref = el.dataset.ref, tipo = el.dataset.tipo;
-    if (ref) { const { fichaNeg } = await import('./ficha.js'); fichaNeg(ref); }
+    if (tipo === 'soporte') { if (S.vista !== 'sop') await ir('sop'); if (ref) import('./soporte.js').then(m => m.detalle(ref)); }
+    else if (ref) { const { fichaNeg } = await import('./ficha.js'); fichaNeg(ref); }
     else if (tipo === 'mensaje') ir('com');
     else if (tipo === 'cumple' || tipo === 'evento') ir('cal');
   });
@@ -348,9 +352,10 @@ function reloj() {
 
 if ($('#btn-enlace')) $('#btn-enlace').onclick = () => import('./enlaces-impar.js').then(m => m.abrirMiEnlace());
 $('#btn-salir').onclick = () => {
-  document.body.classList.remove('nav-open');
-  cerrarAyudas();
-  salir();
+  // Cerrar sesión siempre: un error en la limpieza de otros módulos no puede impedirlo.
+  try { document.body.classList.remove('nav-open'); cerrarAyudas(); }
+  catch (e) { console.warn('Limpieza al salir:', e); }
+  finally { salir(); }
 };
 $('#btn-burger').onclick = () => {
   document.body.classList.toggle('nav-open');

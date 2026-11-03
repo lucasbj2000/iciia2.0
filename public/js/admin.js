@@ -684,11 +684,11 @@ async function aAyudas() {
     '<p class="sub">Para ver cambios en otros equipos, los usuarios conectados actualizan los permisos automáticamente.</p></div>';
   $('#ga-buscar').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
-    $('[data-ga-nombre]').forEach(el=>{el.hidden=!el.dataset.gaNombre.includes(q);});
+    $$('[data-ga-nombre]').forEach(el=>{el.hidden=!el.dataset.gaNombre.includes(q);});
   };
-  $('#ga-heredar').onclick=()=>$('[data-ga-usuario]').forEach(el=>{el.value='heredar';});
-  $('#ga-todos').onclick=()=>{ $('#ga-general').checked=true;$('[data-ga-usuario]').forEach(el=>{el.value='heredar';}); };
-  $('#ga-ninguno').onclick=()=>{ $('#ga-general').checked=false;$('[data-ga-usuario]').forEach(el=>{el.value='heredar';}); };
+  $('#ga-heredar').onclick=()=>$$('[data-ga-usuario]').forEach(el=>{el.value='heredar';});
+  $('#ga-todos').onclick=()=>{ $('#ga-general').checked=true;$$('[data-ga-usuario]').forEach(el=>{el.value='heredar';}); };
+  $('#ga-ninguno').onclick=()=>{ $('#ga-general').checked=false;$$('[data-ga-usuario]').forEach(el=>{el.value='heredar';}); };
   $('#ga-preview').onclick=()=>import('./ayudas.js').then(m=>m.abrirRecorrido(true));
   $('#ga-guardar').onclick=async()=>{
     const btn=$('#ga-guardar');btn.disabled=true;
@@ -775,7 +775,7 @@ async function aRapidas() {
    <tbody>${us.map(u => `<tr><td>${esc(u.nombre)}</td><td>${esc(u.sucursal || '')}</td>
      <td>${(u.rapidas || []).length}</td></tr>`).join('')}</tbody></table></div>`;
   $('#abrir-catalogos').onclick = () => { TADM='catalogos'; vistaAdmin(); };
-  $('[data-rtxt]').forEach(el => el.onchange = () => patch(`/admin/rapidas/${el.dataset.rtxt}`, { txt: el.value }));
+  $$('[data-rtxt]').forEach(el => el.onchange = () => patch(`/admin/rapidas/${el.dataset.rtxt}`, { txt: el.value }));
   $$('[data-ramb]').forEach(el => el.onchange = () => {
     const v = el.value;
     patch(`/admin/rapidas/${el.dataset.ramb}`,
