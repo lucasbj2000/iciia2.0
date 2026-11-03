@@ -264,6 +264,7 @@ function conectarRealtime() {
     S.empresa = ctx.empresa; S.sucursales = ctx.sucursales;
     aplicarMarca(); aplicarFX(); pintarNav();
   });
+  es.addEventListener('usuarios', () => { import('./sala-control.js').then(m => m.salaAbierta() && m.cambioEquipo()).catch(() => {}); });
   es.addEventListener('equipo:viendo', e => { try { recibirPresencia(JSON.parse(e.data)); } catch {} });
   es.addEventListener('sala:pulso', e => {
     try { const d = JSON.parse(e.data); import('./sala-control.js').then(m => m.salaAbierta() && m.pulsoSala(d)).catch(() => {}); } catch {}
@@ -274,7 +275,8 @@ function conectarRealtime() {
     if ($('.conversation-modal')?.dataset.negociacionId === d.id) mostrarEscribiendo($('#chatbox'), d.escribiendo, d.grabando);
   });
   es.addEventListener('canal:estado', e => {
-    try { const d = JSON.parse(e.data); estadoWhatsApp(d.estado); actualizarEstadoCanal(d); }
+    try { const d = JSON.parse(e.data); estadoWhatsApp(d.estado); actualizarEstadoCanal(d);
+      import('./sala-control.js').then(m => m.salaAbierta() && get('/canales/estado-whatsapp').then(r => m.estadoWASala(r.estado))).catch(() => {}); }
     catch (err) { console.warn('[IMPAR] Evento de canal incorrecto:',err.message); }
   });
   es.onerror = () => { /* EventSource reconecta solo */ };

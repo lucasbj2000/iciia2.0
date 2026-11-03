@@ -16,7 +16,8 @@ try {
       lat double precision, lon double precision, activa boolean DEFAULT true);
     CREATE TABLE usuarios(id uuid PRIMARY KEY, empresa_id uuid, nombre text, foto text, disponibilidad text, sucursal text, rol text,
       activo boolean DEFAULT true, oculto boolean DEFAULT false);
-    CREATE TABLE contactos(id uuid PRIMARY KEY, empresa_id uuid, nombre text);
+    CREATE TABLE contactos(id uuid PRIMARY KEY, empresa_id uuid, nombre text, ciudad text DEFAULT '', lat double precision, lon double precision);
+    CREATE TABLE ubicaciones(id bigserial PRIMARY KEY, contacto_id uuid, lat double precision, lon double precision, ts timestamptz DEFAULT now());
     CREATE TABLE negociaciones(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), empresa_id uuid, contacto_id uuid, agente_id uuid, etapa text,
       sucursal text, valor numeric DEFAULT 0, monto_cierre numeric DEFAULT 0, creado timestamptz DEFAULT now(), actualizado timestamptz DEFAULT now(),
       entrada_etapa timestamptz DEFAULT now());
@@ -24,7 +25,8 @@ try {
       carga_historica boolean DEFAULT false, autor_id uuid, ts timestamptz DEFAULT now());`);
   await client.query(`INSERT INTO sucursales(empresa_id,nombre) VALUES ($1,'Asunción'),($1,'Encarnación'),($2,'Ajena')`, [E, OTRA]);
   await client.query(`INSERT INTO usuarios VALUES ($2,$1,'Andrea Recalde',NULL,'disponible','Asunción','agente'),($3,$1,'Tomás Acosta',NULL,'almuerzo','Encarnación','agente')`, [E, A1, A2]);
-  await client.query(`INSERT INTO contactos VALUES ($2,$1,'María Elena González'),($3,$1,'Librería Sol')`, [E, C1, C2]);
+  await client.query(`INSERT INTO contactos(id,empresa_id,nombre,ciudad) VALUES ($2,$1,'María Elena González','Encarnación'),($3,$1,'Librería Sol','')`, [E, C1, C2]);
+  await client.query(`INSERT INTO ubicaciones(contacto_id,lat,lon) VALUES ($1,-25.2871,-57.6411)`, [C2]);
   const n1 = randomUUID(), n2 = randomUUID(), n3 = randomUUID();
   await client.query(`INSERT INTO negociaciones(id,empresa_id,contacto_id,agente_id,etapa,sucursal,entrada_etapa) VALUES
       ($2,$1,$5,$6,'espera','Asunción',now()-interval '20 minutes'),
@@ -46,6 +48,11 @@ try {
   assert.equal(d.cola[0].cliente, 'María G.', 'En pantalla compartida solo nombre e inicial');
   assert.ok(!JSON.stringify(d).includes('González'), 'Nunca el apellido completo del cliente');
   assert.equal(d.primeraRespuesta.n, 1);
+  assert.equal(d.primeraRespuesta.total, 1, 'Tasa de respuesta: 1 de 1 conversaciones de hoy');
+  assert.equal(d.calor.ubicados, 2, 'Un cliente por ciudad informada y otro por ubicación');
+  assert.ok(d.calor.zonas.some(z => z.lat === -25.3 && z.lon === -57.6), 'Ubicación redondeada a celdas de 0,1°');
+  assert.ok(!JSON.stringify(d.calor).includes('-25.2871'), 'Nunca la ubicación exacta');
+  assert.ok(d.equipo.every(u => u.enLinea === false), 'Sin pestañas abiertas nadie figura en línea');
   assert.ok(Math.abs(d.primeraRespuesta.mediana - 240) < 5, 'La respuesta del bot no cuenta como primera respuesta');
   const asu = d.porSucursal.find(x => x.sucursal === 'Asunción'), enc = d.porSucursal.find(x => x.sucursal === 'IMPAR Encarnación');
   assert.equal(asu.espera, 1); assert.equal(enc.ventas, 1); assert.equal(enc.monto, 1500000);

@@ -29,3 +29,5 @@ export function emitir(empresaId, evento, datos, soloUids) {
   }
 }
 export const conectados = eid => (clientes.get(eid) || new Set()).size;
+/** Usuarios con el CRM abierto ahora mismo (al menos una pestaña conectada). */
+export const uidsConectados = eid => new Set([...(clientes.get(eid) || [])].map(r => r._uid));

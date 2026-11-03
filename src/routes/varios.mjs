@@ -3,7 +3,7 @@ import { q } from '../db.mjs';
 import { requiere, hash, alcanceSQL } from '../auth.mjs';
 import { notificar, horasLaborales } from '../core.mjs';
 import { emitir } from '../realtime.mjs';
-import { fotoSala, ROLES_SALA } from '../sala-control-impar.mjs';
+import { fotoSala, climaSucursales, ROLES_SALA } from '../sala-control-impar.mjs';
 import bcrypt from 'bcryptjs';
 
 const r = Router();
@@ -57,6 +57,10 @@ r.get('/resumen-dia', requiere(), async (req, res) => {
 r.get('/sala-control', requiere(...ROLES_SALA), async (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json(await fotoSala(req));
+});
+r.get('/sala-control/clima', requiere(...ROLES_SALA), async (req, res) => {
+  try { res.json(await climaSucursales(req)); }
+  catch (e) { console.warn('[sala] Clima no disponible:', e.name); res.json([]); }
 });
 
 r.post('/disponibilidad', requiere(), async (req, res) => {

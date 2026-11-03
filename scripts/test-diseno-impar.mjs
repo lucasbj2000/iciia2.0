@@ -81,11 +81,19 @@ assert.ok(leer('src/routes/varios.mjs').includes("r.get('/sala-control', requier
 assert.ok(leer('src/sala-control-impar.mjs').includes("export const ROLES_SALA = ['admin', 'gerente', 'jefe'];"));
 assert.ok(/emitir\(empresaId, 'sala:pulso', \{ sucursal: rows\[0\]\.sucursal \|\| '', tipo \}, uids\)/.test(leer('src/sala-control-impar.mjs')), 'El pulso solo lleva sucursal y tipo');
 assert.ok(leer('src/sala-control-impar.mjs').includes('if (!rows[0] || !uids.length) return;'), 'Sin destinatarios no se difunde a todos');
-for (const v of ["id: 'mapa'", "id: 'cola'", "id: 'ritmo'"]) assert.ok(sala.includes(v), 'Vista ' + v);
-assert.ok(sala.includes('ROTA_MS = 30000') && sala.includes("e.key === 'Escape' && !document.fullscreenElement"), 'Rota cada 30 s y cierra con Esc');
+// Una sola pantalla: sin rotación, con mapa real, calor, clima, WhatsApp, tasa de respuesta y agentes en línea.
+assert.ok(!sala.includes('ROTA_MS') && sala.includes("e.key === 'Escape' && !document.fullscreenElement"), 'Sin rotación; Esc cierra');
+for (const id of ['sala-mapa', 'sala-cola', 'sala-agentes', 'sala-ritmo', 'sala-sucursales', 'sala-clima', 'sala-wa', 'sala-mov'])
+  assert.ok(sala.includes(`id="${id}"`), 'Panel ' + id);
+assert.ok(salaCss.includes('grid-template-areas:"mapa cola agentes" "mapa ritmo suc"'), 'Todo en una pantalla en PC y TV');
+assert.ok(leer('public/js/mapa-paraguay.js').includes('Natural Earth') && sala.includes("from './mapa-paraguay.js'"), 'Contorno real de Paraguay');
+assert.ok(sala.includes('Tasa de respuesta') && sala.includes('Agentes en línea') && sala.includes('export function estadoWASala('));
+assert.ok(leer('src/sala-control-impar.mjs').includes('export function zonasDeCalor(') && leer('src/sala-control-impar.mjs').includes('Math.round(lat * 10) / 10'), 'Calor agregado en celdas, nunca ubicaciones individuales');
+assert.ok(leer('src/routes/varios.mjs').includes("r.get('/sala-control/clima', requiere(...ROLES_SALA)"));
+assert.ok(leer('src/realtime.mjs').includes('export const uidsConectados'), 'En línea = CRM abierto de verdad');
 assert.ok(index.includes('/sala.css?v='), 'Hoja de estilos de la sala');
 assert.ok(salaCss.includes('#sala .sala-logo{width:clamp('), 'El logo de la sala no puede heredar el ancho completo de .logo-impar');
-assert.ok(/prefers-reduced-motion:reduce\)\{\s*\.sala-progreso i\.corre\{animation:none/.test(salaCss), 'Sala quieta con reducir movimiento');
+assert.ok(/@media \(prefers-reduced-motion:no-preference\)\{\s*#sala\{animation/.test(salaCss) && !/\n\.sala-[^{]*\{[^}]*animation:sala-/.test(salaCss.split('@media (prefers-reduced-motion:no-preference)')[0]), 'Todo el movimiento de la sala solo sin «reducir movimiento»');
 assert.ok(leer('src/core.mjs').includes("pulsoSala(empresa.id, abierta.id, 'mensaje')") && leer('src/core.mjs').includes("pulsoSala(empresa.id, neg.id, 'nuevo')"));
 assert.ok(leer('src/routes/negociaciones.mjs').includes("pulsoSala(req.empresaId, n.id, 'venta')") && leer('src/routes/negociaciones.mjs').includes("pulsoSala(req.empresaId, n.id, 'respuesta')"));
 // Transiciones de papel y ficha que se despliega desde su tarjeta.

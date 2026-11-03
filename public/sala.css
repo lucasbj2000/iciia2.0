@@ -1,171 +1,268 @@
-/* ============ IMPAR · Sala de control ============
-   Siempre en tinta oscura (pensada para una TV de oficina). El mapa es una lámina
-   sobre un pliego con marcas de corte; cada evento es una gota de tinta que se expande. */
-#sala{--sala-verde:#7CC24F;--sala-oro:#E8B84B;--sala-tinta:#C9D1C2;--sala-destello:rgba(124,194,79,.16);
-  position:fixed;inset:0;z-index:300;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;gap:clamp(10px,1.4vw,20px);
-  padding:clamp(12px,1.8vw,28px);background:var(--bg);color:var(--txt);font-family:var(--f-texto);overflow:hidden}
+/* ============ IMPAR · Sala de control (una sola pantalla) ============
+   Siempre en tinta oscura (pensada para una TV). El mapa es la pieza central:
+   Paraguay real, sus vecinos apagados, el río Paraguay que fluye, calor de clientes
+   y una gota de tinta por sucursal con su clima. Todo el movimiento respeta
+   «reducir movimiento». */
+#sala{--sala-verde:#7CC24F;--sala-oro:#E8B84B;--sala-tinta:#C9D1C2;--sala-agua:#6FA8D6;--sala-destello:rgba(124,194,79,.16);
+  --gap:clamp(8px,.9vw,14px);
+  position:fixed;inset:0;z-index:300;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;gap:var(--gap);
+  padding:clamp(10px,1.2vw,22px) clamp(12px,1.4vw,26px);background:var(--bg);color:var(--txt);font-family:var(--f-texto);overflow:hidden}
 body.sala-abierta{overflow:hidden}
 #sala h2,#sala h3{margin:0}
+#sala.sin-conexion .sala-vivo{color:var(--bad)}
 
-/* Encabezado */
-.sala-top{display:flex;align-items:center;gap:clamp(12px,1.6vw,24px);min-width:0}
-#sala .sala-logo{width:clamp(78px,7vw,112px);flex:none}
+/* ---------- Encabezado ---------- */
+.sala-top{display:flex;align-items:center;gap:clamp(10px,1.2vw,20px);min-width:0}
+#sala .sala-logo{width:clamp(76px,6.4vw,108px);flex:none}
 .sala-titulos{display:flex;flex-direction:column;min-width:0}
-.sala-titulos h2{font-family:var(--f-titulo);font-size:clamp(20px,1.8vw,28px);line-height:1.1}
-#sala-fecha{color:var(--muted);font-size:var(--fs-sm);text-transform:none}
+.sala-titulos h2{font-family:var(--f-titulo);font-size:clamp(19px,1.6vw,27px);line-height:1.1;display:flex;align-items:center;gap:12px;white-space:nowrap}
+#sala-fecha{color:var(--muted);font-size:var(--fs-sm)}
 #sala-fecha::first-letter{text-transform:uppercase}
-.sala-hora{margin-left:auto;font-family:var(--f-titulo);font-size:clamp(28px,3vw,48px);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.sala-ctrl{display:flex;gap:6px;flex:none;padding:0}
-.sala-btn.sala-vista-btn{width:auto;padding:0 14px;font:600 var(--fs-sm) var(--f-texto)}
+.sala-vivo{display:inline-flex;align-items:center;gap:6px;font:600 var(--fs-xs) var(--f-texto);color:var(--verde-texto);
+  padding:3px 10px 3px 8px;border:1px solid var(--verde-borde);border-radius:999px}
+.sala-vivo i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.sala-estados{display:flex;gap:8px;margin-left:auto;min-width:0}
+.sala-chip{display:flex;align-items:center;gap:8px;height:48px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);white-space:nowrap}
+.sala-clima .wxa{width:36px;height:36px;flex:none}
+.sala-cl-t{display:flex;flex-direction:column;line-height:1.1}
+.sala-cl-t b{font:700 20px var(--f-titulo)}
+.sala-cl-t small{color:var(--muted);font-size:var(--fs-xs)}
+.sala-wa svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}
+.sala-wa span{font-weight:600;font-size:var(--fs-sm)}
+.sala-wa-punto{width:10px;height:10px;border-radius:50%;background:var(--muted)}
+.sala-wa.ok{color:var(--verde-texto);border-color:var(--verde-borde)}
+.sala-wa.ok .sala-wa-punto{background:var(--sala-verde)}
+.sala-wa.alerta{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+.sala-wa.alerta .sala-wa-punto{background:var(--warn)}
+.sala-wa.mal{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 55%,transparent);background:color-mix(in srgb,var(--bad) 10%,var(--surface))}
+.sala-wa.mal .sala-wa-punto{background:var(--bad)}
+.sala-hora{font-family:var(--f-titulo);font-size:clamp(28px,2.7vw,46px);font-variant-numeric:tabular-nums;letter-spacing:-.02em;flex:none}
+.sala-ctrl{display:flex;gap:6px;flex:none}
 .sala-btn{width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--txt);
-  border-radius:10px;font:700 15px var(--f-titulo);cursor:pointer;transition:background var(--t-rapido),border-color var(--t-rapido)}
+  border-radius:10px;cursor:pointer;transition:border-color var(--t-rapido)}
 .sala-btn:hover{border-color:var(--verde-borde)}
-.sala-btn[aria-current="true"]{background:var(--verde-suave);border-color:var(--verde-borde);color:var(--verde-texto);border-radius:var(--esquina)}
 .sala-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.sala-btn .ic-sigue{fill:currentColor;stroke:none;display:none}
-#sala-pausa[aria-pressed="true"] .ic-pausa{display:none}
-#sala-pausa[aria-pressed="true"] .ic-sigue{display:block}
 
-/* Indicadores */
-.sala-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(8px,1vw,14px)}
-.sala-kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:clamp(10px,1vw,16px) clamp(12px,1.2vw,18px);
-  display:flex;flex-direction:column;gap:2px;min-width:0}
-.sala-k-t{color:var(--muted);font-size:var(--fs-sm)}
-.sala-k-v{font-family:var(--f-titulo);font-size:clamp(28px,3vw,48px);line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.sala-kpi small{color:var(--muted);font-size:var(--fs-xs)}
+/* ---------- Indicadores ---------- */
+.sala-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--gap)}
+.sala-kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:clamp(8px,.8vw,14px) clamp(10px,1vw,16px);
+  display:flex;flex-direction:column;gap:1px;min-width:0;position:relative}
+.sala-k-t{color:var(--muted);font-size:var(--fs-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sala-k-v{font-family:var(--f-titulo);font-size:clamp(26px,2.4vw,42px);line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
+.sala-k-de{font-size:.55em;color:var(--muted);letter-spacing:0}
+.sala-kpi small{color:var(--muted);font-size:var(--fs-xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sala-kpi.alerta .sala-k-v{color:var(--warn)}
-.sala-kpi[data-kpi="ventas"] small{color:var(--sala-oro);font-weight:600;font-size:var(--fs-sm)}
-.sala-kpi.festeja{border-color:var(--sala-oro)}
+.sala-kpi-oro small{color:var(--sala-oro);font-weight:600;font-size:var(--fs-sm)}
+.sala-kpi-tasa{flex-direction:row;align-items:center;gap:12px}
+.sala-kpi-tasa>div{display:flex;flex-direction:column;min-width:0}
+.sala-anillo{width:clamp(48px,3.8vw,66px);height:clamp(48px,3.8vw,66px);flex:none;transform:rotate(-90deg)}
+.sala-a-fondo{fill:none;stroke:var(--surface2);stroke-width:7}
+.sala-a-valor{fill:none;stroke:var(--sala-verde);stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset 1.2s cubic-bezier(.2,.7,.2,1)}
+.sala-kpi-tasa.alerta .sala-a-valor{stroke:var(--warn)}
+.sala-kpi-tasa.alerta .sala-k-v{color:var(--warn)}
+.sala-kpi-tasa.mal .sala-a-valor{stroke:var(--bad)}
+.sala-kpi-tasa.mal .sala-k-v{color:var(--bad)}
 
-/* Cuerpo */
-.sala-cuerpo{display:grid;gap:clamp(10px,1.2vw,18px);min-height:0;outline:none}
-.sala-cuerpo[data-vista="mapa"]{grid-template-columns:minmax(0,1.45fr) minmax(300px,1fr)}
-.sala-cuerpo[data-vista="cola"]{grid-template-columns:minmax(0,1.2fr) minmax(300px,1fr)}
-.sala-cuerpo[data-vista="ritmo"]{grid-template-columns:1fr}
-.sala-panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:clamp(12px,1.2vw,20px);min-height:0;overflow:auto;position:relative}
-.sala-sub{font-family:var(--f-titulo);font-size:clamp(15px,1.15vw,19px);margin:0 0 12px!important;color:var(--txt)}
-.sala-vacio{color:var(--muted);font-size:var(--fs-sm);margin:6px 0}
-.sala-vacio.grande{font-size:clamp(16px,1.4vw,22px);padding:40px 8px;text-align:center}
+/* ---------- Cuerpo: mapa a la izquierda, cuatro paneles a la derecha ---------- */
+.sala-cuerpo{display:grid;gap:var(--gap);min-height:0;
+  grid-template-columns:minmax(0,1.38fr) minmax(0,1fr) minmax(0,.92fr);grid-template-rows:minmax(0,1.08fr) minmax(0,.92fr);
+  grid-template-areas:"mapa cola agentes" "mapa ritmo suc"}
+.sala-mapa{grid-area:mapa}.sala-p-cola{grid-area:cola}.sala-p-ritmo{grid-area:ritmo}.sala-p-agentes{grid-area:agentes}.sala-p-suc{grid-area:suc}
+.sala-panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,1vw,16px);min-height:0;min-width:0;
+  overflow:hidden;position:relative;display:flex;flex-direction:column}
+.sala-sub{font-family:var(--f-titulo);font-size:clamp(15px,1.05vw,18px);margin:0 0 10px!important;display:flex;align-items:center;gap:8px;flex:none}
+.sala-cuenta{font:700 var(--fs-xs) var(--f-texto);background:var(--surface2);color:var(--txt);border-radius:999px;padding:2px 9px}
+.sala-vacio{color:var(--muted);font-size:var(--fs-sm);margin:4px 0;list-style:none}
+.sala-vacio.grande{font-size:clamp(15px,1.2vw,19px);margin:auto;text-align:center;padding:12px}
+/* Listas que se cortan con un desvanecido en vez de mostrar barra de desplazamiento */
+.sala-cola,.sala-agentes,.sala-ranking{-webkit-mask:linear-gradient(#000 calc(100% - 28px),transparent);mask:linear-gradient(#000 calc(100% - 28px),transparent);min-height:0;overflow:hidden}
 
-/* Lámina del mapa: marcas de corte del pliego en las esquinas */
-.sala-mapa{display:block;padding:0;
-  background:
-    linear-gradient(var(--muted),var(--muted)) 14px 14px/18px 1px no-repeat,linear-gradient(var(--muted),var(--muted)) 14px 14px/1px 18px no-repeat,
-    linear-gradient(var(--muted),var(--muted)) calc(100% - 14px) 14px/18px 1px no-repeat,linear-gradient(var(--muted),var(--muted)) calc(100% - 14px) 14px/1px 18px no-repeat,
-    linear-gradient(var(--muted),var(--muted)) 14px calc(100% - 14px)/18px 1px no-repeat,linear-gradient(var(--muted),var(--muted)) 14px calc(100% - 14px)/1px 18px no-repeat,
-    linear-gradient(var(--muted),var(--muted)) calc(100% - 14px) calc(100% - 14px)/18px 1px no-repeat,linear-gradient(var(--muted),var(--muted)) calc(100% - 14px) calc(100% - 14px)/1px 18px no-repeat,
-    var(--surface)}
-.sala-svg{position:absolute;inset:clamp(20px,2.2vw,36px);width:calc(100% - 2*clamp(20px,2.2vw,36px));height:calc(100% - 2*clamp(20px,2.2vw,36px));overflow:visible}
-.sala-pais{fill:var(--surface2);stroke:var(--line);stroke-width:2;stroke-linejoin:round}
-.sala-rio{fill:none;stroke:rgba(124,194,79,.4);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
-.sala-region{fill:var(--muted);font:600 18px var(--f-texto);opacity:.7}
-.sala-zona{fill:none;stroke:var(--muted);stroke-width:1.5}
-.sala-guia{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:4 5;opacity:.7}
-.sala-lupa{fill:var(--bg);stroke:var(--line);stroke-width:2}
-.sala-halo{fill:rgba(124,194,79,.13)}
-.sala-punto{fill:var(--sala-verde);stroke:var(--bg);stroke-width:3}
-.sala-nombre{fill:var(--txt);font:700 23px var(--f-titulo);paint-order:stroke;stroke:var(--surface);stroke-width:5px;stroke-linejoin:round}
-.sala-dato{fill:var(--muted);font:600 18px var(--f-texto);paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round}
-.con-espera .sala-halo{fill:rgba(227,167,58,.16);stroke:var(--warn);stroke-width:1.5;stroke-dasharray:3 4}
-.con-espera .sala-dato{fill:var(--warn)}
+/* ---------- Mapa ---------- */
+.sala-mapa{padding:0;background:radial-gradient(120% 90% at 40% 45%,#191d16 0%,var(--surface) 70%)}
+.sala-svg{position:absolute;inset:10px 10px 40px;width:calc(100% - 20px);height:calc(100% - 50px)}
+.sala-vecino{fill:#161914;stroke:#2a2f25;stroke-width:1.5}
+.sala-pais-nom{fill:var(--muted);opacity:.35;font:600 22px var(--f-texto);letter-spacing:.08em}
+.sala-pais-luz{fill:none;stroke:rgba(124,194,79,.28);stroke-width:8}
+.sala-pais{fill:#1e231b;stroke:#4a5541;stroke-width:2.2;stroke-linejoin:round}
+.sala-rio{fill:none;stroke:var(--sala-agua);stroke-opacity:.38;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.sala-rio-flujo{fill:none;stroke:#9FCBEE;stroke-opacity:.75;stroke-width:2;stroke-linecap:round;stroke-dasharray:3 22}
+.sala-region{fill:var(--muted);font:600 18px var(--f-texto);opacity:.55}
+.sala-ref circle{fill:var(--muted);opacity:.55}
+.sala-ref text{fill:var(--muted);font:600 14px var(--f-texto);opacity:.7}
+.sala-zona{fill:none;stroke:var(--sala-tinta);stroke-width:1.6;stroke-dasharray:3 3}
+.sala-guia{fill:none;stroke:var(--sala-tinta);stroke-width:1.3;stroke-dasharray:4 5;opacity:.55}
+.sala-lupa{fill:#151813;stroke:#4a5541;stroke-width:2.2}
+.lupa-t{opacity:.9;fill:var(--txt)}
+.sala-mini{fill:#1e231b;stroke:#3a4233;stroke-width:1.5}
+.sala-lider{fill:none;stroke:var(--muted);stroke-width:1.2;opacity:.6}
+.sala-detalle .sala-lupa{fill:rgba(18,21,16,.94)}
+.sala-sombra{fill:#000;opacity:.45}
+.sala-gota{fill:var(--sala-verde);stroke:#0f120d;stroke-width:2.5}
+.sala-ojo{fill:#0f120d}
+.con-espera .sala-ojo{fill:var(--warn)}
+.sala-radar{fill:none;stroke:var(--warn);stroke-width:2.5;opacity:0}
+.sala-e-fondo{fill:rgba(16,18,14,.97);stroke:#3a4233;stroke-width:1.2}
+.sala-nombre{fill:var(--txt);font:700 20px var(--f-titulo)}
+.sala-dato{fill:var(--muted);font:600 15px var(--f-texto)}
+.sala-dato.espera{fill:var(--warn)}
+.sala-temp{fill:var(--txt);font:700 22px var(--f-titulo)}
+.sala-lupa-g .sala-nombre{font-size:21px}
 .sala-onda{fill:none;stroke:var(--sala-verde)}
 .sala-onda.tk-respuesta{stroke:var(--sala-tinta)}
 .sala-onda.tk-venta{stroke:var(--sala-oro)}
+.sala-leyenda-mapa{position:absolute;left:16px;right:16px;bottom:10px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:var(--fs-xs)}
+.sala-l-grad{width:110px;height:8px;border-radius:4px;background:linear-gradient(90deg,rgba(124,194,79,.35),#E39A3A,#F3C55B)}
+.sala-leyenda-mapa small{margin-left:auto;font-size:var(--fs-xs)}
 
-/* Ranking y movimientos */
-.sala-lado{display:flex;flex-direction:column;gap:18px}
-.sala-ranking{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-.sala-ranking li{display:grid;grid-template-columns:minmax(90px,1.1fr) minmax(50px,1fr) auto auto;gap:12px;align-items:center;padding:8px 10px;border-radius:8px}
-.sala-r-nom{font-weight:600;font-size:clamp(14px,1vw,16px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sala-r-barra{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
-.sala-r-barra i{display:block;height:100%;width:var(--p);background:var(--sala-verde);border-radius:4px}
-.sala-r-num{color:var(--muted);font-size:var(--fs-sm);white-space:nowrap}
-.sala-r-num b{color:var(--txt);font-family:var(--f-titulo);font-size:clamp(15px,1.1vw,18px);font-variant-numeric:tabular-nums}
-.sala-r-num.oro b{color:var(--sala-oro)}
-.sala-ticker{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
-.sala-ticker li{display:grid;grid-template-columns:10px 1fr auto;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line-suave);font-size:var(--fs-sm)}
-.sala-ticker li i{width:10px;height:10px;border-radius:50%;background:var(--sala-verde)}
-.sala-ticker .tk-respuesta i{background:var(--sala-tinta)}
-.sala-ticker .tk-venta i{background:var(--sala-oro)}
-.sala-ticker .tk-venta span{color:var(--sala-oro);font-weight:600}
-.sala-ticker small{color:var(--muted);font-size:var(--fs-xs)}
-
-/* Cola */
-.sala-cola{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
-.sala-cola li{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:18px;align-items:center;
-  padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
-.sala-c-reloj{grid-row:1/3;font-family:var(--f-titulo);font-size:clamp(26px,2.4vw,40px);font-variant-numeric:tabular-nums;min-width:4.2ch;color:var(--sala-verde)}
-.sala-c-nom{font-weight:600;font-size:clamp(16px,1.3vw,21px)}
-.sala-c-meta{color:var(--muted);font-size:var(--fs-sm)}
+/* ---------- Cola ---------- */
+.sala-cola{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;flex:1}
+.sala-cola li{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:14px;align-items:center;
+  padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);flex:none}
+.sala-c-reloj{grid-row:1/3;font-family:var(--f-titulo);font-size:clamp(22px,1.8vw,32px);font-variant-numeric:tabular-nums;min-width:4.1ch;color:var(--sala-verde)}
+.sala-c-nom{font-weight:600;font-size:clamp(15px,1.05vw,18px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sala-c-meta{color:var(--muted);font-size:var(--fs-xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sala-cola li.atento .sala-c-reloj{color:var(--warn)}
-.sala-cola li.tarde{border-color:color-mix(in srgb,var(--bad) 55%,transparent)}
+.sala-cola li.tarde{border-color:color-mix(in srgb,var(--bad) 55%,transparent);background:color-mix(in srgb,var(--bad) 8%,var(--surface2))}
 .sala-cola li.tarde .sala-c-reloj{color:var(--bad)}
 
-/* Equipo */
-.sala-equipo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.sala-equipo li{display:grid;grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line-suave)}
-.sala-equipo li.pausa{opacity:.55}
-.sala-e-av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:var(--verde-suave);color:var(--verde-texto);
-  font:700 14px var(--f-titulo);box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--d)}
-.sala-e-av img{width:100%;height:100%;object-fit:cover}
-.sala-e-nom{font-weight:600;display:flex;flex-direction:column;min-width:0}
-.sala-e-nom small{color:var(--muted);font-weight:400;font-size:var(--fs-xs)}
-.sala-e-num{color:var(--muted);font-size:var(--fs-sm);white-space:nowrap}
-.sala-e-num b{color:var(--txt);font-family:var(--f-titulo);font-size:17px}
+/* ---------- Agentes ---------- */
+.sala-agentes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;flex:1}
+.sala-agentes li{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line-suave);flex:none}
+.sala-agentes li.fuera{opacity:.45}
+.sala-agentes li.pausa:not(.fuera){opacity:.75}
+.sala-a-av{position:relative;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--verde-suave);color:var(--verde-texto);
+  font:700 13px var(--f-titulo);box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--d)}
+.sala-a-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.sala-a-punto{position:absolute;right:-3px;bottom:-3px;width:12px;height:12px;border-radius:50%;background:#5a6152;box-shadow:0 0 0 2px var(--surface)}
+.en-linea .sala-a-punto{background:var(--sala-verde)}
+.sala-a-nom{font-weight:600;display:flex;flex-direction:column;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm)}
+.sala-a-nom small{color:var(--muted);font-weight:400;font-size:var(--fs-xs)}
+.sala-a-num{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+.sala-a-num b{font:700 17px var(--f-titulo);font-variant-numeric:tabular-nums}
+.sala-a-num small{color:var(--muted);font-size:var(--fs-xs)}
 
-/* Ritmo */
-.sala-panel.ancho{display:flex;flex-direction:column}
-.sala-leyenda{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:var(--fs-sm);margin:0 0 10px}
-.sala-leyenda b{color:var(--txt);margin-right:14px}
-.ley-in,.ley-out{width:12px;height:12px;border-radius:3px;background:var(--sala-tinta);opacity:.6}
-.ley-out{background:var(--sala-verde);opacity:1}
+/* ---------- Ritmo ---------- */
+.sala-ley{margin-left:auto;display:flex;align-items:center;gap:6px;font:400 var(--fs-xs) var(--f-texto);color:var(--muted)}
+.sala-ley i{width:10px;height:10px;border-radius:2px;margin-left:8px}
+.ley-in{background:var(--sala-tinta);opacity:.6}.ley-out{background:var(--sala-verde)}
 .sala-ritmo{width:100%;flex:1;min-height:0}
 .rt-in{fill:var(--sala-tinta);opacity:.5}
 .rt-out{fill:var(--sala-verde)}
 .rt-fondo{fill:var(--verde-suave)}
-.rt-grilla{stroke:var(--line);stroke-width:1}
-.rt-eje{fill:var(--muted);font:600 14px var(--f-texto)}
+.rt-base{stroke:var(--line);stroke-width:1}
+.rt-eje{fill:var(--muted);font:600 13px var(--f-texto)}
 .rt-ahora .rt-eje{fill:var(--verde-texto)}
+.sala-ritmo rect.rt-in,.sala-ritmo rect.rt-out{transform-box:fill-box;transform-origin:bottom}
 
-/* Pie y rotación */
-.sala-pie{display:flex;align-items:center;gap:16px;color:var(--muted);font-size:var(--fs-sm)}
-.sala-progreso{flex:1;height:3px;background:var(--line-suave);border-radius:2px;overflow:hidden}
-.sala-progreso i{display:block;height:100%;background:var(--sala-verde);transform:scaleX(0);transform-origin:left}
-.sala-progreso i.corre{animation:sala-llena 30s linear forwards}
-@keyframes sala-llena{to{transform:scaleX(1)}}
+/* ---------- Sucursales ---------- */
+.sala-ranking{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;flex:1}
+.sala-ranking li,.sala-r-ley{display:grid;grid-template-columns:minmax(72px,1.4fr) minmax(0,.9fr) 50px 54px 46px;gap:6px;align-items:center}
+.sala-ranking li{padding:5px 6px;border-radius:8px;flex:none}
+.sala-r-nom{font-weight:600;font-size:var(--fs-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sala-r-barra{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.sala-r-barra i{display:block;height:100%;width:var(--p);background:var(--sala-verde);border-radius:3px}
+.sala-r-num{text-align:right}
+.sala-r-num b{font:700 16px var(--f-titulo);font-variant-numeric:tabular-nums}
+.sala-r-num.espera b{color:var(--warn)}
+.sala-r-num.oro b{color:var(--sala-oro)}
+.sala-r-ley{margin:-4px 0 4px;padding:0 6px;color:var(--muted);font-size:var(--fs-xs);flex:none}
+.sala-r-ley span{text-align:right}
 
+/* ---------- Pie: movimientos en vivo ---------- */
+.sala-pie{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:var(--fs-sm);min-width:0;height:40px}
+.sala-pie-t{font-weight:600;color:var(--txt);flex:none}
+.sala-mov{list-style:none;margin:0;padding:0;display:flex;gap:8px;flex:1;min-width:0;overflow:hidden;
+  -webkit-mask:linear-gradient(90deg,#000 calc(100% - 60px),transparent);mask:linear-gradient(90deg,#000 calc(100% - 60px),transparent)}
+.sala-mov li{display:flex;align-items:center;gap:7px;flex:none;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);white-space:nowrap}
+.sala-mov li.sala-vacio{border:0;background:none;padding:0}
+.sala-mov li i{width:9px;height:9px;border-radius:50%;background:var(--sala-verde)}
+.sala-mov b{font-weight:600;color:var(--txt);font-size:var(--fs-sm)}
+.sala-mov small{color:var(--muted);font-size:var(--fs-xs)}
+.sala-mov .tk-respuesta i{background:var(--sala-tinta)}
+.sala-mov .tk-venta{border-color:color-mix(in srgb,var(--sala-oro) 55%,transparent)}
+.sala-mov .tk-venta i{background:var(--sala-oro)}
+.sala-mov .tk-venta b{color:var(--sala-oro)}
+#sala-estado{flex:none;font-size:var(--fs-xs)}
+
+/* ---------- Movimiento (solo si nadie pidió reducirlo) ---------- */
 @media (prefers-reduced-motion:no-preference){
-  #sala{animation:sala-entra .45s cubic-bezier(.2,.7,.2,1) both}
-  .sala-nodo.late .sala-punto{animation:sala-late .7s cubic-bezier(.2,.7,.2,1)}
-  .sala-kpi.festeja{animation:sala-oro 2.4s ease-out}
-  .con-espera .sala-halo{animation:sala-gira 14s linear infinite;transform-box:fill-box;transform-origin:center}
+  #sala{animation:sala-entra .5s cubic-bezier(.2,.7,.2,1) both}
+  .sala-kpi,.sala-panel{animation:sala-sube .55s cubic-bezier(.2,.7,.2,1) both}
+  .sala-kpi:nth-child(2){animation-delay:.04s}.sala-kpi:nth-child(3){animation-delay:.08s}.sala-kpi:nth-child(4){animation-delay:.12s}
+  .sala-kpi:nth-child(5){animation-delay:.16s}.sala-kpi:nth-child(6){animation-delay:.2s}
+  .sala-p-cola{animation-delay:.1s}.sala-p-agentes{animation-delay:.16s}.sala-p-ritmo{animation-delay:.22s}.sala-p-suc{animation-delay:.28s}
+  .sala-vivo i{animation:sala-titila 1.6s ease-in-out infinite}
+  .sala-wa.ok .sala-wa-punto,.en-linea .sala-a-punto{animation:sala-respira 2.4s ease-in-out infinite}
+  .sala-wa.mal .sala-wa-punto,.sala-wa.alerta .sala-wa-punto{animation:sala-titila 1s ease-in-out infinite}
+  .sala-rio-flujo{animation:sala-fluye 2.8s linear infinite}
+  .sala-calor{animation:sala-calor 7s ease-in-out infinite}
+  .sala-radar{animation:sala-radar 2.6s ease-out infinite;transform-box:fill-box;transform-origin:center}
+  .sala-pin{animation:sala-cae .7s cubic-bezier(.3,1.4,.5,1) both}
+  .sala-a-valor{animation:sala-anillo 1.4s cubic-bezier(.2,.7,.2,1) both}
+  .sala-ritmo rect.rt-in,.sala-ritmo rect.rt-out{animation:sala-crece .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i) * 25ms)}
+  .rt-ahora .rt-fondo{animation:sala-respira 3s ease-in-out infinite}
   .sala-r-barra i{animation:sala-barra .8s cubic-bezier(.2,.7,.2,1) both}
+  .sala-kpi.destella{animation:sala-destella 1.8s ease-out}
+  .sala-kpi-oro.destella{animation:sala-oro 2.4s ease-out}
+  .sala-cola li.tarde .sala-c-reloj{animation:sala-titila 2s ease-in-out infinite}
 }
-@keyframes sala-entra{from{opacity:0;clip-path:inset(0 0 0 100%)}to{opacity:1;clip-path:inset(0)}}
-@keyframes sala-late{40%{transform:scale(1.45)}}
-.sala-punto{transform-box:fill-box;transform-origin:center}
-@keyframes sala-oro{0%{box-shadow:0 0 0 0 rgba(232,184,75,.55)}30%{box-shadow:0 0 0 10px rgba(232,184,75,.18)}100%{box-shadow:0 0 0 0 rgba(232,184,75,0)}}
-@keyframes sala-gira{to{transform:rotate(360deg)}}
+@keyframes sala-entra{from{opacity:0}to{opacity:1}}
+@keyframes sala-sube{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes sala-titila{50%{opacity:.35}}
+@keyframes sala-respira{50%{opacity:.55}}
+@keyframes sala-fluye{to{stroke-dashoffset:-50}}
+@keyframes sala-calor{50%{opacity:.78}}
+@keyframes sala-radar{0%{transform:scale(1);opacity:.9}100%{transform:scale(5.5);opacity:0}}
+@keyframes sala-cae{from{transform:translateY(-40px);opacity:0}}
+.sala-pin{transform-box:view-box}
+@keyframes sala-anillo{from{stroke-dashoffset:188.5}}
+@keyframes sala-crece{from{transform:scaleY(0)}}
 @keyframes sala-barra{from{width:0}}
-@media (prefers-reduced-motion:reduce){
-  .sala-progreso i.corre{animation:none;transform:scaleX(1);opacity:.35}
+@keyframes sala-destella{0%{box-shadow:0 0 0 0 rgba(124,194,79,.55);border-color:var(--sala-verde)}100%{box-shadow:0 0 0 14px rgba(124,194,79,0)}}
+@keyframes sala-oro{0%{box-shadow:0 0 0 0 rgba(232,184,75,.6);border-color:var(--sala-oro)}40%{box-shadow:0 0 0 12px rgba(232,184,75,.15)}100%{box-shadow:0 0 0 0 rgba(232,184,75,0)}}
+
+@media (max-width:1500px){.sala-ranking li,.sala-r-ley{grid-template-columns:minmax(72px,1fr) 0 50px 54px 46px}.sala-r-barra{visibility:hidden}}
+/* ---------- Pantallas bajas (notebook 1280×800) ---------- */
+@media (min-width:1101px) and (max-height:860px){
+  .sala-kpi small{display:none}
+  .sala-chip{height:42px}
+  .sala-agentes li{padding:4px}
+  .sala-a-av{width:32px;height:32px}
+  .sala-ranking li{padding:2px 6px}
+  .sala-r-num b{font-size:15px}
+  .sala-anillo{width:42px;height:42px}
+  .sala-kpi-tasa{gap:8px}
+  .sala-sub{margin-bottom:6px!important}
 }
 
-/* Celular y tablet: una columna con scroll */
-@media (max-width:900px){
-  #sala{overflow:auto;grid-template-rows:auto auto auto auto}
+/* ---------- Tablet: el mapa arriba, paneles debajo, con desplazamiento ---------- */
+@media (max-width:1100px){
+  #sala{overflow:auto;display:flex;flex-direction:column}
+  #sala>*{flex:none}
+  .sala-cuerpo{min-height:auto}
   .sala-top{flex-wrap:wrap}
+  .sala-estados{order:5;width:100%;margin-left:0}
   .sala-hora{margin-left:auto}
-  .sala-ctrl{width:100%;justify-content:flex-end}
+  .sala-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .sala-cuerpo{grid-template-columns:1fr 1fr;grid-template-rows:auto;grid-template-areas:"mapa mapa" "cola agentes" "ritmo suc"}
+  .sala-mapa{height:min(72vw,640px)}
+  .sala-p-cola,.sala-p-agentes{height:380px}
+  .sala-p-ritmo,.sala-p-suc{height:280px}
+  .sala-pie{height:auto;flex-wrap:wrap}
+}
+/* ---------- Celular: una columna ---------- */
+@media (max-width:700px){
   .sala-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .sala-kpi[data-kpi="equipo"]{grid-column:1/-1}
-  .sala-cuerpo[data-vista]{grid-template-columns:1fr}
-  .sala-panel{overflow:visible}
-  .sala-mapa{height:min(108vw,560px)}
-  .sala-cuerpo[data-vista="ritmo"] .sala-panel.ancho{height:420px}
-  .sala-btn.sala-vista-btn{flex:1}
-  .sala-ranking li{grid-template-columns:1fr auto auto}
-  .sala-r-barra{display:none}
-  .sala-equipo li{grid-template-columns:auto 1fr auto}
-  .sala-equipo li .sala-e-num:last-child{display:none}
+  .sala-cuerpo{grid-template-columns:1fr;grid-template-areas:"mapa" "cola" "agentes" "ritmo" "suc"}
+  .sala-mapa{height:118vw}
+  .sala-estados{flex-wrap:wrap}
+  .sala-chip{flex:1;min-width:0}
+  .sala-wa span{overflow:hidden;text-overflow:ellipsis}
+  .sala-vivo{display:none}
+  .sala-leyenda-mapa small{display:none}
+  .sala-mov{flex-wrap:wrap;-webkit-mask:none;mask:none}
+  .sala-pie{flex-direction:column;align-items:flex-start;gap:8px}
+  .sala-mov li{white-space:normal}
+  .sala-k-t,.sala-kpi small,.sala-wa span{white-space:normal}
+  .sala-chip{height:auto;min-height:48px;padding:8px 12px}
 }
