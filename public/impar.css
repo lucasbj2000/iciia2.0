@@ -112,3 +112,13 @@ body.modal-open #view{overflow:hidden}
 .org-rama{border-top:3px solid var(--brand);padding-top:12px;min-width:0}.org-sucursal{font-size:16px;margin:0 0 14px}
 .org-persona{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;overflow-wrap:anywhere}
 .org-direccion .org-persona{min-width:240px;max-width:360px;flex:1}.org-persona h3{font-size:15px;margin:6px 0}.org-persona p{margin:5px 0;color:var(--muted);font-size:12px}.org-persona small{display:block;color:var(--muted);margin-bottom:12px}.org-rol{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--brand)}.org-persona .btn{margin-top:8px}.org-superior{border-top:1px solid var(--line);padding-top:8px}
+
+/* WhatsApp: mensaje que el teléfono del cliente no pudo descifrar («Esperando mensaje»). */
+.msg-no-visto{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;padding:8px 10px;border-radius:10px;
+  background:color-mix(in srgb,var(--warn) 16%,transparent);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);
+  color:var(--txt);font-size:12.5px;line-height:1.4}
+.msg-no-visto span{flex:1 1 180px}
+.msg-no-visto .btn{flex:none}
+.ruta-wa{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap}
+.ruta-wa select{padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface2);font-size:12.5px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

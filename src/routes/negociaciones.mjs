@@ -265,8 +265,11 @@ r.get('/:id/ruta-whatsapp', requiere('admin'), async(req,res)=>{
 });
 r.patch('/:id/ruta-whatsapp', requiere('admin'), async(req,res)=>{
   try{
-    if(typeof req.body?.preferirLid!=='boolean')
-      return res.status(422).json({error:'Indicá activar o desactivar la ruta alternativa'});
+    // ruta: 'auto' (recomendada) | 'pn' | 'lid'. Se acepta también el booleano anterior.
+    const ruta=typeof req.body?.ruta==='string'?req.body.ruta
+      :typeof req.body?.preferirLid==='boolean'?(req.body.preferirLid?'lid':'auto'):null;
+    if(!['auto','pn','lid'].includes(ruta))
+      return res.status(422).json({error:'Elegí ruta automática, por número o por LID'});
     const n=await obtenerNegociacionVisible(req,req.params.id);
     if(!n)return res.status(404).json({error:'Negociación no encontrada'});
     const {rows:canales}=await q(
@@ -278,11 +281,11 @@ r.patch('/:id/ruta-whatsapp', requiere('admin'), async(req,res)=>{
     const actual=await estadoRutaWA(req.empresaId,n.canal_id,numero);
     if(!actual.alternativa)
       return res.status(409).json({error:'WhatsApp todavía no confirmó una identidad alternativa para este número'});
-    const ok=await elegirRutaWA(req.empresaId,n.canal_id,numero,req.body.preferirLid);
+    const ok=await elegirRutaWA(req.empresaId,n.canal_id,numero,ruta);
     if(!ok)return res.status(409).json({error:'Ruta no disponible'});
     await auditar(req.empresaId,req.user.nombre,'Ruta WhatsApp',
-      req.body.preferirLid?'Activó prueba de envío por LID validado':'Restauró envío por número PN',req.ip);
-    res.json({ok:true,alternativa:true,activa:req.body.preferirLid});
+      {auto:'Ruta automática',pn:'Ruta fija por número',lid:'Ruta fija por LID verificado'}[ruta],req.ip);
+    res.json(await estadoRutaWA(req.empresaId,n.canal_id,numero));
   }catch(e){console.warn('[wa:ruta] Configuración:',e.message);
     res.status(500).json({error:'No se pudo actualizar el direccionamiento WhatsApp'});}
 });
@@ -319,6 +322,35 @@ r.post('/:id/mensajes', requiere(), async (req, res) => {
   const clienteId = typeof req.body?.clienteId === 'string' && req.body.clienteId.length <= 80
     && /^local-\d+-\d+$/.test(req.body.clienteId) ? req.body.clienteId : null;
   emitir(req.empresaId, 'neg:patch', { id: n.id, mensajeId: mensaje.id, clienteId });
+  res.json({ ok: true, mensaje });
+});
+
+/** Reenvía un mensaje que el teléfono del cliente no pudo descifrar («Esperando mensaje»).
+ * Solo mensajes salientes con aviso de WhatsApp; usa la ruta actual (ya corregida). */
+r.post('/:id/mensajes/:mid/reenviar', requiere(), async (req, res) => {
+  if (!/^\d+$/.test(String(req.params.mid))) return res.status(404).json({ error: 'Mensaje no encontrado.' });
+  const n = await obtenerNegociacionVisible(req, req.params.id);
+  if (!n) return res.status(404).json({ error: 'no encontrada' });
+  const { rows } = await q(
+    `SELECT m.id,m.txt,m.archivo_id,COALESCE(MAX(we.reintentos),0)::int AS reintentos,MAX(we.reenviado_ts) AS reenviado_ts,MAX(ob.id) AS outbox_id
+       FROM mensajes m JOIN negociaciones nx ON nx.id=m.negociacion_id AND nx.empresa_id=m.empresa_id
+       LEFT JOIN outbox ob ON ob.mensaje_id=m.id AND ob.empresa_id=m.empresa_id
+       LEFT JOIN wa_entregas_impar we ON we.outbox_id=ob.id AND we.empresa_id=m.empresa_id
+      WHERE m.id=$1 AND m.empresa_id=$2 AND m.dir='out' AND nx.contacto_id=$3
+      GROUP BY m.id`, [req.params.mid, req.empresaId, n.contacto_id]);
+  const m = rows[0];
+  if (!m) return res.status(404).json({ error: 'Mensaje no encontrado.' });
+  if (!m.reintentos) return res.status(409).json({ error: 'WhatsApp no informó problemas con este mensaje.' });
+  if (m.reenviado_ts) return res.status(409).json({ error: 'Este mensaje ya se reenvió.' });
+  // Marcar antes de encolar: dos clics seguidos no generan dos reenvíos.
+  const marca = await q(`UPDATE wa_entregas_impar SET reenviado_ts=now() WHERE outbox_id=$1 AND empresa_id=$2 AND reenviado_ts IS NULL`,
+    [m.outbox_id, req.empresaId]);
+  if (!marca.rowCount) return res.status(409).json({ error: 'Este mensaje ya se reenvió.' });
+  const adjunto = m.archivo_id ? await obtenerArchivo(m.archivo_id, req.empresaId) : null;
+  if (!m.txt && !adjunto) return res.status(409).json({ error: 'El mensaje original ya no está disponible para reenviar.' });
+  const mensaje = await encolarSalida(req, n, m.txt || '', adjunto, null);
+  await historial(req.empresaId, n.id, 'Mensaje reenviado: el cliente no pudo verlo («Esperando mensaje»)', req.user.nombre);
+  emitir(req.empresaId, 'neg:patch', { id: n.id, mensajeId: mensaje.id });
   res.json({ ok: true, mensaje });
 });
 

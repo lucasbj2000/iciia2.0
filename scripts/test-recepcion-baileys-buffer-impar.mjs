@@ -33,7 +33,7 @@ const q=async(sql,args)=>{
 };
 const context=vm.createContext({q,console,sesiones,Promise,Date,Number,String,JSON,process,emitir:()=>{},
   setTimeout:()=>0,
-  parejaDesdeEventoWA:()=>null,registrarParejaWA:async()=>true,
+  parejaDesdeEventoWA:()=>null,registrarParejaWA:async()=>true,modoDesdeEventoWA:()=>null,registrarModoEntranteWA:async()=>false,
   bajarMedia:async()=>null,despertados:0});
 vm.runInContext(codigo+';globalThis.testRecibir=recibir;',context);
 const inbound=context.testRecibir;

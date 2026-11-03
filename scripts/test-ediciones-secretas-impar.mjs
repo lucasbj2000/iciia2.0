@@ -35,7 +35,7 @@ function entorno() {
   const sesiones = new Map([['c', {}]]);
   const ctx = vm.createContext({ q, console, sesiones, Promise, Date, Number, String, JSON, Object, Buffer, Map, Set,
     process, hkdfSync, createDecipheriv, setTimeout: () => 0, clearTimeout() {}, emitir() {},
-    parejaDesdeEventoWA: () => null, registrarParejaWA: async () => true, bajarMedia: async () => null });
+    parejaDesdeEventoWA: () => null, registrarParejaWA: async () => true, modoDesdeEventoWA: () => null, registrarModoEntranteWA: async () => false, bajarMedia: async () => null });
   vm.runInContext(codigo + ';globalThis.t={recibir,secretosMensajes};', ctx);
   return { ...ctx.t, mensajes, inbox, sesiones };
 }

@@ -44,7 +44,7 @@ function entorno() {
     setTimeout: (fn, ms) => { const t = { fn, ms, vivo: true }; timers.push(t); return t; },
     clearTimeout: t => { if (t) t.vivo = false; },
     emitir: (_e, tipo, d) => eventos.push([tipo, d.id]),
-    parejaDesdeEventoWA: () => null, registrarParejaWA: async () => true,
+    parejaDesdeEventoWA: () => null, registrarParejaWA: async () => true, modoDesdeEventoWA: () => null, registrarModoEntranteWA: async () => false,
     bajarMedia: async () => null, despertados: 0
   });
   vm.runInContext(codigo + ';globalThis.t={recibir,AVISO_NO_DESCIFRADO,ESPERA_DESCIFRADO_MS};', ctx);

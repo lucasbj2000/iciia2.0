@@ -39,7 +39,7 @@ function entorno() {
   const sesiones = new Map([['c', {}]]);
   const ctx = vm.createContext({ q, console, sesiones, Promise, Date, Number, String, JSON, Object, process,
     setTimeout: () => 0, clearTimeout() {}, emitir: (_e, t, d) => eventos.push([t, d.id]),
-    parejaDesdeEventoWA: () => null, registrarParejaWA: async () => true, bajarMedia: async () => null, despertados: 0 });
+    parejaDesdeEventoWA: () => null, registrarParejaWA: async () => true, modoDesdeEventoWA: () => null, registrarModoEntranteWA: async () => false, bajarMedia: async () => null, despertados: 0 });
   vm.runInContext(codigo + ';globalThis.t={recibirEdicion};', ctx);
   return { ...ctx.t, mensajes, inbox, eventos, sesiones, ctx };
 }

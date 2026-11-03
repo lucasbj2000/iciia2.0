@@ -60,7 +60,7 @@ assert.ok(ba.includes('buttonsResponseMessage?.selectedDisplayText') &&
   'Las respuestas de botones/listas tampoco se deben perder');
 assert.ok(ba.includes('const remitente=pareja?.pn?.split('),'Usar PN verificado en el propio evento');
 assert.ok(leer('src/worker.mjs').includes('await resolverRemitenteWA('),'Resolver LID pendiente antes de ingresar mensaje');
-assert.ok(ba.includes('registrarParejaWA(canal,pareja).catch('),
+assert.ok(ba.includes("registrarParejaWA(canal,pareja,'mensaje_entrante',modo):registrarModoEntranteWA(canal,m.key)).catch("),
   'Persistir equivalencia antes de resolver el remitente');
 assert.ok(ba.includes('normalizeMessageContent'),'Contenido efímero desembalado');
 assert.ok(!ba.includes('rmSync(carpeta,'),

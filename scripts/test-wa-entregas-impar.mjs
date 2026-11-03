@@ -14,12 +14,13 @@ const q=async(sql,args)=>{
       tabla.set(id,{...prev,ack:Math.max(prev.ack,args[3]),jid_tipo:args[4]});
     }
     cambios.push({sql,args});
-    return {rows:[{outbox_id:tabla.get(id).outbox_id||null}]};
+    return {rows:[{outbox_id:tabla.get(id).outbox_id||null,reintentos:tabla.get(id).reintentos||0}]};
   }
   if(sql.includes('SELECT negociacion_id FROM outbox'))return {rows:[{negociacion_id:'neg-falsa'}]};
   throw new Error('Consulta SQL inesperada: '+sql);
 };
-const context=vm.createContext({q,emitir:(...args)=>eventos.push(args),console,Number,String,Date,Promise});
+const confirmados=[];
+const context=vm.createContext({q,emitir:(...args)=>eventos.push(args),confirmarRutaWA:async(c,j)=>{confirmados.push(j);return true;},console,Number,String,Date,Promise});
 const source=entregas.replace(/^import .*;$/gm,'').replace(/\bexport (const|async function)/g,'$1');
 vm.runInContext(source+'\nglobalThis.apis={interpretarAck,tipoJid,registrarEnvioImpar,registrarActualizacionImpar};',context);
 const {interpretarAck,tipoJid,registrarEnvioImpar,registrarActualizacionImpar}=context.apis;
@@ -38,6 +39,7 @@ assert.equal(tabla.get(canal.id+'|'+key.id).ack,3,'Nunca regresar estado de entr
 assert.equal(tabla.get(canal.id+'|'+key.id).outbox_id,8,'Vincular mensaje con outbox');
 await registrarActualizacionImpar(canal,{key,update:{status:4}});
 assert.equal(tabla.get(canal.id+'|'+key.id).ack,4,'ACK de lectura');
+assert.deepEqual(confirmados,[key.remoteJid],'Leído sin avisos de reintento confirma la ruta');
 assert.equal(eventos.at(-1)[1],'neg:patch','Refrescar solamente la negociación');
 const antes=cambios.length;
 assert.equal(await registrarActualizacionImpar(canal,{key:{...key,fromMe:false},update:{status:4}}),false,

@@ -194,6 +194,10 @@ function mensajeHTML(m) {
        const estadoWA=m.wa_estado_meta==='failed' ? ' · ⚠ Meta no entregó' : m.wa_ack == null ? '' : Number(m.wa_ack)>=4
          ? ' · ✓✓ Leído' : Number(m.wa_ack)>=3
            ? ' · ✓✓ Entregado' : ' · ✓ Enviado, entrega no confirmada';
+       // WhatsApp avisó que el teléfono del cliente no pudo descifrarlo: probablemente ve «Esperando mensaje».
+       const noDescifrado = m.dir==='out' && Number(m.wa_reintentos)>0
+         ? `<div class="msg-no-visto" role="note"><span>⚠ Puede que el cliente vea «Esperando mensaje».${m.wa_reenviado?' Ya se reenvió.':''}</span>
+            ${m.wa_reenviado ? '' : `<button type="button" class="btn ghost sm" data-reenviar="${m.id}">Reenviar</button>`}</div>` : '';
        const tramo = m.inicioConversacion
          ? `<div class="historial-tramo ${m.anterior?'anterior':''}">${m.anterior?'↶ Conversación anterior':'Conversación actual'}
               · ${fd(m.creado_negociacion)}${m.titulo_negociacion?' · '+esc(m.titulo_negociacion):''}</div>` : '';
@@ -202,7 +206,7 @@ function mensajeHTML(m) {
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
           ${tramo}${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
           <small>${m.carga_historica ? '✎ Carga histórica (admin) · ' : ''}${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ' · 📱 '+esc(m.remitente_numero) : ''}
-          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}${estadoWA}${esAdmin()?botonAnclarHistorico(m):''}</small></div>`;
+          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}${estadoWA}${esAdmin()?botonAnclarHistorico(m):''}</small>${noDescifrado}</div>`;
 }
 
 export async function refrescarFicha(id, seguir = false) {
@@ -296,7 +300,18 @@ async function cargarTelefonosChat(id){
   }catch(e){if(error)error.textContent='No se pudieron consultar números: '+e.message;}
 }
 
-/** Prueba controlada PN/LID exclusivamente administrada. Nunca reenvía mensajes. */
+/** Ruta de envío WhatsApp (solo admin). Automática por defecto: el CRM responde por la
+ * misma identidad (número o LID) por la que escribe el cliente, y cambia sola si su
+ * teléfono avisa que no pudo descifrar un mensaje. */
+const MOTIVO_RUTA={
+  manual:'elegida por administración',
+  fallo_numero:'su teléfono no pudo descifrar mensajes enviados al número',
+  fallo_lid:'su teléfono no pudo descifrar mensajes enviados por LID',
+  cliente_escribe_lid:'el cliente escribe por LID',
+  cliente_escribe_numero:'el cliente escribe desde su número',
+  predeterminada:'sin datos del cliente todavía',
+  sin_equivalencia:'WhatsApp aún no informó su LID'
+};
 async function cargarRutaWA(id){
   const zona=$('#f-ruta-wa');
   if(!zona || !esAdmin() || actual?.id!==id)return;
@@ -306,25 +321,22 @@ async function cargarRutaWA(id){
     if(!zona.isConnected || actual?.id!==id)return;
     if(!datos.disponible){zona.textContent='';return;}
     if(!datos.alternativa){
-      zona.innerHTML='<small style="color:var(--muted)">Ruta actual: número telefónico. WhatsApp aún no proporcionó una equivalencia LID verificada para este contacto.</small>';
+      zona.innerHTML='<small style="color:var(--muted)">Ruta de envío: número telefónico. WhatsApp aún no informó el LID de este contacto; si lo hace, el CRM elegirá la ruta automáticamente.</small>';
       return;
     }
-    const activo=!!datos.activa;
-    zona.innerHTML='<small style="color:var(--muted)">Ruta de envío: <b>'+
-      (activo?'LID verificado (prueba)':'número telefónico (normal)')+'</b></small> '+
-      '<button type="button" class="btn ghost sm" id="f-cambiar-ruta">'+
-      (activo?'Restaurar ruta normal':'Probar ruta LID verificada')+'</button>';
-    const boton=$('#f-cambiar-ruta');
-    if(!boton)return;
-    boton.onclick=async()=>{
-      if(!await confirmar('Ruta alternativa WhatsApp',
-        activo?'Se restablecerá el envío normal a este número. No se reenviarán mensajes.':
-        'WhatsApp confirmó una equivalencia PN/LID. Se probará la ruta LID sólo para este número. Confirmá la entrega con el destinatario; no hay reenvío automático.',
-        activo?'Restaurar PN':'Activar prueba LID',false))return;
-      boton.disabled=true;
+    const usa=datos.usar==='lid'?'LID verificado':'número telefónico';
+    zona.innerHTML='<div class="ruta-wa"><small style="color:var(--muted)">Ruta de envío: <b>'+usa+'</b> · '+
+      esc(MOTIVO_RUTA[datos.motivo]||'')+'</small> '+
+      '<label class="ruta-wa-sel"><span class="sr">Ruta de envío</span><select id="f-ruta-sel">'+
+      [['auto','Automática (recomendada)'],['pn','Siempre por número'],['lid','Siempre por LID']]
+        .map(([v,t])=>'<option value="'+v+'"'+(datos.ruta===v?' selected':'')+'>'+t+'</option>').join('')+
+      '</select></label></div>';
+    const sel=$('#f-ruta-sel');
+    sel.onchange=async()=>{
+      sel.disabled=true;
       try{
-        await patch(`/negociaciones/${id}/ruta-whatsapp`,{preferirLid:!activo});
-        toast('Ruta guardada para nuevos mensajes de este número.','ok','WhatsApp');
+        await patch(`/negociaciones/${id}/ruta-whatsapp`,{ruta:sel.value});
+        toast(sel.value==='auto'?'Ruta automática para este contacto.':'Ruta fija guardada para este contacto.','ok','WhatsApp');
       }catch(e){toast(e.message,'bad','WhatsApp');}
       finally{cargarRutaWA(id);}
     };
@@ -451,6 +463,16 @@ function conectar(n) {
   }
   // Ir al mensaje citado (también en negociaciones cerradas).
   const cajaChat = $('#chatbox');
+  cajaChat?.addEventListener('click', async e => {
+    const b = e.target.closest('[data-reenviar]');
+    if (!b) return;
+    b.disabled = true;
+    try {
+      await post(`/negociaciones/${n.id}/mensajes/${b.dataset.reenviar}/reenviar`, {});
+      toast('Mensaje reenviado por la ruta corregida.', 'ok', 'WhatsApp');
+      refrescarFicha(n.id, true);
+    } catch (err) { toast(err.message, 'warn', 'WhatsApp'); b.disabled = false; }
+  });
   cajaChat?.addEventListener('click', e => {
     const ir = e.target.closest('[data-ir-cita]');
     if (!ir) return;

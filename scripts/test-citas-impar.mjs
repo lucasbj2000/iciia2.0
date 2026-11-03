@@ -26,7 +26,7 @@ const tramo = (src, desde, hasta) => {
   const sesiones = new Map([['c', { numero: '595971000000', lid: '88990011' }]]);
   const ctx = vm.createContext({ q, console, sesiones, Promise, Date, Number, String, JSON, Object, process,
     setTimeout: () => 0, clearTimeout() {}, emitir() {}, parejaDesdeEventoWA: () => null,
-    registrarParejaWA: async () => true, bajarMedia: async () => null });
+    registrarParejaWA: async () => true, modoDesdeEventoWA: () => null, registrarModoEntranteWA: async () => false, bajarMedia: async () => null });
   vm.runInContext(codigo + ';globalThis.t={recibir,extraerCita};', ctx);
   const canal = { id: 'c', empresa_id: 'impar' }, mod = { normalizeMessageContent: x => x };
   const key = id => ({ id, remoteJid: '595981000001@s.whatsapp.net', fromMe: false });

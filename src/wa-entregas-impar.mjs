@@ -1,6 +1,7 @@
 /** IMPAR · trazabilidad real de acuses. No reenvía mensajes ni cambia la sesión Signal. */
 import {q} from './db.mjs';
 import {emitir} from './realtime.mjs';
+import {confirmarRutaWA} from './wa-identidades-impar.mjs';
 
 export const interpretarAck = valor => {
   if(valor===null||valor===undefined)return null;
@@ -36,8 +37,11 @@ export async function registrarActualizacionImpar(canal,evento){
     'VALUES($1,$2,$3,$4,$5) '+
     'ON CONFLICT(canal_id,wa_id) DO UPDATE SET '+
     'ack=GREATEST(wa_entregas_impar.ack,EXCLUDED.ack),actualizado=now() '+
-    'RETURNING outbox_id',
+    'RETURNING outbox_id,reintentos',
     [canal.id,canal.empresa_id,id,ack,tipoJid(evento.key.remoteJid)]);
+  // Leído sin avisos de «no pude descifrar»: esa ruta funciona para el contacto.
+  if(ack>=4 && !Number(rows[0]?.reintentos))
+    confirmarRutaWA(canal,evento.key.remoteJid).catch(e=>console.warn('[wa:ruta] Confirmación no registrada:',e.name));
   if(rows[0]?.outbox_id){
     const data=await q('SELECT negociacion_id FROM outbox WHERE id=$1 AND empresa_id=$2',
       [rows[0].outbox_id,canal.empresa_id]);

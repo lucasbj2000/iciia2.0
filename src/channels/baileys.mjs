@@ -13,7 +13,8 @@ import { guardarBuffer, MEDIA_DIR } from '../archivos.mjs';
 import { guardarOriginal, recuperarOriginal } from '../wa-reintentos.mjs';
 import { crearCacheContadorReintentos } from '../wa-cache-reintentos.mjs';
 import { registrarActualizacionImpar } from '../wa-entregas-impar.mjs';
-import { registrarParejaWA, parejaDesdeEventoWA, validarParejaWA, rutaParaEnvioWA, resolverRemitenteWA } from '../wa-identidades-impar.mjs';
+import { registrarParejaWA, parejaDesdeEventoWA, validarParejaWA, rutaParaEnvioWA, resolverRemitenteWA,
+  modoDesdeEventoWA, registrarModoEntranteWA, registrarReintentoWA } from '../wa-identidades-impar.mjs';
 import { vigilarBuffer } from '../wa-vigilancia-buffer.mjs';
 
 const AUTH_DIR = process.env.WA_AUTH_DIR || './auth';
@@ -118,6 +119,23 @@ export async function iniciar(canal) {
       }
     });
     sock.ev.on('impar.recepcion.error',()=>{if(S.sock===sock)transporte.erroresCola++;});
+    // Recibo «retry»: el teléfono del cliente no pudo descifrar un mensaje nuestro
+    // («Esperando mensaje»). Baileys ya lo reintenta; acá se anota para que los
+    // próximos envíos usen la otra ruta verificada (número ↔ LID). Sin datos personales en logs.
+    sock.ws?.on('CB:receipt', node => {
+      if(S.sock!==sock || node?.attrs?.type!=='retry')return;
+      const de=String(node.attrs.from||'');
+      if(!de.endsWith('@s.whatsapp.net') && !de.endsWith('@lid'))return;
+      registrarReintentoWA(canal,node.attrs).then(async r=>{
+        if(!r)return;
+        S.reintentosCifrado=(S.reintentosCifrado||0)+1;
+        console.warn(`[wa:ruta] Aviso de mensaje no descifrado por el cliente (ruta=${r.tipo}). Próximos envíos usan la ruta alternativa si está verificada.`);
+        if(r.outboxId){
+          const {rows}=await q('SELECT negociacion_id FROM outbox WHERE id=$1 AND empresa_id=$2',[r.outboxId,canal.empresa_id]);
+          if(rows[0]?.negociacion_id)emitir(canal.empresa_id,'neg:patch',{id:rows[0].negociacion_id});
+        }
+      }).catch(e=>console.warn('[wa:ruta] Aviso de reintento no registrado:',e.name));
+    });
     const detenerVigilancia = vigilarBuffer({
       sock, vigente: () => S.sock === sock, conectado: () => S.estado === 'conectado',
       alLiberar: () => {
@@ -135,7 +153,7 @@ export async function iniciar(canal) {
       if (S.edicionesPorUpdate || S.protocolosVistos?.size || S.edicionesIgnoradas?.size)
         console.log(`[wa:ediciones] por_update=${S.edicionesPorUpdate||0} protocolos=${mapa(S.protocolosVistos)} ignoradas=${mapa(S.edicionesIgnoradas)}`);
       if (S.tiposNoAdmitidos?.size) console.log(`[wa:no_admitidos] ${[...S.tiposNoAdmitidos].map(([t,n])=>t+':'+n).join(' ')}`);
-      console.log(`[wa:transporte] nodos=${transporte.nodos} cifrados=${transporte.cifrados} no_disponibles=${transporte.noDisponibles} msmsg=${transporte.msmsg} errores_cola=${transporte.erroresCola}`);
+      console.log(`[wa:transporte] nodos=${transporte.nodos} cifrados=${transporte.cifrados} no_disponibles=${transporte.noDisponibles} msmsg=${transporte.msmsg} errores_cola=${transporte.erroresCola} no_descifrados_por_cliente=${S.reintentosCifrado||0}`);
     },60000);
     estadoRecepcion.unref?.();
     // Si el servidor de WhatsApp no termina el lote offline, Baileys 6.7.24
@@ -601,7 +619,10 @@ async function recibir(mod,m,canal,id){
   }
   const S=sesiones.get(id);
   if(S){S.totalEntradas=(S.totalEntradas||0)+1;S.entradaUltima=Date.now();}
-  if(pareja)registrarParejaWA(canal,pareja).catch(e=>
+  // Se recuerda por qué identidad (número o LID) escribe el cliente: la respuesta
+  // automática sale por la misma vía que su teléfono sabe descifrar.
+  const modo=modoDesdeEventoWA(m.key);
+  (pareja?registrarParejaWA(canal,pareja,'mensaje_entrante',modo):registrarModoEntranteWA(canal,m.key)).catch(e=>
     console.warn('[wa:identidades] Guardado diferido:',e.name));
   q('UPDATE canales SET ultimo_mensaje=now() WHERE id=$1',[id]).catch(e=>
     console.warn('[wa:recepcion] Marca de actividad:',e.name));
