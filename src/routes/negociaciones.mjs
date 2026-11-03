@@ -12,6 +12,9 @@ import { obtenerHistorialContacto } from '../historial-contacto-impar.mjs';
 import { telefonosContacto, normalizarNumero } from '../telefonos-impar.mjs';
 import { estadoRutaWA, elegirRutaWA } from '../wa-identidades-impar.mjs';
 import { citaParaEnvio } from '../citas-impar.mjs';
+import { pulsoSala } from '../sala-control-impar.mjs';
+import { marcarPresencia, presenciasEmpresa } from '../presencia-equipo-impar.mjs';
+import { colaboradores } from '../colaboracion.mjs';
 
 const r = Router();
 
@@ -50,6 +53,16 @@ async function obtenerNegociacionVisible(req, id) {
     [id, req.empresaId, ...params]);
   return rows[0] || null;
 }
+
+/** Quién está mirando cada negociación que el usuario puede ver (para pintar el tablero al entrar). */
+r.get('/presencia-equipo', requiere(), async (req, res) => {
+  const todas = presenciasEmpresa(req.empresaId), ids = Object.keys(todas).filter(id => /^[0-9a-f-]{36}$/i.test(id));
+  if (!ids.length) return res.json({});
+  const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 3);
+  const { rows } = await q(`SELECT n.id FROM negociaciones n WHERE n.empresa_id=$1 AND n.id=ANY($2::uuid[])${where}`,
+    [req.empresaId, ids, ...params]);
+  res.json(Object.fromEntries(rows.map(x => [x.id, todas[x.id]])));
+});
 
 r.get('/', requiere(), async (req, res) => {
   const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 2);
@@ -150,6 +163,7 @@ r.patch('/:id/etapa', requiere(), async (req, res) => {
     (etapa === 'ganado' ? ` · Monto Gs ${montoCierre.toLocaleString('es-PY')}` : '') +
     (etapa === 'cerrado' ? ` · ${motivo}` : ''), req.user.nombre);
 
+  if (etapa === 'ganado') pulsoSala(req.empresaId, n.id, 'venta');
   if (etapa === 'ganado') await notificar(emp, 'ganado',
     { agente: req.user.nombre, cliente: n.cliente, monto: `Gs ${montoCierre.toLocaleString('es-PY')}` }, [], n.id);
   await auditar(req.empresaId, req.user.nombre, 'Etapa', `${n.etapa}→${etapa}`, req.ip);
@@ -322,7 +336,18 @@ r.post('/:id/mensajes', requiere(), async (req, res) => {
   const clienteId = typeof req.body?.clienteId === 'string' && req.body.clienteId.length <= 80
     && /^local-\d+-\d+$/.test(req.body.clienteId) ? req.body.clienteId : null;
   emitir(req.empresaId, 'neg:patch', { id: n.id, mensajeId: mensaje.id, clienteId });
+  pulsoSala(req.empresaId, n.id, 'respuesta');
   res.json({ ok: true, mensaje });
+});
+
+/** Presencia del equipo: «estoy en esta conversación» / «estoy escribiendo». Solo en memoria. */
+r.post('/:id/viendo', requiere(), async (req, res) => {
+  const n = await obtenerNegociacionVisible(req, req.params.id);
+  if (!n) return res.status(404).json({ error: 'no encontrada' });
+  const destinatarios = (await colaboradores(req, n)).map(u => u.id);
+  const quienes = marcarPresencia(req.empresaId, n.id, req.user,
+    { redactando: req.body?.redactando === true, salir: req.body?.salir === true }, destinatarios);
+  res.json({ quienes });
 });
 
 /** Conversación abierta: escuchar si el cliente está escribiendo (WhatsApp QR). Sin datos guardados. */

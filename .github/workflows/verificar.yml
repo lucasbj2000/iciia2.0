@@ -93,6 +93,8 @@ jobs:
         run: node scripts/test-rescate-impar.mjs
       - name: Diseño, logo adaptable y respuestas rápidas sin pérdidas
         run: node scripts/test-diseno-impar.mjs
+      - name: Presencia del equipo en tiempo real
+        run: node scripts/test-presencia-equipo-impar.mjs
       - name: Verificar formulario único y chequeo público
         run: |
           node scripts/test-publicacion-central.mjs
@@ -172,3 +174,7 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
         run: node scripts/test-rapidas-pg.mjs
+      - name: Sala de control en PostgreSQL real
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
+        run: node scripts/test-sala-control-pg.mjs

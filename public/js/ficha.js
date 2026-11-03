@@ -1,5 +1,6 @@
 /* ============ Ficha de negociación · adjuntos · botones · ubicaciones ============ */
 import { tildesHTML } from './animaciones.js';
+import { seguirConversacion } from './presencia-equipo.js';
 import {
   $, $$, esc, S, get, post, patch, put, del, gs, fdate, fd, ago, toast, modal, cerrar,
   confirmar, fx, esAdmin, esMando, etapa, ORIGENES, vacio, vibrar, esMovil
@@ -168,6 +169,7 @@ function pintar() {
   // Escuchar si el cliente está escribiendo (WhatsApp); se renueva mientras la conversación siga abierta.
   const suscribir = () => { if ($('.conversation-modal')?.dataset.negociacionId === n.id) post(`/negociaciones/${n.id}/presencia`, {}).catch(() => {}); else clearInterval(window._presenciaTimer); };
   clearInterval(window._presenciaTimer); suscribir(); window._presenciaTimer = setInterval(suscribir, 8 * 60000);
+  seguirConversacion(n.id);
   const cb = $('#chatbox'); if (cb) { cb.innerHTML = ''; actualizarMensajes(cb, historialVista?.mensajes || n.mensajes || [], mensajeHTML, true); activarVisor(cb); }
   conectar(n);
 }

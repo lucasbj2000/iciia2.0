@@ -3,6 +3,7 @@ import { q } from '../db.mjs';
 import { requiere, hash, alcanceSQL } from '../auth.mjs';
 import { notificar, horasLaborales } from '../core.mjs';
 import { emitir } from '../realtime.mjs';
+import { fotoSala, ROLES_SALA } from '../sala-control-impar.mjs';
 import bcrypt from 'bcryptjs';
 
 const r = Router();
@@ -50,6 +51,12 @@ r.get('/resumen-dia', requiere(), async (req, res) => {
       [req.empresaId, req.user.id])
   ]);
   res.json({ clientes: atendidos.rows[0].n, ventas: ganadas.rows[0].n, monto: ganadas.rows[0].monto, mensajes: mensajes.rows[0].n });
+});
+
+/** Sala de control: foto en vivo del día para administración, gerencia y jefes (cada uno en su alcance). */
+r.get('/sala-control', requiere(...ROLES_SALA), async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(await fotoSala(req));
 });
 
 r.post('/disponibilidad', requiere(), async (req, res) => {

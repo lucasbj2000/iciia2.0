@@ -1,6 +1,7 @@
 import { q, tx, telNorm } from './db.mjs';
 import { buscarPorTelefono } from './telefonos-impar.mjs';
 import { emitir } from './realtime.mjs';
+import { pulsoSala } from './sala-control-impar.mjs';
 import * as ubi from './ubicaciones.mjs';
 import { programarBot } from './bot.mjs';
 import { resolverCitaEntrante } from './citas-impar.mjs';
@@ -322,6 +323,7 @@ export async function ingresarMensaje(empresa, {
     }
     if (det) await guardarUbicacion(empresa, contacto, abierta, det);
     emitir(empresa.id, 'neg:patch', { id: abierta.id });
+    pulsoSala(empresa.id, abierta.id, 'mensaje');
     if (empresa.flags?.bot && empresa.bot?.activo) programarBot(empresa,abierta.id);
     return { negociacionId: abierta.id, reusada: true, contacto };
   }
@@ -383,6 +385,7 @@ export async function ingresarMensaje(empresa, {
   await notificar(empresa, 'nuevo', { cliente: contacto.nombre, origen }, [agente], neg.id);
   if (det) await guardarUbicacion(empresa, contacto, neg, det);
   emitir(empresa.id, 'neg:nueva', { id: neg.id });
+  pulsoSala(empresa.id, neg.id, 'nuevo');
   return { negociacionId: neg.id, contacto };
 }
 

@@ -1,0 +1,171 @@
+/* ============ IMPAR · Sala de control ============
+   Siempre en tinta oscura (pensada para una TV de oficina). El mapa es una lámina
+   sobre un pliego con marcas de corte; cada evento es una gota de tinta que se expande. */
+#sala{--sala-verde:#7CC24F;--sala-oro:#E8B84B;--sala-tinta:#C9D1C2;--sala-destello:rgba(124,194,79,.16);
+  position:fixed;inset:0;z-index:300;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;gap:clamp(10px,1.4vw,20px);
+  padding:clamp(12px,1.8vw,28px);background:var(--bg);color:var(--txt);font-family:var(--f-texto);overflow:hidden}
+body.sala-abierta{overflow:hidden}
+#sala h2,#sala h3{margin:0}
+
+/* Encabezado */
+.sala-top{display:flex;align-items:center;gap:clamp(12px,1.6vw,24px);min-width:0}
+.sala-logo{width:clamp(78px,7vw,112px);flex:none}
+.sala-titulos{display:flex;flex-direction:column;min-width:0}
+.sala-titulos h2{font-family:var(--f-titulo);font-size:clamp(20px,1.8vw,28px);line-height:1.1}
+#sala-fecha{color:var(--muted);font-size:var(--fs-sm);text-transform:none}
+#sala-fecha::first-letter{text-transform:uppercase}
+.sala-hora{margin-left:auto;font-family:var(--f-titulo);font-size:clamp(28px,3vw,48px);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.sala-ctrl{display:flex;gap:6px;flex:none;padding:0}
+.sala-btn.sala-vista-btn{width:auto;padding:0 14px;font:600 var(--fs-sm) var(--f-texto)}
+.sala-btn{width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--txt);
+  border-radius:10px;font:700 15px var(--f-titulo);cursor:pointer;transition:background var(--t-rapido),border-color var(--t-rapido)}
+.sala-btn:hover{border-color:var(--verde-borde)}
+.sala-btn[aria-current="true"]{background:var(--verde-suave);border-color:var(--verde-borde);color:var(--verde-texto);border-radius:var(--esquina)}
+.sala-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sala-btn .ic-sigue{fill:currentColor;stroke:none;display:none}
+#sala-pausa[aria-pressed="true"] .ic-pausa{display:none}
+#sala-pausa[aria-pressed="true"] .ic-sigue{display:block}
+
+/* Indicadores */
+.sala-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(8px,1vw,14px)}
+.sala-kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:clamp(10px,1vw,16px) clamp(12px,1.2vw,18px);
+  display:flex;flex-direction:column;gap:2px;min-width:0}
+.sala-k-t{color:var(--muted);font-size:var(--fs-sm)}
+.sala-k-v{font-family:var(--f-titulo);font-size:clamp(28px,3vw,48px);line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.sala-kpi small{color:var(--muted);font-size:var(--fs-xs)}
+.sala-kpi.alerta .sala-k-v{color:var(--warn)}
+.sala-kpi[data-kpi="ventas"] small{color:var(--sala-oro);font-weight:600;font-size:var(--fs-sm)}
+.sala-kpi.festeja{border-color:var(--sala-oro)}
+
+/* Cuerpo */
+.sala-cuerpo{display:grid;gap:clamp(10px,1.2vw,18px);min-height:0;outline:none}
+.sala-cuerpo[data-vista="mapa"]{grid-template-columns:minmax(0,1.45fr) minmax(300px,1fr)}
+.sala-cuerpo[data-vista="cola"]{grid-template-columns:minmax(0,1.2fr) minmax(300px,1fr)}
+.sala-cuerpo[data-vista="ritmo"]{grid-template-columns:1fr}
+.sala-panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:clamp(12px,1.2vw,20px);min-height:0;overflow:auto;position:relative}
+.sala-sub{font-family:var(--f-titulo);font-size:clamp(15px,1.15vw,19px);margin:0 0 12px!important;color:var(--txt)}
+.sala-vacio{color:var(--muted);font-size:var(--fs-sm);margin:6px 0}
+.sala-vacio.grande{font-size:clamp(16px,1.4vw,22px);padding:40px 8px;text-align:center}
+
+/* Lámina del mapa: marcas de corte del pliego en las esquinas */
+.sala-mapa{display:block;padding:0;
+  background:
+    linear-gradient(var(--muted),var(--muted)) 14px 14px/18px 1px no-repeat,linear-gradient(var(--muted),var(--muted)) 14px 14px/1px 18px no-repeat,
+    linear-gradient(var(--muted),var(--muted)) calc(100% - 14px) 14px/18px 1px no-repeat,linear-gradient(var(--muted),var(--muted)) calc(100% - 14px) 14px/1px 18px no-repeat,
+    linear-gradient(var(--muted),var(--muted)) 14px calc(100% - 14px)/18px 1px no-repeat,linear-gradient(var(--muted),var(--muted)) 14px calc(100% - 14px)/1px 18px no-repeat,
+    linear-gradient(var(--muted),var(--muted)) calc(100% - 14px) calc(100% - 14px)/18px 1px no-repeat,linear-gradient(var(--muted),var(--muted)) calc(100% - 14px) calc(100% - 14px)/1px 18px no-repeat,
+    var(--surface)}
+.sala-svg{position:absolute;inset:clamp(20px,2.2vw,36px);width:calc(100% - 2*clamp(20px,2.2vw,36px));height:calc(100% - 2*clamp(20px,2.2vw,36px));overflow:visible}
+.sala-pais{fill:var(--surface2);stroke:var(--line);stroke-width:2;stroke-linejoin:round}
+.sala-rio{fill:none;stroke:rgba(124,194,79,.4);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.sala-region{fill:var(--muted);font:600 18px var(--f-texto);opacity:.7}
+.sala-zona{fill:none;stroke:var(--muted);stroke-width:1.5}
+.sala-guia{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:4 5;opacity:.7}
+.sala-lupa{fill:var(--bg);stroke:var(--line);stroke-width:2}
+.sala-halo{fill:rgba(124,194,79,.13)}
+.sala-punto{fill:var(--sala-verde);stroke:var(--bg);stroke-width:3}
+.sala-nombre{fill:var(--txt);font:700 23px var(--f-titulo);paint-order:stroke;stroke:var(--surface);stroke-width:5px;stroke-linejoin:round}
+.sala-dato{fill:var(--muted);font:600 18px var(--f-texto);paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round}
+.con-espera .sala-halo{fill:rgba(227,167,58,.16);stroke:var(--warn);stroke-width:1.5;stroke-dasharray:3 4}
+.con-espera .sala-dato{fill:var(--warn)}
+.sala-onda{fill:none;stroke:var(--sala-verde)}
+.sala-onda.tk-respuesta{stroke:var(--sala-tinta)}
+.sala-onda.tk-venta{stroke:var(--sala-oro)}
+
+/* Ranking y movimientos */
+.sala-lado{display:flex;flex-direction:column;gap:18px}
+.sala-ranking{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.sala-ranking li{display:grid;grid-template-columns:minmax(90px,1.1fr) minmax(50px,1fr) auto auto;gap:12px;align-items:center;padding:8px 10px;border-radius:8px}
+.sala-r-nom{font-weight:600;font-size:clamp(14px,1vw,16px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sala-r-barra{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.sala-r-barra i{display:block;height:100%;width:var(--p);background:var(--sala-verde);border-radius:4px}
+.sala-r-num{color:var(--muted);font-size:var(--fs-sm);white-space:nowrap}
+.sala-r-num b{color:var(--txt);font-family:var(--f-titulo);font-size:clamp(15px,1.1vw,18px);font-variant-numeric:tabular-nums}
+.sala-r-num.oro b{color:var(--sala-oro)}
+.sala-ticker{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.sala-ticker li{display:grid;grid-template-columns:10px 1fr auto;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line-suave);font-size:var(--fs-sm)}
+.sala-ticker li i{width:10px;height:10px;border-radius:50%;background:var(--sala-verde)}
+.sala-ticker .tk-respuesta i{background:var(--sala-tinta)}
+.sala-ticker .tk-venta i{background:var(--sala-oro)}
+.sala-ticker .tk-venta span{color:var(--sala-oro);font-weight:600}
+.sala-ticker small{color:var(--muted);font-size:var(--fs-xs)}
+
+/* Cola */
+.sala-cola{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.sala-cola li{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:18px;align-items:center;
+  padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
+.sala-c-reloj{grid-row:1/3;font-family:var(--f-titulo);font-size:clamp(26px,2.4vw,40px);font-variant-numeric:tabular-nums;min-width:4.2ch;color:var(--sala-verde)}
+.sala-c-nom{font-weight:600;font-size:clamp(16px,1.3vw,21px)}
+.sala-c-meta{color:var(--muted);font-size:var(--fs-sm)}
+.sala-cola li.atento .sala-c-reloj{color:var(--warn)}
+.sala-cola li.tarde{border-color:color-mix(in srgb,var(--bad) 55%,transparent)}
+.sala-cola li.tarde .sala-c-reloj{color:var(--bad)}
+
+/* Equipo */
+.sala-equipo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.sala-equipo li{display:grid;grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line-suave)}
+.sala-equipo li.pausa{opacity:.55}
+.sala-e-av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:var(--verde-suave);color:var(--verde-texto);
+  font:700 14px var(--f-titulo);box-shadow:0 0 0 2px var(--bg),0 0 0 5px var(--d)}
+.sala-e-av img{width:100%;height:100%;object-fit:cover}
+.sala-e-nom{font-weight:600;display:flex;flex-direction:column;min-width:0}
+.sala-e-nom small{color:var(--muted);font-weight:400;font-size:var(--fs-xs)}
+.sala-e-num{color:var(--muted);font-size:var(--fs-sm);white-space:nowrap}
+.sala-e-num b{color:var(--txt);font-family:var(--f-titulo);font-size:17px}
+
+/* Ritmo */
+.sala-panel.ancho{display:flex;flex-direction:column}
+.sala-leyenda{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:var(--fs-sm);margin:0 0 10px}
+.sala-leyenda b{color:var(--txt);margin-right:14px}
+.ley-in,.ley-out{width:12px;height:12px;border-radius:3px;background:var(--sala-tinta);opacity:.6}
+.ley-out{background:var(--sala-verde);opacity:1}
+.sala-ritmo{width:100%;flex:1;min-height:0}
+.rt-in{fill:var(--sala-tinta);opacity:.5}
+.rt-out{fill:var(--sala-verde)}
+.rt-fondo{fill:var(--verde-suave)}
+.rt-grilla{stroke:var(--line);stroke-width:1}
+.rt-eje{fill:var(--muted);font:600 14px var(--f-texto)}
+.rt-ahora .rt-eje{fill:var(--verde-texto)}
+
+/* Pie y rotación */
+.sala-pie{display:flex;align-items:center;gap:16px;color:var(--muted);font-size:var(--fs-sm)}
+.sala-progreso{flex:1;height:3px;background:var(--line-suave);border-radius:2px;overflow:hidden}
+.sala-progreso i{display:block;height:100%;background:var(--sala-verde);transform:scaleX(0);transform-origin:left}
+.sala-progreso i.corre{animation:sala-llena 30s linear forwards}
+@keyframes sala-llena{to{transform:scaleX(1)}}
+
+@media (prefers-reduced-motion:no-preference){
+  #sala{animation:sala-entra .45s cubic-bezier(.2,.7,.2,1) both}
+  .sala-nodo.late .sala-punto{animation:sala-late .7s cubic-bezier(.2,.7,.2,1)}
+  .sala-kpi.festeja{animation:sala-oro 2.4s ease-out}
+  .con-espera .sala-halo{animation:sala-gira 14s linear infinite;transform-box:fill-box;transform-origin:center}
+  .sala-r-barra i{animation:sala-barra .8s cubic-bezier(.2,.7,.2,1) both}
+}
+@keyframes sala-entra{from{opacity:0;clip-path:inset(0 0 0 100%)}to{opacity:1;clip-path:inset(0)}}
+@keyframes sala-late{40%{transform:scale(1.45)}}
+.sala-punto{transform-box:fill-box;transform-origin:center}
+@keyframes sala-oro{0%{box-shadow:0 0 0 0 rgba(232,184,75,.55)}30%{box-shadow:0 0 0 10px rgba(232,184,75,.18)}100%{box-shadow:0 0 0 0 rgba(232,184,75,0)}}
+@keyframes sala-gira{to{transform:rotate(360deg)}}
+@keyframes sala-barra{from{width:0}}
+@media (prefers-reduced-motion:reduce){
+  .sala-progreso i.corre{animation:none;transform:scaleX(1);opacity:.35}
+}
+
+/* Celular y tablet: una columna con scroll */
+@media (max-width:900px){
+  #sala{overflow:auto;grid-template-rows:auto auto auto auto}
+  .sala-top{flex-wrap:wrap}
+  .sala-hora{margin-left:auto}
+  .sala-ctrl{width:100%;justify-content:flex-end}
+  .sala-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sala-kpi[data-kpi="equipo"]{grid-column:1/-1}
+  .sala-cuerpo[data-vista]{grid-template-columns:1fr}
+  .sala-panel{overflow:visible}
+  .sala-mapa{height:min(108vw,560px)}
+  .sala-cuerpo[data-vista="ritmo"] .sala-panel.ancho{height:420px}
+  .sala-btn.sala-vista-btn{flex:1}
+  .sala-ranking li{grid-template-columns:1fr auto auto}
+  .sala-r-barra{display:none}
+  .sala-equipo li{grid-template-columns:auto 1fr auto}
+  .sala-equipo li .sala-e-num:last-child{display:none}
+}

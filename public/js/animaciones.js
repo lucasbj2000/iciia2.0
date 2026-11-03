@@ -134,3 +134,59 @@ export function correr(el) {
   };
   requestAnimationFrame(paso);
 }
+
+/* ---------- Transiciones de papel ---------- */
+const espera = ms => new Promise(r => setTimeout(r, ms));
+
+/** Cambio de sección: la hoja actual se pliega y la nueva se despliega (View Transitions).
+ *  Nunca congela la pantalla más de 420 ms aunque la vista nueva tarde en cargar. */
+export function pasarHoja(cambiar, sentido = 'adelante') {
+  const raiz = document.documentElement;
+  const vista = $('#view');
+  if (menosMovimiento() || !vista) return Promise.resolve().then(cambiar);
+  raiz.dataset.pliegue = sentido;
+  // La hoja ya anima la entrada: la vista nueva no suma su propio desvanecido.
+  vista.classList.add('hoja-nueva'); clearTimeout(vista._hoja);
+  vista._hoja = setTimeout(() => vista.classList.remove('hoja-nueva'), 1500);
+  if (typeof document.startViewTransition !== 'function') {
+    return Promise.resolve().then(cambiar).finally(() => {
+      const v = $('#view'), desde = sentido === 'atras' ? 'inset(0 100% 0 0)' : 'inset(0 0 0 100%)';
+      v?.animate([{ clipPath: desde, opacity: .6 }, { clipPath: 'inset(0)', opacity: 1 }], { duration: 380, easing: CURVA });
+      delete raiz.dataset.pliegue;
+    });
+  }
+  return new Promise((ok, mal) => {
+    const t = document.startViewTransition(() => {
+      const p = Promise.resolve().then(cambiar);
+      p.then(ok, mal);
+      return Promise.race([p.catch(() => {}), espera(420)]);
+    });
+    t.finished.catch(() => {}).finally(() => { delete raiz.dataset.pliegue; });
+  });
+}
+
+/** Ficha que se despliega desde su tarjeta, como una hoja que se abre.
+ *  Si la ficha se repinta a mitad de camino (carga → conversación), el vuelo continúa. */
+const DUR_HOJA = 420;
+let hoja = null;
+export function desplegarDesde(rect) {
+  if (!rect || menosMovimiento()) { hoja = null; return; }
+  hoja = { rect, t0: performance.now() };
+  aplicarHoja();
+}
+export function aplicarHoja() {
+  if (!hoja) return;
+  const pasado = performance.now() - hoja.t0, el = $('#modals .modal');
+  if (pasado >= DUR_HOJA || !el) { hoja = null; return; }
+  const d = el.getBoundingClientRect(), o = hoja.rect;
+  if (!d.width || !d.height) return;
+  const sx = o.width / d.width, sy = o.height / d.height;
+  el.classList.add('hoja-abre');
+  const a = el.animate([
+    { transformOrigin: 'top left', transform: `translate(${o.left - d.left}px,${o.top - d.top}px) scale(${sx},${sy})`, opacity: .55 },
+    { transformOrigin: 'top left', transform: 'perspective(1400px) rotateX(5deg) scale(1.006)', opacity: 1, offset: .72 },
+    { transformOrigin: 'top left', transform: 'none', opacity: 1 }
+  ], { duration: DUR_HOJA, delay: -pasado, easing: CURVA, fill: 'backwards' });
+  a.onfinish = a.oncancel = () => el.classList.remove('hoja-abre');
+}
+window._hojaModal = aplicarHoja;

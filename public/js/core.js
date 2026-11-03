@@ -158,7 +158,10 @@ export function animarContador(el) {
 /* ---------- Modales ---------- */
 export function modal(html, ancho) {
   document.body.classList.add('modal-open');
-  $('#modals').innerHTML = `<div class="mask"><div class="modal ${ancho ? 'wide' : ''}">${html}</div></div>`;
+  // Si se reemplaza un modal abierto (carga → contenido), no repetir la entrada.
+  const reemplazo = !!$('#modals .mask');
+  $('#modals').innerHTML = `<div class="mask${reemplazo ? ' reemplazo' : ''}"><div class="modal ${ancho ? 'wide' : ''}">${html}</div></div>`;
+  window._hojaModal?.();
   const mask = $('.mask');
   mask.addEventListener('click', e => { if (e.target === mask) cerrar(); });
   document.addEventListener('keydown', escCerrar);

@@ -1,7 +1,8 @@
 /* ============ Arranque, navegación y realtime ============ */
 import './tooltips.js';
 import { iconoClima, saludoHora } from './clima-animado.js';
-import { mostrarEscribiendo, estadoWhatsApp, bienvenida, correr } from './animaciones.js';
+import { mostrarEscribiendo, estadoWhatsApp, bienvenida, correr, pasarHoja } from './animaciones.js';
+import { recibirPresencia, cargarPresencias } from './presencia-equipo.js';
 import {
   $, $$, esc, S, api, get, post, patch, toast, modal, cerrar, ago, iniciales,
   fechaISO, saludo, fx, esAdmin, aplicarTema, aplicarFX, salir, DISPONIBILIDAD,
@@ -33,6 +34,7 @@ const NAV = [
   { id: 'rep', t: 'Reportes', ic: '▤', mod: 'reportes' },
   { id: 'proy', t: 'Avances del CRM', ic: '◷', proyecto: true },
   { id: 'sop', t: 'Soporte', ic: '⚑', siempre: true },
+  { id: 'sala', t: 'Sala de control', ic: '◉', sala: true },
   { id: 'cfg', t: 'Configuración', ic: '⚙', mod: 'configuracion' },
   { id: 'org', t: 'Organigrama', ic: '▥', mando: true },
   { id: 'adm', t: 'Administración', ic: '★', admin: true }
@@ -159,12 +161,14 @@ function pintarDisponibilidad() {
 export function pintarNav() {
   const mods = S.empresa?.modulos || [];
   $('#nav').innerHTML = NAV
-    .filter(n => n.siempre ? true : n.proyecto ? (esAdmin() || !!S.proyectoAcceso?.visible) : n.mando ? ['admin','gerente'].includes(S.usuario.rol) : n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
+    .filter(n => n.siempre ? true : n.sala ? ['admin','gerente','jefe'].includes(S.usuario.rol) : n.proyecto ? (esAdmin() || !!S.proyectoAcceso?.visible) : n.mando ? ['admin','gerente'].includes(S.usuario.rol) : n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
     .map(n => `<button class="nav-i ${S.vista === n.id ? 'active' : ''}" data-nav="${n.id}">
       <span class="ic">${n.ic}</span>${n.t}${n.id === 'com' ? '<span class="bdg" style="display:none"></span>' : ''}</button>`).join('')
     ;
 
-  $$('[data-nav]').forEach(b => b.onclick = () => ir(b.dataset.nav));
+  $$('[data-nav]').forEach(b => b.onclick = () => b.dataset.nav === 'sala'
+    ? import('./sala-control.js').then(m => m.abrirSala()).catch(e => toast(e.message, 'bad'))
+    : ir(b.dataset.nav));
   moverMarcaNav();
 }
 
@@ -185,10 +189,13 @@ function moverMarcaNav() {
 }
 
 export async function ir(v) {
+  const orden = id => NAV.findIndex(n => n.id === id);
+  const sentido = orden(v) < orden(S.vista) ? 'atras' : 'adelante', misma = v === S.vista;
   S.vista = v;
   document.body.classList.remove('nav-open');
   pintarNav();
-  await render();
+  // Cambio de sección como una hoja que se pliega y otra que se despliega.
+  await (misma ? render() : pasarHoja(render, sentido));
 }
 
 async function render() {
@@ -257,6 +264,11 @@ function conectarRealtime() {
     S.empresa = ctx.empresa; S.sucursales = ctx.sucursales;
     aplicarMarca(); aplicarFX(); pintarNav();
   });
+  es.addEventListener('equipo:viendo', e => { try { recibirPresencia(JSON.parse(e.data)); } catch {} });
+  es.addEventListener('sala:pulso', e => {
+    try { const d = JSON.parse(e.data); import('./sala-control.js').then(m => m.salaAbierta() && m.pulsoSala(d)).catch(() => {}); } catch {}
+  });
+  es.addEventListener('open', () => { if (S.vista === 'neg') cargarPresencias().catch(() => {}); });
   es.addEventListener('escribiendo', e => {
     const d = JSON.parse(e.data);
     if ($('.conversation-modal')?.dataset.negociacionId === d.id) mostrarEscribiendo($('#chatbox'), d.escribiendo, d.grabando);

@@ -1,5 +1,6 @@
 /* ============ Tablero de negociaciones ============ */
-import { volar, volarDesde } from './animaciones.js';
+import { volar, volarDesde, desplegarDesde } from './animaciones.js';
+import { avataresEquipo, cargarPresencias } from './presencia-equipo.js';
 import {
   $, $$, esc, S, get, post, patch, gs, fd, ago, toast, modal, cerrar, confirmar,
   fx, esAdmin, etapa, etapaActiva, ORIGENES, vacio, skeleton, confeti, vibrar,
@@ -24,6 +25,7 @@ export async function vistaNegociaciones() {
   if(revision!==ultimaCarga || S.vista!=='neg')return;
   S.negociaciones=resultado;
   pintarShell();
+  cargarPresencias().catch(()=>{});
   Promise.allSettled([get('/admin/usuarios'),get('/canales')]).then(([u,c])=>{
     if(revision!==ultimaCarga || S.vista!=='neg')return;
     if(u.status==='fulfilled'){
@@ -250,7 +252,7 @@ function tarjeta(n) {
   return `<div class="card ${SEL.has(n.id) ? 'sel' : ''}${plazo}" data-id="${n.id}"
       style="--acc:${etapa(n.etapa).color}" draggable="${MODO_SEL ? 'false' : 'true'}">
     ${MODO_SEL ? `<input type="checkbox" class="chk" ${SEL.has(n.id) ? 'checked' : ''} data-chk="${n.id}">` : ''}
-    <span class="nom">${esc(n.cliente || '—')}</span>
+    ${avataresEquipo(n.id)}<span class="nom">${esc(n.cliente || '—')}</span>
     <div class="linea"><span class="tag t-${cls}">${n.origen}</span>
       ${n.agente_nombre ? esc(n.agente_nombre) : '<span style="color:var(--warn)">Sin asignar</span>'}
       ${monto ? '· ' + monto : ''}</div>
@@ -272,7 +274,10 @@ function conectarTarjeta(el) {
     if (e.target.closest('[data-mas]')) { el.classList.toggle('abierta'); return; }
     if (e.target.closest('[data-chk]')) return;
     if (MODO_SEL) { toggleSel(id); return; }
+    // La ficha se despliega desde la tarjeta, como una hoja que se abre.
+    const desde = el.getBoundingClientRect();
     fichaNeg(id);
+    desplegarDesde(desde);
   };
   const chk = el.querySelector('[data-chk]');
   if (chk) chk.onclick = e => { e.stopPropagation(); toggleSel(id); };

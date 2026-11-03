@@ -63,8 +63,41 @@ assert.ok(leer('src/routes/canales.mjs').includes("r.get('/estado-whatsapp'"), '
 assert.ok(!/estado-whatsapp[\s\S]{0,600}\bqr\b/.test(leer('src/routes/canales.mjs')), 'El estado no expone el QR');
 assert.ok(leer('src/routes/varios.mjs').includes("r.get('/resumen-dia'"), 'Resumen de la jornada');
 assert.ok(leer('src/channels/baileys.mjs').includes("'presence.update'") && leer('src/channels/baileys.mjs').includes('export async function suscribirPresencia'));
-const reducir = css.slice(css.lastIndexOf('@media (prefers-reduced-motion:reduce)'));
+// Contenido de todos los bloques «reducir movimiento» (con llaves balanceadas).
+const bloquesReducir = hoja => { const out = []; let i = 0;
+  while ((i = hoja.indexOf('prefers-reduced-motion:reduce)', i)) >= 0) {
+    let j = hoja.indexOf('{', i) + 1, nivel = 1; const ini = j;
+    while (nivel && j < hoja.length) { if (hoja[j] === '{') nivel++; else if (hoja[j] === '}') nivel--; j++; }
+    out.push(hoja.slice(ini, j - 1)); i = j; }
+  return out.join('\n'); };
+const reducir = bloquesReducir(css);
 for (const sel of ['.escribiendo-flotante', '#disp-dot.live::after', '.toast-tiempo', '.rep-chart svg.entra', '#wa-estado.on'])
   assert.ok(reducir.includes(sel), 'Quieto con reducir movimiento: ' + sel);
 assert.ok((anim.match(/menosMovimiento\(\)/g) || []).length >= 4, 'Vuelo de tarjetas, bienvenida y contadores respetan reducir movimiento');
+// Sala de control: solo mando, en vivo, sin datos completos de clientes.
+const sala = leer('public/js/sala-control.js'), salaCss = leer('public/sala.css'), appJs = leer('public/js/app.js');
+assert.ok(appJs.includes("{ id: 'sala', t: 'Sala de control'") && appJs.includes("n.sala ? ['admin','gerente','jefe'].includes(S.usuario.rol)"), 'Sala visible solo para mando');
+assert.ok(leer('src/routes/varios.mjs').includes("r.get('/sala-control', requiere(...ROLES_SALA)"), 'El servidor exige rol de mando');
+assert.ok(leer('src/sala-control-impar.mjs').includes("export const ROLES_SALA = ['admin', 'gerente', 'jefe'];"));
+assert.ok(/emitir\(empresaId, 'sala:pulso', \{ sucursal: rows\[0\]\.sucursal \|\| '', tipo \}, uids\)/.test(leer('src/sala-control-impar.mjs')), 'El pulso solo lleva sucursal y tipo');
+assert.ok(leer('src/sala-control-impar.mjs').includes('if (!rows[0] || !uids.length) return;'), 'Sin destinatarios no se difunde a todos');
+for (const v of ["id: 'mapa'", "id: 'cola'", "id: 'ritmo'"]) assert.ok(sala.includes(v), 'Vista ' + v);
+assert.ok(sala.includes('ROTA_MS = 30000') && sala.includes("e.key === 'Escape' && !document.fullscreenElement"), 'Rota cada 30 s y cierra con Esc');
+assert.ok(index.includes('/sala.css?v='), 'Hoja de estilos de la sala');
+assert.ok(/prefers-reduced-motion:reduce\)\{\s*\.sala-progreso i\.corre\{animation:none/.test(salaCss), 'Sala quieta con reducir movimiento');
+assert.ok(leer('src/core.mjs').includes("pulsoSala(empresa.id, abierta.id, 'mensaje')") && leer('src/core.mjs').includes("pulsoSala(empresa.id, neg.id, 'nuevo')"));
+assert.ok(leer('src/routes/negociaciones.mjs').includes("pulsoSala(req.empresaId, n.id, 'venta')") && leer('src/routes/negociaciones.mjs').includes("pulsoSala(req.empresaId, n.id, 'respuesta')"));
+// Transiciones de papel y ficha que se despliega desde su tarjeta.
+assert.ok(anim.includes('export function pasarHoja(') && anim.includes('Promise.race([p.catch(() => {}), espera(420)])'), 'La hoja nunca congela más de 420 ms');
+assert.ok(appJs.includes('pasarHoja(render, sentido)'), 'Cambio de sección con hoja');
+assert.ok(css.includes('#view{view-transition-name:impar-hoja}') && css.includes('@keyframes hoja-despliega'));
+assert.ok(leer('public/js/negociaciones.js').includes('desplegarDesde(desde)') && leer('public/js/core.js').includes('window._hojaModal?.()'));
+assert.ok(/prefers-reduced-motion:reduce\)\{\s*::view-transition-group\(\*\)/.test(css), 'Sin pliegues con reducir movimiento');
+// Presencia del equipo.
+const pres = leer('public/js/presencia-equipo.js');
+assert.ok(leer('src/routes/negociaciones.mjs').includes("r.post('/:id/viendo'") && leer('src/routes/negociaciones.mjs').includes("r.get('/presencia-equipo'"));
+assert.ok(leer('src/routes/negociaciones.mjs').indexOf("r.get('/presencia-equipo'") < leer('src/routes/negociaciones.mjs').indexOf("r.get('/:id'"), 'La ruta fija va antes que /:id');
+assert.ok(pres.includes('keepalive: true') && pres.includes("window.addEventListener('pagehide'"), 'Se retira aunque se cierre la pestaña');
+assert.ok(pres.includes('Coordinen antes de responder'), 'Aviso de coordinación al escribir');
+assert.ok(appJs.includes("es.addEventListener('equipo:viendo'"));
 console.log('✔ IMPAR: diseño propio, fondo de pliegos, clima animado, logo adaptable y respuestas rápidas sin pérdidas.');

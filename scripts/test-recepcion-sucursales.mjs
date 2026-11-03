@@ -164,7 +164,7 @@ async function ingresar({previo=false,responsable=null,concurrente=false,pausado
     buscarContacto:async()=>previo?contacto:null,
     crearContacto:async()=>({contacto,creado:!concurrente}),etiquetaAnonima:()=> 'Cliente',
     responsableUltimoCierre:async()=>null,asignarEquitativo:async()=> 'reparto',
-    historial:async()=>{},notificar:async()=>{},emitir:()=>{},programarBot:()=>{},
+    historial:async()=>{},notificar:async()=>{},emitir:()=>{},pulsoSala:()=>{},programarBot:()=>{},
     leerEnlace:async(_q,_e,t)=>({texto:t,agente:enlace})});
   await fn(empresa,{origen:'whatsapp',remitente:contacto.tel,texto:'Hola'});
   return consultas.find(x=>x.sql.includes('INSERT INTO negociaciones')).p;
