@@ -6,6 +6,7 @@ import { listarCambios } from '../colaboracion.mjs';
 import { emitir } from '../realtime.mjs';
 import { reprocesarCuarentena } from '../worker.mjs';
 import { obtener as obtenerArchivo } from '../archivos.mjs';
+import { listarPersonales, agregarPersonal, editarPersonal, borrarPersonal, elementoRapida, MAX_PERSONALES } from '../rapidas-personales-impar.mjs';
 
 const r = Router();
 
@@ -239,8 +240,7 @@ r.get('/rapidas', requiere(), async (req, res) => {
             CASE WHEN a.id IS NOT NULL THEN '/media/' || a.empresa_id || '/' || a.archivo ELSE r.media_url END AS media_url
        FROM rapidas r LEFT JOIN usuarios u ON u.id=r.autor_id LEFT JOIN archivos a ON a.id=r.archivo_id
       WHERE r.empresa_id=$1 ORDER BY r.creado`, [req.empresaId]);
-  const { rows: mias } = await q('SELECT rapidas FROM usuarios WHERE id=$1', [req.user.id]);
-  res.json({ equipo: rows, personales: mias[0]?.rapidas || [] });
+  res.json({ equipo: rows, personales: await listarPersonales(req.user.id) });
 });
 
 r.post('/rapidas', requiere('admin', 'gerente', 'jefe'), async (req, res) => {
@@ -277,10 +277,36 @@ r.delete('/rapidas/:id', requiere('admin', 'gerente', 'jefe'), async (req, res) 
   res.json({ ok: true });
 });
 
-r.put('/rapidas-personales', requiere(), async (req, res) => {
-  await q('UPDATE usuarios SET rapidas=$2 WHERE id=$1', [req.user.id, JSON.stringify(req.body?.rapidas || [])]);
-  res.json({ ok: true });
-});
+/* Personales: una operación por elemento (nunca se reemplaza la lista completa). */
+const archivoDe = async (req, id) => {
+  if (!id) return null;
+  const a = await obtenerArchivo(id, req.empresaId);
+  if (!a) { const e = new Error('El archivo adjunto no existe.'); e.status = 404; throw e; }
+  return a;
+};
+const responder = (res, fn) => fn().catch(e => res.status(e.status || 500).json({ error: e.status ? e.message : 'No se pudo guardar la respuesta rápida.' }));
+r.post('/rapidas-personales', requiere(), (req, res) => responder(res, async () => {
+  const el = elementoRapida(req.body?.txt, await archivoDe(req, req.body?.archivoId));
+  if (!el) return res.status(422).json({ error: 'Escribí un texto o adjuntá una imagen.' });
+  const r2 = await agregarPersonal(req.user.id, el);
+  if (!r2) return res.status(409).json({ error: `Llegaste al máximo de ${MAX_PERSONALES} respuestas rápidas personales.` });
+  res.json({ ok: true, rapida: r2.elemento, personales: r2.lista });
+}));
+r.patch('/rapidas-personales/:id', requiere(), (req, res) => responder(res, async () => {
+  const archivo = await archivoDe(req, req.body?.archivoId);
+  const lista = await editarPersonal(req.user.id, req.params.id,
+    { txt: req.body?.txt, archivo, quitarArchivo: !!req.body?.quitarArchivo });
+  if (!lista) return res.status(404).json({ error: 'La respuesta rápida ya no existe. Actualizá la lista.' });
+  res.json({ ok: true, personales: lista });
+}));
+r.delete('/rapidas-personales/:id', requiere(), (req, res) => responder(res, async () => {
+  const lista = await borrarPersonal(req.user.id, req.params.id);
+  res.json({ ok: true, personales: lista || [] });
+}));
+/* El reemplazo completo de la lista causaba pérdidas con dos equipos abiertos: ya no se acepta.
+   Una pestaña con la versión anterior recibe este aviso y no puede pisar la lista guardada. */
+r.put('/rapidas-personales', requiere(), (req, res) =>
+  res.status(409).json({ error: 'El CRM se actualizó. Recargá la página para guardar tus respuestas rápidas.' }));
 
 /* ================= SALUD / AUDITORÍA ================= */
 r.get('/auditoria', requiere('admin'), async (req, res) => {

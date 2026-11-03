@@ -91,6 +91,8 @@ jobs:
         run: node scripts/test-soporte-impar.mjs
       - name: Rescate automático de mensajes no descifrados
         run: node scripts/test-rescate-impar.mjs
+      - name: Diseño, logo adaptable y respuestas rápidas sin pérdidas
+        run: node scripts/test-diseno-impar.mjs
       - name: Verificar formulario único y chequeo público
         run: |
           node scripts/test-publicacion-central.mjs
@@ -166,3 +168,7 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
         run: node scripts/test-wa-ruta-automatica-pg.mjs
+      - name: Respuestas rápidas personales atómicas en PostgreSQL real
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
+        run: node scripts/test-rapidas-pg.mjs

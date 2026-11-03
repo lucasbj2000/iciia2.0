@@ -58,7 +58,8 @@ assert.ok(worker.includes(".catch(e=>console.warn('[wa:entregas]"),'No duplicar 
 assert.ok(ruta.includes('media_nombre,mensaje_id'),'Correlación exacta outbox con mensaje interno');
 assert.ok(historico.includes('we.ack AS wa_ack'),'Mostrar estado real');
 assert.ok(ficha.includes('✓ Enviado, entrega no confirmada'),'No declarar entrega sin ACK');
-assert.ok(ficha.includes('window.open(link'),'WhatsApp oficial manual');
-assert.ok(ficha.includes("https://wa.me/"),'Enlace seguro a WhatsApp');
+// El atajo manual a WhatsApp Web se retiró de la conversación a pedido de IMPAR:
+// el CRM resuelve los envíos (ruta automática y rescate) sin salir de la bandeja.
+assert.ok(!ficha.includes('f-wa-web') && !ficha.includes('WhatsApp Web (manual)'),'Sin atajo manual a WhatsApp Web');
 assert.ok(sql.includes('CREATE UNIQUE INDEX'),'No duplicar salida asociada a mensaje');
-console.log('✔ IMPAR: ACK simulado 1→3→4, evento temprano, sin retroceso ni duplicación, enlace manual.');
+console.log('✔ IMPAR: ACK simulado 1→3→4, evento temprano, sin retroceso ni duplicación, sin atajo manual.');

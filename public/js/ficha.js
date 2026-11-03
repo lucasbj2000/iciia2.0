@@ -121,8 +121,7 @@ function pintar() {
         <div class="row chat-input-row" style="margin-top:8px;align-items:center;position:relative">
         ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj" type="button" title="Adjuntar archivo (o pegá con Ctrl+V)">📎</button>` : ''}
         <textarea id="msg" rows="3" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje, pegar o arrastrar un archivo…"></textarea>
-        <button class="btn" style="flex:none" id="f-enviar">Enviar</button></div>
-        <button class="btn ghost sm" type="button" id="f-wa-web" title="Abrir el chat oficial y enviar manualmente; no duplica automáticamente el envío">↗ WhatsApp Web (manual)</button></div>`}
+        <button class="btn" style="flex:none" id="f-enviar">Enviar</button></div></div>`}
    </div>
 
    <div id="t-det" class="hidden">
@@ -455,18 +454,6 @@ function conectar(n) {
 
   /* envío */
   adj = null;
-  if($('#f-wa-web')){
-    $('#f-wa-web').onclick=()=>{
-      const numero=String($('#f-telefono-chat')?.value || n.telefono_destino || n.tel || '').replace(/\D/g,'');
-      if(numero.length<8 || numero.length>15)
-        return toast('Seleccioná un teléfono válido antes de abrir WhatsApp Web.','warn');
-      const texto=$('#msg')?.value?.trim() || '';
-      const link='https://wa.me/'+encodeURIComponent(numero)+(texto?'?text='+encodeURIComponent(texto):'');
-      // Es un envío MANUAL: no crear otro outbox ni marcar mensaje como enviado.
-      window.open(link,'_blank','noopener,noreferrer');
-      toast('Confirmá el destinatario y presioná Enviar en WhatsApp. El CRM no enviará una copia.','warn','WhatsApp oficial');
-    };
-  }
   // Ir al mensaje citado (también en negociaciones cerradas).
   const cajaChat = $('#chatbox');
   cajaChat?.addEventListener('click', async e => {
@@ -669,28 +656,28 @@ export async function modalRapidas() {
 
   const adjMia = conectarAdjuntos({ inputSel: '#qr-mia', barraSel: '#rp-nueva-adj', botonSel: '#qr-adjmia' });
   const adjEmp = $('#qr-emp') ? conectarAdjuntos({ inputSel: '#qr-emp', barraSel: '#rp-eq-adj', botonSel: '#qr-adjemp' }) : null;
-  const guardarMias = () => put('/admin/rapidas-personales', { rapidas: rapidas.personales });
+  // Cada cambio afecta solo a esa respuesta (seguro con el CRM abierto en varios equipos).
+  const ruta = i => `/admin/rapidas-personales/${encodeURIComponent(rapidas.personales[Number(i)]?.id || '')}`;
+  const intentar = async fn => { try { await fn(); return true; } catch (e) { toast(e.message, 'warn'); return false; } };
 
-  $$('[data-mia]').forEach(el => el.onchange = () => { rapidas.personales[el.dataset.mia].txt = el.value; guardarMias(); });
+  $$('[data-mia]').forEach(el => el.onchange = () => intentar(() => patch(ruta(el.dataset.mia), { txt: el.value })));
   $$('[data-delmia]').forEach(b => b.onclick = async () => {
-    rapidas.personales.splice(Number(b.dataset.delmia), 1); await guardarMias(); modalRapidas();
+    await intentar(() => del(ruta(b.dataset.delmia))); modalRapidas();
   });
   $$('[data-quitmia]').forEach(b => b.onclick = async () => {
-    const q = rapidas.personales[Number(b.dataset.quitmia)];
-    delete q.media_url; delete q.media_tipo; delete q.media_nombre; delete q.archivo_id;
-    await guardarMias(); modalRapidas();
+    await intentar(() => patch(ruta(b.dataset.quitmia), { quitarArchivo: true })); modalRapidas();
   });
   $$('[data-imgmia]').forEach(b => b.onclick = () => pedirArchivo(async a => {
-    Object.assign(rapidas.personales[Number(b.dataset.imgmia)],
-      { archivo_id: a.id, media_url: a.url, media_tipo: a.tipo, media_nombre: a.nombre });
-    await guardarMias(); toast('Adjunto agregado a la plantilla', 'ok'); modalRapidas();
+    if (await intentar(() => patch(ruta(b.dataset.imgmia), { archivoId: a.id }))) toast('Adjunto agregado a la plantilla', 'ok');
+    modalRapidas();
   }));
   $('#qr-addmia').onclick = async () => {
     const t = $('#qr-mia').value.trim(), a = adjMia.archivo;
     if (!t && !a) return toast('Escribí un texto o adjuntá una imagen', 'warn');
-    rapidas.personales.push({ id: 'p' + Date.now(), txt: t, archivo_id: a?.id || null,
-      media_url: a?.url || null, media_tipo: a?.tipo || null, media_nombre: a?.nombre || null });
-    await guardarMias(); toast('Plantilla personal guardada', 'ok'); modalRapidas();
+    const btn = $('#qr-addmia'); btn.disabled = true;
+    if (await intentar(() => post('/admin/rapidas-personales', { txt: t, archivoId: a?.id || null }))) {
+      toast('Plantilla personal guardada', 'ok'); modalRapidas();
+    } else btn.disabled = false;
   };
 
   $$('[data-eq]').forEach(el => el.onchange = () => patch(`/admin/rapidas/${el.dataset.eq}`, { txt: el.value }));

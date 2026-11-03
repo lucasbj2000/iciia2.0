@@ -72,7 +72,7 @@ export async function vistaContactos() {
        ${(esAdmin() || S.usuario.rol === 'gerente') && fx('exportar') ? `<button class="btn ghost" id="c-export">⭳ Exportar</button>` : ''}
        ${(esAdmin() || S.usuario.rol === 'gerente') && fx('importar') ? `<button class="btn ghost" id="c-import">⭱ Importar</button>
        <input id="c-file" type="file" accept=".csv" class="hidden">` : ''}</div></div>
-   <div class="card-box"><table><thead><tr><th>Cliente</th><th class="hide-m">Teléfono</th>
+   <div class="card-box"><table class="tabla-contactos"><thead><tr><th>Cliente</th><th class="hide-m">Teléfono</th>
      <th class="hide-m">Dirección</th><th>Responsable</th><th>Estado</th><th class="hide-m">Alta</th><th></th></tr></thead>
    <tbody>${cs.map(c => `<tr><td><b>${esc(c.nombre)}</b> ${c.frecuente && fx('marcadorFrecuente') ? '<span class="tag t-frec">★</span>' : ''}</td>
      <td class="hide-m">${esc(c.tel || '—')}</td>

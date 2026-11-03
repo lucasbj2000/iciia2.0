@@ -15,7 +15,7 @@
 .sop-tabs button{padding:8px 13px;border-radius:9px;font-size:var(--fs-sm);font-weight:600;color:var(--muted);min-height:36px}
 .sop-tabs button.on{background:var(--surface2);color:var(--txt);box-shadow:inset 0 -2px 0 var(--brand)}
 .sop-tabs button:not(.on):hover{color:var(--txt)}
-.sop-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brand);color:#fff;font-size:11px;margin-left:4px}
+.sop-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brand);color:#fff;font-size:12px;margin-left:4px}
 #sop-nueva{margin-left:auto}
 
 /* Talón */

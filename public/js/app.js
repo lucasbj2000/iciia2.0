@@ -1,4 +1,5 @@
 /* ============ Arranque, navegación y realtime ============ */
+import './tooltips.js';
 import {
   $, $$, esc, S, api, get, post, patch, toast, modal, cerrar, ago, iniciales,
   fechaISO, saludo, fx, esAdmin, aplicarTema, aplicarFX, salir, DISPONIBILIDAD,
@@ -132,7 +133,7 @@ export function aplicarMarca() {
   const e = S.empresa;
   document.documentElement.style.setProperty('--brand', '#75b936');
   $('#b-name').textContent = e?.nombre || 'iciia2.0';
-  $('#b-emp').textContent = `Expertos en papel · ${S.usuario.sucursal || 'IMPAR'}`;
+  $('#b-emp').textContent = S.usuario.sucursal ? `Sucursal ${S.usuario.sucursal}` : 'IMPAR';
   const img = $('#b-logo');
   if (e?.logo) { img.src = e.logo; img.hidden = false; } else img.hidden = true;
   $('#me-name').textContent = S.usuario.nombre;

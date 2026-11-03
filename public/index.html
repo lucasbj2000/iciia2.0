@@ -23,16 +23,18 @@
 <link rel="stylesheet" href="/citas.css?v=20261029-2">
 <link rel="stylesheet" href="/reportes.css?v=20261103-1">
 <link rel="stylesheet" href="/soporte.css?v=20261103-1">
+<link rel="preload" href="/assets/fuentes/figtree-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fuentes/nunito-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/impar-diseno.css?v=20261103-2">
 </head>
 <body>
 <div id="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
 
-<div id="inicio-estado" role="status" aria-live="polite"><div class="inicio-logo"><img src="/assets/impar-logo.jpg" alt="IMPAR"></div><p id="inicio-mensaje">Restableciendo tu sesión de IMPAR…</p><button id="inicio-reintentar" class="btn sm hidden">Reintentar conexión</button><button id="inicio-salir" class="btn ghost sm hidden">Cambiar usuario</button></div>
+<div id="inicio-estado" role="status" aria-live="polite"><div class="inicio-logo"><span class="logo-impar" role="img" aria-label="IMPAR"><img src="/assets/impar-logo-color.png" alt="" width="678" height="302" decoding="async"><i class="logo-tinta" aria-hidden="true"></i></span></div><p id="inicio-mensaje">Restableciendo tu sesión de IMPAR…</p><button id="inicio-reintentar" class="btn sm hidden">Reintentar conexión</button><button id="inicio-salir" class="btn ghost sm hidden">Cambiar usuario</button></div>
 
 <div id="login">
   <form class="login-card" id="form-login">
-    <div class="impar-lockup"><img src="/assets/impar-logo.jpg" alt="IMPAR — Expertos en papel, Papeles e Insumos Gráficos"></div>
-    <span class="impar-label">ATENCIÓN Y VENTAS</span>
+    <div class="impar-lockup"><span class="logo-impar" role="img" aria-label="IMPAR — Expertos en papel. Papeles e Insumos Gráficos"><img src="/assets/impar-logo-color.png" alt="" width="678" height="302" decoding="async"><i class="logo-tinta" aria-hidden="true"></i></span></div>
     <h1 class="impar-title">Cada contacto, una nueva oportunidad.</h1>
     <p class="sub">Tu espacio de trabajo IMPAR.</p>
     <div class="field"><label for="l-usr">Usuario</label>
@@ -50,27 +52,27 @@
 
 <div id="app" class="hidden">
   <aside>
-    <div class="brand"><img id="b-logo" alt="" hidden><div><b id="b-name">—</b><span id="b-emp">—</span></div></div>
+    <div class="brand"><span class="logo-impar" role="img" aria-label="IMPAR"><img src="/assets/impar-logo-color.png" alt="" width="678" height="302" decoding="async"><i class="logo-tinta" aria-hidden="true"></i></span><img id="b-logo" alt="" hidden><div class="brand-txt"><b id="b-name">—</b><span id="b-emp">—</span></div></div>
     <nav id="nav"></nav>
     <div class="me">
       <div class="avatar" id="me-av"></div>
       <div style="flex:1;min-width:0"><b id="me-name">—</b><span id="me-rol"></span></div>
-      <button class="x" title="Mi enlace de WhatsApp para clientes" id="btn-enlace">🔗</button>
-      <button class="x" title="Cerrar sesión" id="btn-salir">⏻</button>
+      <button class="x" title="Ver mi enlace de WhatsApp para clientes" aria-label="Ver mi enlace de WhatsApp para clientes" id="btn-enlace">🔗</button>
+      <button class="x" title="Cerrar sesión" aria-label="Cerrar sesión" id="btn-salir">⏻</button>
     </div>
   </aside>
   <button id="nav-backdrop" type="button" aria-label="Cerrar menú" tabindex="-1"></button>
   <main>
     <header class="top">
-      <button class="burger" id="btn-burger" aria-label="Menú">☰</button>
+      <button class="burger" id="btn-burger" aria-label="Abrir menú" title="Abrir menú">☰</button>
       <h2 id="v-title">Negociaciones</h2>
       <span class="pill wx" id="wx" hidden></span>
-      <button class="pill" id="disp-pill"><span class="dot live" id="disp-dot"></span><span id="disp-txt">—</span></button>
-      <button class="pill" id="guia-abrir" type="button" title="Abrir guía de uso de IMPAR" hidden><span class="guia-logo">?</span><span class="guia-texto">Ayuda</span></button>
-      <button class="pill" id="btn-install-app" title="Aplicación y avisos">▣ <span class="hide-m">Aplicación</span></button>
-      <button class="pill" id="noti-btn" aria-label="Notificaciones">🔔 <span id="noti-n"></span></button>
-      <button class="pill" id="btn-tema" title="Cambiar tema">🌙</button>
-      <button class="pill hide-m" id="btn-densidad" title="Densidad">▤</button>
+      <button class="pill" id="disp-pill" aria-label="Cambiar disponibilidad" title="Cambiar disponibilidad"><span class="dot live" id="disp-dot"></span><span id="disp-txt">—</span></button>
+      <button class="pill ico-btn" id="guia-abrir" type="button" aria-label="Abrir guía de uso" title="Abrir guía de uso" hidden><span class="guia-logo">?</span><span class="guia-texto">Ayuda</span></button>
+      <button class="pill ico-btn" id="btn-install-app" aria-label="Instalar aplicación y activar avisos" title="Instalar aplicación y activar avisos">▣ <span class="hide-m">Aplicación</span></button>
+      <button class="pill ico-btn" id="noti-btn" aria-label="Ver notificaciones" title="Ver notificaciones">🔔 <span id="noti-n"></span></button>
+      <button class="pill ico-btn" id="btn-tema" aria-label="Cambiar tema claro u oscuro" title="Cambiar tema claro u oscuro">🌙</button>
+      <button class="pill ico-btn hide-m" id="btn-densidad" aria-label="Cambiar densidad" title="Cambiar densidad">▤</button>
       <span class="pill hide-m" id="clock">—</span>
     </header>
     <div id="view" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
