@@ -31,6 +31,18 @@ assert.ok(leer('public/js/app.js').includes("import './tooltips.js';"), 'Tooltip
 for (const id of ['noti-btn', 'btn-tema', 'btn-install-app', 'btn-salir', 'btn-enlace'])
   assert.ok(new RegExp(`id="${id}"[^>]*aria-label=|aria-label="[^"]+"[^>]*id="${id}"`).test(index), 'Nombre accesible: ' + id);
 
+// Fondo «pliegos» (claro y nocturno) solo en el lienzo; datos sobre superficies lisas.
+assert.ok(css.includes(':root[data-tema="claro"]{--fondo-marcas:') && /:root,\[data-tema="oscuro"\]\{--fondo-marcas:/.test(css), 'Fondo propio en claro y oscuro');
+assert.ok(css.includes('background-image:var(--fondo-marcas),var(--fondo-grano)') && css.includes('border-radius:0 0 0 100%'), 'Marcas de corte, fibra y cuarto de círculo del logo');
+assert.ok(/\.card\{background:var\(--surface\)/.test(css) && /\.col\{background:var\(--surface2\)/.test(css), 'Tarjetas y columnas lisas');
+// Clima animado, saludo y movimiento con intención; todo quieto con «reducir movimiento».
+const clima = leer('public/js/clima-animado.js');
+for (const e of ['despejado', 'parcial', 'nublado', 'niebla', 'llovizna', 'lluvia', 'nieve', 'tormenta']) assert.ok(clima.includes(e + ':'), 'Escena ' + e);
+assert.ok(leer('public/js/app.js').includes('iconoClima(w.cod)') && leer('public/js/app.js').includes('moverMarcaNav()'));
+assert.ok(/@media \(prefers-reduced-motion:no-preference\)\{\s*\.wxa-rayos/.test(css), 'Las animaciones del clima solo corren sin «reducir movimiento»');
+assert.ok(/prefers-reduced-motion:reduce\)\{\s*#nav-marca\{transition:none\}/.test(css));
+assert.ok(leer('public/js/reportes.js').includes("matchMedia('(prefers-reduced-motion: reduce)').matches) return;"), 'Números quietos con reducir movimiento');
+
 // Conversación sin atajo manual a WhatsApp Web
 const ficha = leer('public/js/ficha.js');
 assert.ok(!ficha.includes('f-wa-web') && !ficha.includes('WhatsApp Web (manual)'));
@@ -41,4 +53,4 @@ assert.ok(admin.includes("r.post('/rapidas-personales'") && admin.includes("r.pa
 assert.ok(/r\.put\('\/rapidas-personales'[\s\S]{0,120}status\(409\)/.test(admin), 'Una pestaña vieja no puede pisar la lista');
 assert.ok(rp.includes("COALESCE(rapidas,'[]'::jsonb) || jsonb_build_array($2::jsonb)"), 'Alta atómica');
 assert.ok(!ficha.includes("put('/admin/rapidas-personales'"), 'El navegador ya no envía la lista completa');
-console.log('✔ IMPAR: diseño propio, logo adaptable, sin atajo manual y respuestas rápidas sin pérdidas.');
+console.log('✔ IMPAR: diseño propio, fondo de pliegos, clima animado, logo adaptable y respuestas rápidas sin pérdidas.');

@@ -239,7 +239,7 @@ small,.tag,.ev,.badge-rol,.card .mas,.ficha-acordeon-ayuda,.historial-tramo,.cha
   .ico-btn,.burger{width:44px}
   #disp-pill{width:44px;padding:0!important;justify-content:center}
   #disp-pill #disp-txt{display:none}
-  #btn-tema,#btn-densidad,#clock,#wx{display:none!important}
+  #btn-tema,#btn-densidad,#clock{display:none!important}
   .section{padding:12px}
   .card-box{padding:14px}
   aside{width:min(86vw,300px)}
@@ -272,3 +272,99 @@ small,.tag,.ev,.badge-rol,.card .mas,.ficha-acordeon-ayuda,.historial-tramo,.cha
   .btn:active{transform:none}
   .tip-impar{transform:none}
 }
+
+/* =====================================================================
+   Fondo «pliegos»: fibra de papel + marcas de corte de imprenta + el cuarto de
+   círculo del logo, en grande y muy tenue. Solo en el lienzo: tarjetas, columnas
+   y tablas son superficies lisas, así que los datos no se ven afectados.
+   ===================================================================== */
+:root[data-tema="claro"]{--fondo-marcas:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22 fill=%22none%22 stroke=%22%231D211B%22 stroke-opacity=%220.26%22 stroke-width=%221%22%3E%3Cline x1=%226%22 y1=%220.5%22 x2=%2215%22 y2=%220.5%22/%3E%3Cline x1=%22145%22 y1=%220.5%22 x2=%22154%22 y2=%220.5%22/%3E%3Cline x1=%220.5%22 y1=%226%22 x2=%220.5%22 y2=%2215%22/%3E%3Cline x1=%220.5%22 y1=%22145%22 x2=%220.5%22 y2=%22154%22/%3E%3Cg stroke-opacity=%220.11199999999999999%22%3E%3Ccircle cx=%2280%22 cy=%2280%22 r=%223.2%22/%3E%3Cline x1=%2274%22 y1=%2280%22 x2=%2286%22 y2=%2280%22/%3E%3Cline x1=%2280%22 y1=%2274%22 x2=%2280%22 y2=%2286%22/%3E%3C/g%3E%3C/svg%3E");--fondo-grano:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22220%22 height=%22220%22%3E%3Cfilter id=%22f%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%22.9%22 numOctaves=%222%22 stitchTiles=%22stitch%22/%3E%3CfeColorMatrix values=%220 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url%28%23f%29%22/%3E%3C/svg%3E");--cuarto-verde:rgba(115,188,69,.17);--cuarto-gris:rgba(147,148,151,.16)}
+:root,[data-tema="oscuro"]{--fondo-marcas:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22 fill=%22none%22 stroke=%22%23EEF1EA%22 stroke-opacity=%220.1%22 stroke-width=%221%22%3E%3Cline x1=%226%22 y1=%220.5%22 x2=%2215%22 y2=%220.5%22/%3E%3Cline x1=%22145%22 y1=%220.5%22 x2=%22154%22 y2=%220.5%22/%3E%3Cline x1=%220.5%22 y1=%226%22 x2=%220.5%22 y2=%2215%22/%3E%3Cline x1=%220.5%22 y1=%22145%22 x2=%220.5%22 y2=%22154%22/%3E%3Cg stroke-opacity=%220.06999999999999999%22%3E%3Ccircle cx=%2280%22 cy=%2280%22 r=%223.2%22/%3E%3Cline x1=%2274%22 y1=%2280%22 x2=%2286%22 y2=%2280%22/%3E%3Cline x1=%2280%22 y1=%2274%22 x2=%2280%22 y2=%2286%22/%3E%3C/g%3E%3C/svg%3E");--fondo-grano:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22220%22 height=%22220%22%3E%3Cfilter id=%22f%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%22.9%22 numOctaves=%222%22 stitchTiles=%22stitch%22/%3E%3CfeColorMatrix values=%220 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.07 0%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url%28%23f%29%22/%3E%3C/svg%3E");--cuarto-verde:rgba(124,194,79,.07);--cuarto-gris:rgba(238,241,234,.035)}
+body{background-color:var(--bg);background-image:var(--fondo-marcas),var(--fondo-grano);background-size:160px 160px,220px 220px;background-attachment:fixed}
+body::before,body::after{content:"";position:fixed;z-index:0;pointer-events:none;width:min(52vmin,520px);aspect-ratio:1}
+/* cuarto de círculo como el del logo: recto arriba y a la derecha, curvo abajo a la izquierda */
+body::before{left:clamp(0px,calc(240px - 8vmin),240px);bottom:-14vmin;background:var(--cuarto-verde);border-radius:0 0 0 100%;transform:rotate(90deg)}
+body::after{right:-10vmin;top:-12vmin;background:var(--cuarto-gris);border-radius:0 0 0 100%}
+#app,#login,#inicio-estado{position:relative;z-index:1}
+#login{background:transparent!important;background-image:none!important}
+header.top{background:transparent!important}
+#app>main,#view{background:transparent}
+aside{background:color-mix(in srgb,var(--surface) 94%,transparent)}
+
+/* =====================================================================
+   Clima animado: el ícono muestra el tiempo en movimiento
+   ===================================================================== */
+#wx{gap:8px;padding:0 12px 0 6px!important;font-size:var(--fs-sm)}
+#wx .wxa{width:34px;height:34px;flex:none;overflow:visible}
+#wx .wx-txt{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+#wx .wx-txt b{font-family:var(--f-titulo);font-weight:700;font-size:var(--fs-sm);white-space:nowrap}
+#wx .wx-cond{font-family:var(--f-texto);font-weight:600;color:var(--muted)}
+#wx small{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
+.wxa{--sol:#F2B33D;--nube:#EEF1EA;--nube-borde:#A9B39F;--agua:#3E8FD6;--rayo:#F2B33D;--luna:#E9E1BC}
+[data-tema="oscuro"] .wxa{--nube:#59614F;--nube-borde:#747D69;--agua:#69ADEB;--luna:#EDE5BF}
+.wxa-rayos line{stroke:var(--sol);stroke-width:2.6;stroke-linecap:round}
+.wxa-nucleo{fill:var(--sol)}
+.wxa-sol.chico{transform:translate(-9px,-10px) scale(.7);transform-origin:24px 24px}
+.wxa-nube{fill:var(--nube);stroke:var(--nube-borde);stroke-width:1.2}
+.wxa-nube.atras2{transform:translate(5px,-6px) scale(.8);transform-origin:24px 24px;opacity:.8}
+.wxa-nube.oscura{--nube:#8E978A}
+.wxa-gota{stroke:var(--agua);stroke-width:2.2;stroke-linecap:round}
+.wxa-copo{fill:#C9DDF0}
+[data-tema="oscuro"] .wxa-copo{fill:#EEF4FA}
+.wxa-rayo{fill:var(--rayo)}
+.wxa-bruma{stroke:var(--nube-borde);stroke-width:2.4;stroke-linecap:round}
+.wxa-creciente{fill:var(--luna)}
+.wxa-estrella{fill:var(--luna)}
+
+@media (prefers-reduced-motion:no-preference){
+  .wxa-rayos{animation:wxa-girar 22s linear infinite;transform-origin:24px 24px}
+  .wxa-nucleo{animation:wxa-latir 3.2s ease-in-out infinite;transform-origin:24px 24px}
+  .wxa-nube.delante{animation:wxa-deriva 6s ease-in-out infinite alternate}
+  .wxa-nube.atras2{animation:wxa-deriva-atras 8s ease-in-out infinite alternate}
+  .wxa-gota{animation:wxa-caer 1s linear infinite;opacity:0}
+  .wxa-gota.g2{animation-delay:.33s} .wxa-gota.g3{animation-delay:.66s}
+  .wxa-gota.lenta{animation-duration:1.6s}
+  .wxa-copo{animation:wxa-nevar 2.6s ease-in infinite;opacity:0}
+  .wxa-copo.c2{animation-delay:.9s} .wxa-copo.c3{animation-delay:1.7s}
+  .wxa-rayo{animation:wxa-destello 3.4s ease-out infinite;opacity:0}
+  .wxa-bruma.b1{animation:wxa-bruma 4s ease-in-out infinite alternate}
+  .wxa-bruma.b2{animation:wxa-bruma 5s ease-in-out infinite alternate-reverse}
+  .wxa-estrella{animation:wxa-titilar 2.4s ease-in-out infinite}
+  .wxa-estrella.e2{animation-delay:.8s} .wxa-estrella.e3{animation-delay:1.6s}
+}
+@keyframes wxa-girar{to{transform:rotate(360deg)}}
+@keyframes wxa-latir{50%{transform:scale(1.07)}}
+@keyframes wxa-deriva{from{transform:translateX(-1.5px)}to{transform:translateX(2px)}}
+@keyframes wxa-deriva-atras{from{transform:translate(4px,-6px) scale(.8)}to{transform:translate(7px,-6px) scale(.8)}}
+@keyframes wxa-caer{0%{opacity:0;transform:translateY(-3px)}20%{opacity:1}100%{opacity:0;transform:translateY(7px)}}
+@keyframes wxa-nevar{0%{opacity:0;transform:translate(0,-3px)}25%{opacity:1}100%{opacity:0;transform:translate(2px,7px)}}
+@keyframes wxa-destello{0%,62%{opacity:0}66%{opacity:1}70%{opacity:.2}74%{opacity:1}88%,100%{opacity:0}}
+@keyframes wxa-bruma{from{transform:translateX(-2px);opacity:.55}to{transform:translateX(3px);opacity:1}}
+@keyframes wxa-titilar{50%{opacity:.25}}
+
+/* =====================================================================
+   Movimiento con intención (transform/opacity, 150–300 ms)
+   ===================================================================== */
+#nav{position:relative}
+#nav-marca{position:absolute;left:10px;right:10px;top:0;z-index:0;border-radius:var(--esquina);background:var(--verde-suave);
+  box-shadow:inset 3px 0 0 var(--verde);pointer-events:none;transition:transform 300ms var(--curva),opacity var(--t-rapido)}
+#nav .nav-i{position:relative;z-index:1}
+#nav .nav-i.active{background:transparent}
+#noti-btn.sonando::before{animation:campana 300ms var(--curva) 2;transform-origin:50% 15%}
+@keyframes campana{25%{transform:rotate(14deg)}75%{transform:rotate(-12deg)}}
+.fx-vista{animation:vista-entra 300ms var(--curva) both}
+@keyframes vista-entra{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.btn:not(:disabled):active,.ico-btn:active{transform:scale(.96)}
+@media (prefers-reduced-motion:reduce){
+  #nav-marca{transition:none}
+  #noti-btn.sonando::before,.fx-vista{animation:none!important}
+}
+
+@media(max-width:900px){
+  /* En el celular el clima queda como ícono + temperatura */
+  #wx{display:inline-flex!important;padding:0 8px 0 4px!important;height:44px}
+  #wx .wx-cond,#wx small{display:none}
+  #wx .wxa{width:30px;height:30px}
+  body::before{left:-12vmin}
+}
+@media(max-width:420px){ #wx .wx-txt{display:none} #wx{padding:0 6px!important;width:44px;justify-content:center} }

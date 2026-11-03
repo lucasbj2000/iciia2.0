@@ -222,6 +222,24 @@ function detalle(ns) {
       || `<tr><td colspan="7">${vacio('⌕', 'Sin resultados', 'Probá con otro nombre o quitá el filtro de etapa.')}</td></tr>`}</tbody></table></div>`;
 }
 
+/* Las cifras principales «corren» hasta su valor (300 ms; quietas con reducir movimiento). */
+function correrNumeros(root) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  $$('.rep-grande, .rep-cifra b, .rep-mio b', root).forEach(el => {
+    const final = el.textContent, m = final.match(/^(\D*)([\d.]+)(.*)$/);
+    if (!m) return;
+    const objetivo = Number(m[2].replace(/\./g, ''));
+    if (!Number.isFinite(objetivo) || objetivo < 2) return;
+    const t0 = performance.now(), dur = 300;
+    const paso = t => {
+      const k = Math.min(1, (t - t0) / dur), v = Math.round(objetivo * (1 - Math.pow(1 - k, 3)));
+      el.textContent = k < 1 ? m[1] + v.toLocaleString('es-PY') + m[3] : final;
+      if (k < 1) requestAnimationFrame(paso);
+    };
+    requestAnimationFrame(paso);
+  });
+}
+
 /* ---------- Vista ---------- */
 export async function vistaReportes() {
   $('#view').innerHTML = `<div class="section">${skeleton(6)}</div>`;
@@ -304,6 +322,7 @@ function pintar(d) {
   </div>`;
 
   const root = $('#view');
+  correrNumeros(root);
   const evol = $('#rep-evol');
   let anchoPrevio = 0;
   const dibujar = () => {

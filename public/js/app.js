@@ -1,5 +1,6 @@
 /* ============ Arranque, navegación y realtime ============ */
 import './tooltips.js';
+import { iconoClima, saludoHora } from './clima-animado.js';
 import {
   $, $$, esc, S, api, get, post, patch, toast, modal, cerrar, ago, iniciales,
   fechaISO, saludo, fx, esAdmin, aplicarTema, aplicarFX, salir, DISPONIBILIDAD,
@@ -158,7 +159,23 @@ export function pintarNav() {
     ;
 
   $$('[data-nav]').forEach(b => b.onclick = () => ir(b.dataset.nav));
+  moverMarcaNav();
+}
 
+/* Marca del menú: se desliza desde la sección anterior hasta la elegida (solo transform). */
+let marcaY = null;
+function moverMarcaNav() {
+  const nav = $('#nav'), act = $('#nav .nav-i.active');
+  if (!nav) return;
+  let m = $('#nav-marca');
+  if (!m) { m = document.createElement('span'); m.id = 'nav-marca'; m.setAttribute('aria-hidden', 'true'); nav.prepend(m); }
+  if (!act) { m.style.opacity = '0'; return; }
+  const y = act.offsetTop, quieto = marcaY === null || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  m.style.height = act.offsetHeight + 'px'; m.style.opacity = '1';
+  m.style.transition = 'none';
+  m.style.transform = `translateY(${quieto ? y : marcaY}px)`;
+  if (!quieto) { void m.offsetWidth; m.style.transition = ''; m.style.transform = `translateY(${y}px)`; }
+  marcaY = y;
 }
 
 export async function ir(v) {
@@ -203,7 +220,11 @@ function conectarRealtime() {
   });
   es.addEventListener('noti', e => {
     const n = JSON.parse(e.data);
-    if (n.tipo !== 'canal') { toast(n.msg, n.tono, n.titulo); notificarApp(n); }
+    if (n.tipo !== 'canal') {
+      toast(n.msg, n.tono, n.titulo); notificarApp(n);
+      const campana = $('#noti-btn');
+      if (campana) { campana.classList.remove('sonando'); void campana.offsetWidth; campana.classList.add('sonando'); }
+    }
     if (n.tipo === 'ganado') confeti(40);
     cargarNotificaciones();
   });
@@ -318,8 +339,6 @@ function modalNacimiento() {
 }
 
 /* ================= CLIMA ================= */
-const WXICO = { 0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌦️',
-  61:'🌧️',63:'🌧️',65:'⛈️',71:'🌨️',73:'🌨️',75:'❄️',80:'🌦️',81:'🌧️',82:'⛈️',95:'⛈️',96:'⛈️',99:'⛈️' };
 const WXTXT = { 0:'Despejado',1:'Mayormente despejado',2:'Parcialmente nublado',3:'Nublado',
   45:'Neblina',48:'Neblina',51:'Llovizna',53:'Llovizna',55:'Llovizna intensa',61:'Lluvia leve',
   63:'Lluvia',65:'Lluvia fuerte',71:'Nieve',73:'Nieve',75:'Nieve fuerte',80:'Chaparrones',
@@ -338,10 +357,20 @@ async function cargarClima() {
     const w = await get(`/clima${qs}`);
     if (!w.ok) { el.hidden = true; return; }
     S.clima = w; el.hidden = false;
-    el.title = `Humedad ${w.hum}% · Viento ${w.viento} km/h`;
-    el.innerHTML = `<span class="ico">${WXICO[w.cod] || '🌡️'}</span>
-      <div><b>${w.temp}°C</b><small>${esc(w.ciudad)} · ${WXTXT[w.cod] || ''}</small></div>`;
+    pintarClima();
+    // El saludo y el día/noche del ícono se actualizan solos cada 10 minutos.
+    clearInterval(window._climaHora); window._climaHora = setInterval(pintarClima, 600000);
   } catch (e) { el.hidden = true; }
+}
+function pintarClima() {
+  const el = $('#wx'), w = S.clima;
+  if (!el || !w) return;
+  const nombre = (S.usuario?.nombre || '').split(' ')[0];
+  el.title = `${WXTXT[w.cod] || 'Clima'} en ${w.ciudad}. Humedad ${w.hum}%, viento ${w.viento} km/h`;
+  el.setAttribute('aria-label', el.title);
+  el.innerHTML = `${iconoClima(w.cod)}
+    <span class="wx-txt"><b>${w.temp}° <span class="wx-cond">${esc(WXTXT[w.cod] || '')}</span></b>
+    <small>${saludoHora()}${nombre ? ', ' + esc(nombre) : ''}</small></span>`;
 }
 
 /* ================= VARIOS ================= */
