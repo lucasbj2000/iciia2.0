@@ -84,6 +84,7 @@ assert.ok(leer('src/sala-control-impar.mjs').includes('if (!rows[0] || !uids.len
 for (const v of ["id: 'mapa'", "id: 'cola'", "id: 'ritmo'"]) assert.ok(sala.includes(v), 'Vista ' + v);
 assert.ok(sala.includes('ROTA_MS = 30000') && sala.includes("e.key === 'Escape' && !document.fullscreenElement"), 'Rota cada 30 s y cierra con Esc');
 assert.ok(index.includes('/sala.css?v='), 'Hoja de estilos de la sala');
+assert.ok(salaCss.includes('#sala .sala-logo{width:clamp('), 'El logo de la sala no puede heredar el ancho completo de .logo-impar');
 assert.ok(/prefers-reduced-motion:reduce\)\{\s*\.sala-progreso i\.corre\{animation:none/.test(salaCss), 'Sala quieta con reducir movimiento');
 assert.ok(leer('src/core.mjs').includes("pulsoSala(empresa.id, abierta.id, 'mensaje')") && leer('src/core.mjs').includes("pulsoSala(empresa.id, neg.id, 'nuevo')"));
 assert.ok(leer('src/routes/negociaciones.mjs').includes("pulsoSala(req.empresaId, n.id, 'venta')") && leer('src/routes/negociaciones.mjs').includes("pulsoSala(req.empresaId, n.id, 'respuesta')"));

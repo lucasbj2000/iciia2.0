@@ -9,7 +9,7 @@ body.sala-abierta{overflow:hidden}
 
 /* Encabezado */
 .sala-top{display:flex;align-items:center;gap:clamp(12px,1.6vw,24px);min-width:0}
-.sala-logo{width:clamp(78px,7vw,112px);flex:none}
+#sala .sala-logo{width:clamp(78px,7vw,112px);flex:none}
 .sala-titulos{display:flex;flex-direction:column;min-width:0}
 .sala-titulos h2{font-family:var(--f-titulo);font-size:clamp(20px,1.8vw,28px);line-height:1.1}
 #sala-fecha{color:var(--muted);font-size:var(--fs-sm);text-transform:none}
