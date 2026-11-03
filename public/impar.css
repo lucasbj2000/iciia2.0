@@ -122,3 +122,4 @@ body.modal-open #view{overflow:hidden}
 .ruta-wa{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap}
 .ruta-wa select{padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface2);font-size:12.5px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.msg-no-visto.resuelto{background:color-mix(in srgb,var(--brand) 12%,transparent);border-color:color-mix(in srgb,var(--brand) 40%,transparent)}

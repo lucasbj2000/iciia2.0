@@ -343,12 +343,14 @@ r.post('/:id/mensajes/:mid/reenviar', requiere(), async (req, res) => {
   if (!m.reintentos) return res.status(409).json({ error: 'WhatsApp no informó problemas con este mensaje.' });
   if (m.reenviado_ts) return res.status(409).json({ error: 'Este mensaje ya se reenvió.' });
   // Marcar antes de encolar: dos clics seguidos no generan dos reenvíos.
-  const marca = await q(`UPDATE wa_entregas_impar SET reenviado_ts=now() WHERE outbox_id=$1 AND empresa_id=$2 AND reenviado_ts IS NULL`,
+  const marca = await q(`UPDATE wa_entregas_impar SET reenviado_ts=now(),rescate='reenviado' WHERE outbox_id=$1 AND empresa_id=$2 AND reenviado_ts IS NULL`,
     [m.outbox_id, req.empresaId]);
   if (!marca.rowCount) return res.status(409).json({ error: 'Este mensaje ya se reenvió.' });
   const adjunto = m.archivo_id ? await obtenerArchivo(m.archivo_id, req.empresaId) : null;
   if (!m.txt && !adjunto) return res.status(409).json({ error: 'El mensaje original ya no está disponible para reenviar.' });
   const mensaje = await encolarSalida(req, n, m.txt || '', adjunto, null);
+  // Marcar como reenvío: el rescate automático nunca reenvía un reenvío.
+  await q('UPDATE outbox SET reenvio_de=$1 WHERE mensaje_id=$2 AND empresa_id=$3', [m.outbox_id, mensaje.id, req.empresaId]);
   await historial(req.empresaId, n.id, 'Mensaje reenviado: el cliente no pudo verlo («Esperando mensaje»)', req.user.nombre);
   emitir(req.empresaId, 'neg:patch', { id: n.id, mensajeId: mensaje.id });
   res.json({ ok: true, mensaje });

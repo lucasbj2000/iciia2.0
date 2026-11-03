@@ -36,7 +36,8 @@ export async function registrarActualizacionImpar(canal,evento){
     'INSERT INTO wa_entregas_impar(canal_id,empresa_id,wa_id,ack,jid_tipo) '+
     'VALUES($1,$2,$3,$4,$5) '+
     'ON CONFLICT(canal_id,wa_id) DO UPDATE SET '+
-    'ack=GREATEST(wa_entregas_impar.ack,EXCLUDED.ack),actualizado=now() '+
+    'ack=GREATEST(wa_entregas_impar.ack,EXCLUDED.ack),actualizado=now(), '+
+    'leido_ts=CASE WHEN EXCLUDED.ack>=4 THEN COALESCE(wa_entregas_impar.leido_ts,now()) ELSE wa_entregas_impar.leido_ts END '+
     'RETURNING outbox_id,reintentos',
     [canal.id,canal.empresa_id,id,ack,tipoJid(evento.key.remoteJid)]);
   // Leído sin avisos de «no pude descifrar»: esa ruta funciona para el contacto.

@@ -95,5 +95,5 @@ const mig=leer('src/migrations/021_wa_identidades_impar.sql');
 assert.ok(mig.includes('preferir_lid BOOLEAN NOT NULL DEFAULT FALSE'),'Compatibilidad con la columna anterior');
 const mig30=leer('src/migrations/030_wa_ruta_automatica_impar.sql');
 assert.ok(mig30.includes("ruta TEXT NOT NULL DEFAULT 'auto'") && mig30.includes("SET ruta='lid' WHERE preferir_lid"),'Ruta automática conservando elecciones previas');
-assert.ok(routes.includes("r.post('/:id/mensajes/:mid/reenviar'") && routes.includes('reenviado_ts=now()'),'Reenvío manual sin duplicados');
+assert.ok(routes.includes("r.post('/:id/mensajes/:mid/reenviar'") && routes.includes('reenviado_ts=now()'),'Reenvío manual de respaldo sin duplicados');
 console.log('✔ IMPAR: ruta automática PN/LID, avisos de no descifrado, elección del admin, aislamiento, retorno seguro.');

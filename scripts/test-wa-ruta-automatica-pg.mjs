@@ -16,17 +16,26 @@ try {
   await admin.query(`CREATE SCHEMA "${schema}"`);
   await admin.query(`SET search_path TO "${schema}",public`);
   await admin.query('CREATE TABLE empresas(id uuid PRIMARY KEY)');
-  await admin.query('CREATE TABLE canales(id uuid PRIMARY KEY)');
-  await admin.query('CREATE TABLE mensajes(id bigserial PRIMARY KEY)');
-  await admin.query('CREATE TABLE outbox(id bigserial PRIMARY KEY, empresa_id uuid, negociacion_id uuid)');
+  await admin.query("CREATE TABLE canales(id uuid PRIMARY KEY, tipo text DEFAULT 'whatsapp_qr', activo boolean DEFAULT true)");
+  await admin.query(`CREATE TABLE mensajes(id bigserial PRIMARY KEY, empresa_id uuid, negociacion_id uuid, dir text, txt text, autor_id uuid,
+    estado text, archivo_id uuid, media_url text, media_tipo text, media_nombre text, media_bytes bigint)`);
+  await admin.query(`CREATE TABLE outbox(id bigserial PRIMARY KEY, empresa_id uuid, canal_id uuid, negociacion_id uuid, destino text, txt text,
+    archivo_id uuid, media_url text, media_tipo text, media_nombre text, estado text DEFAULT 'pendiente')`);
+  await admin.query("CREATE TABLE usuarios(id uuid PRIMARY KEY, empresa_id uuid, rol text, activo boolean DEFAULT true)");
+  await admin.query(`CREATE TABLE notificaciones(id bigserial PRIMARY KEY, empresa_id uuid, usuario_id uuid, tipo text, titulo text, msg text, tono text, ref uuid)`);
+  await admin.query('CREATE TABLE historial(id bigserial PRIMARY KEY, empresa_id uuid, negociacion_id uuid, txt text, por text, ts timestamptz DEFAULT now())');
   await admin.query('INSERT INTO empresas VALUES ($1)', [E]);
-  await admin.query('INSERT INTO canales VALUES ($1)', [C]);
+  await admin.query('INSERT INTO canales(id) VALUES ($1)', [C]);
+  await admin.query("INSERT INTO usuarios VALUES ($1,$2,'admin',true)", [randomUUID(), E]);
   await admin.query(leer('020_wa_entregas_impar.sql'));
   await admin.query(leer('021_wa_identidades_impar.sql'));
   // Una elección LID manual previa debe conservarse al migrar.
   await admin.query('INSERT INTO wa_identidades_impar(empresa_id,canal_id,pn_jid,lid_jid,preferir_lid) VALUES($1,$2,$3,$4,true)',
     [E, C, '595981000009@s.whatsapp.net', '999999999999999@lid']);
-  for (let i = 0; i < 2; i++) await admin.query(leer('030_wa_ruta_automatica_impar.sql')); // idempotente
+  for (let i = 0; i < 2; i++) {  // idempotentes
+    await admin.query(leer('030_wa_ruta_automatica_impar.sql'));
+    await admin.query(leer('031_wa_rescate_automatico_impar.sql'));
+  }
   assert.equal((await admin.query("SELECT ruta FROM wa_identidades_impar WHERE pn_jid='595981000009@s.whatsapp.net'")).rows[0].ruta, 'lid');
 
   // El módulo usa el pool de db.mjs: apuntarlo al esquema aislado.
@@ -75,7 +84,39 @@ try {
   // Aislamiento por canal.
   assert.equal((await id.rutaParaEnvioWA({ id: randomUUID(), empresa_id: E }, pn)).destino, pn);
   await assert.rejects(admin.query("UPDATE wa_identidades_impar SET ruta='otra'"), /check/i);
-  console.log('✔ Ruta WhatsApp automática validada en PostgreSQL real.');
+
+  // ---- Rescate automático, sin intervención humana ----
+  const { rescatarNoDescifrados } = await import('../src/rescate-no-descifrados-impar.mjs');
+  const N = randomUUID();
+  await id.elegirRutaWA(E, C, pn, 'auto');
+  await admin.query("UPDATE wa_identidades_impar SET lid_jid=$2,modo_entrante='pn',fallos_pn=0,fallos_lid=0 WHERE pn_jid=$1", [pn, lid]);
+  const msg = (await admin.query("INSERT INTO mensajes(empresa_id,negociacion_id,dir,txt,estado) VALUES($1,$2,'out','Pedido listo','enviado') RETURNING id", [E, N])).rows[0].id;
+  const ob = (await admin.query("INSERT INTO outbox(empresa_id,canal_id,negociacion_id,destino,txt,mensaje_id,estado) VALUES($1,$2,$3,'595981000001','Pedido listo',$4,'enviado') RETURNING id", [E, C, N, msg])).rows[0].id;
+  await admin.query("INSERT INTO wa_entregas_impar(canal_id,empresa_id,wa_id,outbox_id,ack,jid_tipo) VALUES($1,$2,'RESC1',$3,3,'pn')", [C, E, ob]);
+  await id.registrarReintentoWA(canal, { from: '595981000001:2@s.whatsapp.net', id: 'RESC1', type: 'retry' });
+  let res = await rescatarNoDescifrados();
+  assert.equal(res.reenviados, 0, 'Un solo aviso reciente: primero deja actuar al reintento de WhatsApp');
+  await id.registrarReintentoWA(canal, { from: '595981000001:2@s.whatsapp.net', id: 'RESC1', type: 'retry' });
+  const [a, b] = await Promise.all([rescatarNoDescifrados(), rescatarNoDescifrados()]);
+  assert.equal(a.reenviados + b.reenviados, 1, 'Segundo aviso: se reenvía solo, una única vez');
+  const copia = (await admin.query('SELECT * FROM outbox WHERE reenvio_de=$1', [ob])).rows;
+  assert.equal(copia.length, 1); assert.equal(copia[0].txt, 'Pedido listo'); assert.equal(copia[0].estado, 'pendiente');
+  assert.equal((await id.rutaParaEnvioWA(canal, pn)).destino, lid, 'La copia saldrá por LID');
+  assert.equal((await admin.query("SELECT rescate FROM wa_entregas_impar WHERE wa_id='RESC1'")).rows[0].rescate, 'reenviado');
+  assert.ok((await admin.query('SELECT 1 FROM historial WHERE negociacion_id=$1', [N])).rowCount, 'Queda en el historial');
+  assert.equal((await rescatarNoDescifrados()).reenviados, 0, 'No vuelve a reenviar');
+  // Si la copia tampoco se puede leer: no rebota, avisa a administración.
+  await admin.query("INSERT INTO wa_entregas_impar(canal_id,empresa_id,wa_id,outbox_id,ack,jid_tipo) VALUES($1,$2,'RESC2',$3,3,'lid')", [C, E, copia[0].id]);
+  await id.registrarReintentoWA(canal, { from: lid, id: 'RESC2', type: 'retry' });
+  await id.registrarReintentoWA(canal, { from: lid, id: 'RESC2', type: 'retry' });
+  res = await rescatarNoDescifrados();
+  assert.equal(res.reenviados, 0); assert.equal(res.agotados, 1, 'Un reenvío nunca se reenvía');
+  assert.equal((await admin.query("SELECT COUNT(*)::int AS n FROM notificaciones WHERE tipo='whatsapp_entrega'")).rows[0].n, 1, 'Administración avisada una vez');
+  assert.equal((await rescatarNoDescifrados()).agotados, 0, 'Sin avisos repetidos');
+  // Leído después del aviso: se descifró, no se reenvía.
+  await admin.query("INSERT INTO wa_entregas_impar(canal_id,empresa_id,wa_id,outbox_id,ack,jid_tipo,reintentos,reintento_ts,leido_ts) VALUES($1,$2,'RESC3',$3,4,'pn',3,now()-interval '10 minutes',now())", [C, E, ob]);
+  assert.equal((await rescatarNoDescifrados()).revisados, 0, 'Mensaje leído tras el aviso no se revisa');
+  console.log('✔ Ruta WhatsApp automática y rescate sin intervención validados en PostgreSQL real.');
 } finally {
   await cerrarPool().catch(() => {});
   await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`).catch(() => {});

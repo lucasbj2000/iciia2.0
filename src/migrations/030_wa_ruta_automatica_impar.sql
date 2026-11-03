@@ -11,10 +11,10 @@ ALTER TABLE wa_identidades_impar ADD COLUMN IF NOT EXISTS fallos_lid INT NOT NUL
 ALTER TABLE wa_identidades_impar ADD COLUMN IF NOT EXISTS fallo_ts TIMESTAMPTZ;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='wa_identidades_impar_ruta_chk') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='wa_identidades_impar_ruta_chk' AND conrelid='wa_identidades_impar'::regclass) THEN
     ALTER TABLE wa_identidades_impar ADD CONSTRAINT wa_identidades_impar_ruta_chk CHECK (ruta IN ('auto','pn','lid'));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='wa_identidades_impar_modo_chk') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='wa_identidades_impar_modo_chk' AND conrelid='wa_identidades_impar'::regclass) THEN
     ALTER TABLE wa_identidades_impar ADD CONSTRAINT wa_identidades_impar_modo_chk CHECK (modo_entrante IS NULL OR modo_entrante IN ('pn','lid'));
   END IF;
 END $$;

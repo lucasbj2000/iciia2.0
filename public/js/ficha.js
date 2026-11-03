@@ -195,9 +195,15 @@ function mensajeHTML(m) {
          ? ' · ✓✓ Leído' : Number(m.wa_ack)>=3
            ? ' · ✓✓ Entregado' : ' · ✓ Enviado, entrega no confirmada';
        // WhatsApp avisó que el teléfono del cliente no pudo descifrarlo: probablemente ve «Esperando mensaje».
+       // El CRM lo resuelve solo: reenvía por la otra ruta. El botón queda como respaldo si no hay otra ruta.
+       const textoNoVisto = m.wa_rescate==='reenviado' ? '↻ El cliente no pudo leerlo; se reenvió automáticamente por la otra ruta.'
+         : m.wa_rescate==='agotado' ? '⚠ El cliente no pudo leerlo por ninguna ruta. Administración fue avisada.'
+         : m.wa_rescate==='sin_alternativa' ? '⚠ El cliente no pudo leerlo. Se reenviará solo cuando WhatsApp informe otra ruta.'
+         : '↻ El cliente no pudo leerlo; el CRM lo está reintentando.';
        const noDescifrado = m.dir==='out' && Number(m.wa_reintentos)>0
-         ? `<div class="msg-no-visto" role="note"><span>⚠ Puede que el cliente vea «Esperando mensaje».${m.wa_reenviado?' Ya se reenvió.':''}</span>
-            ${m.wa_reenviado ? '' : `<button type="button" class="btn ghost sm" data-reenviar="${m.id}">Reenviar</button>`}</div>` : '';
+         ? `<div class="msg-no-visto ${m.wa_rescate==='reenviado'?'resuelto':''}" role="note"><span>${textoNoVisto}</span>
+            ${m.wa_reenviado || !['sin_alternativa','agotado'].includes(m.wa_rescate) ? '' : `<button type="button" class="btn ghost sm" data-reenviar="${m.id}">Reenviar ahora</button>`}</div>` : '';
+       const marcaReenvio = m.es_reenvio ? ' · ↻ Reenvío' : '';
        const tramo = m.inicioConversacion
          ? `<div class="historial-tramo ${m.anterior?'anterior':''}">${m.anterior?'↶ Conversación anterior':'Conversación actual'}
               · ${fd(m.creado_negociacion)}${m.titulo_negociacion?' · '+esc(m.titulo_negociacion):''}</div>` : '';
@@ -206,7 +212,7 @@ function mensajeHTML(m) {
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
           ${tramo}${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
           <small>${m.carga_historica ? '✎ Carga histórica (admin) · ' : ''}${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ' · 📱 '+esc(m.remitente_numero) : ''}
-          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}${estadoWA}${esAdmin()?botonAnclarHistorico(m):''}</small>${noDescifrado}</div>`;
+          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small>${noDescifrado}</div>`;
 }
 
 export async function refrescarFicha(id, seguir = false) {

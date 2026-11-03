@@ -8,6 +8,7 @@ import { derivarRecepcionesVencidas } from './recepcion-impar.mjs';
 import { registrarEnvioImpar } from './wa-entregas-impar.mjs';
 import { drenarWebhooksMeta } from './meta-webhooks-impar.mjs';
 import { resolverRemitenteWA } from './wa-identidades-impar.mjs';
+import { rescatarNoDescifrados } from './rescate-no-descifrados-impar.mjs';
 
 // Recepción: un fallo transitorio (PostgreSQL reiniciando, bloqueo, pico de
 // carga) no debe mandar el mensaje del cliente a cuarentena en segundos.
@@ -192,5 +193,7 @@ export function arrancarWorkers() {
   setInterval(() => drenarWebhooksMeta().catch(e => console.error('[webhook meta]',e.name)), 15000);
   setInterval(() => drenarInbox().catch(e => console.error('[inbox]', e.message)), 2000);
   setInterval(() => drenarOutbox().catch(e => console.error('[outbox]', e.message)), 5000);
+  // Mensajes que el cliente no pudo descifrar («Esperando mensaje»): reenvío automático por la otra ruta.
+  setInterval(() => rescatarNoDescifrados().catch(e => console.error('[wa:rescate]', e.name)), 60000);
   console.log('✔ Workers de mensajería activos');
 }
