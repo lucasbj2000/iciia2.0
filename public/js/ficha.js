@@ -229,14 +229,8 @@ function mensajeHTML(m) {
               <span class="pin">${ic('pin')}</span><div style="min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.nombre || 'Ubicación compartida')}</b>
               <small style="color:var(--muted)">${esc(u.direccion || `${u.lat}, ${u.lon}`)}</small></div></a>` : '';
        const estadoWA=m.wa_estado_meta==='failed' ? ` · ${ic('alerta')} Meta no entregó` : m.wa_ack == null ? '' : ' · ' + tildesHTML(m.wa_ack);
-       // WhatsApp avisó que el teléfono del cliente no pudo descifrarlo. El CRM lo reintenta y reenvía solo,
-       // así que el agente no ve nada mientras tanto: el aviso aparece únicamente si tiene que actuar.
-       const requiereAccion = ['sin_alternativa','agotado'].includes(m.wa_rescate);
-       const textoNoVisto = m.wa_rescate==='agotado' ? ic('alerta') + ' Este mensaje no le llegó al cliente. Administración ya fue avisada.'
-         : ic('alerta') + ' Este mensaje no le llegó al cliente. Podés reenviarlo.';
-       const noDescifrado = m.dir==='out' && Number(m.wa_reintentos)>0 && requiereAccion
-         ? `<div class="msg-no-visto" role="note"><span>${textoNoVisto}</span>
-            ${m.wa_reenviado ? '' : `<button type="button" class="btn ghost sm" data-reenviar="${m.id}">Reenviar ahora</button>`}</div>` : '';
+       // Si el teléfono del cliente no pudo descifrar un mensaje, el CRM lo reintenta y reenvía solo
+       // (src/rescate-no-descifrados-impar.mjs). Al agente no se le muestra ningún aviso.
        const marcaReenvio = m.es_reenvio ? ' · ↻ Reenvío' : '';
        // El inicio de cada conversación se muestra como separador centrado (lo inserta chat-mensajes.js).
        const tramo = m.inicioConversacion
@@ -248,7 +242,7 @@ function mensajeHTML(m) {
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}"${tramo}>
           ${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
           <small>${m.carga_historica ? `${ic('lapiz')} Carga histórica (admin) · ` : ''}${m.bot ? `${ic('bot')} Bot · ` : ''}<time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time>${otroNumero ? ` · <span class="msg-otro-num" title="Escribió desde otro número">${ic('celular')} ${esc(m.remitente_numero)}</span>` : ''}
-          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ` · ${ic('alerta')} no enviado` : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small>${noDescifrado}</div>`;
+          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ` · ${ic('alerta')} no enviado` : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small></div>`;
 }
 
 export async function refrescarFicha(id, seguir = false) {
