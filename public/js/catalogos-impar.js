@@ -1,5 +1,6 @@
 /* IMPAR · Administración > Catálogos: subir ZIP y distribuir PDFs a todos los agentes. */
 import { $, esc, S, get, del, confirmar, toast } from './core.js';
+import { ic } from './iconos.js';
 
 const formato=bytes => (Number(bytes||0)/1048576).toFixed(1)+' MB';
 
@@ -8,17 +9,17 @@ export async function vistaCatalogosImpar(){
   if(!host)return;
   const datos=await get('/admin/catalogos');
   host.innerHTML = '<div class="card-box" style="max-width:1050px">'+
-    '<h3>📚 Catálogos de IMPAR</h3>'+
+    '<h3>'+ic('carpeta')+' Catálogos de IMPAR</h3>'+
     '<p class="sub">Subí un ZIP con documentos PDF. El sistema los extrae automáticamente y los deja disponibles para <b>todos los agentes</b> desde <b>Respuestas y acciones → Respuestas rápidas</b>. No requiere Hostinger ni comandos.</p>'+
     '<div id="cz-zona" tabindex="0" role="button" aria-label="Seleccionar ZIP de catálogos"'+
     ' style="border:2px dashed var(--brand);border-radius:12px;padding:23px;text-align:center;cursor:pointer;background:var(--surface2)">'+
-    '<div style="font-size:28px">📦</div><b>Seleccionar ZIP o arrastrarlo aquí</b>'+
+    '<div class="datos-ic">'+ic('carpeta')+'</div><b>Seleccionar ZIP o arrastrarlo aquí</b>'+
     '<div class="sub">Hasta '+datos.maxZipMB+' MB por ZIP · máximo 25 PDF · '+datos.maxPdfMB+' MB cada PDF</div>'+
     '</div>'+
     '<input id="cz-archivo" type="file" accept=".zip,application/zip,application/x-zip-compressed" hidden>'+
     '<div class="row" style="margin:10px 0;align-items:center">'+
     '<b id="cz-nombre" style="flex:1;min-width:0;overflow-wrap:anywhere">Ningún archivo seleccionado</b>'+
-    '<button class="btn sm" id="cz-subir" disabled>📤 Cargar catálogos</button>'+
+    '<button class="btn sm" id="cz-subir" disabled>Cargar catálogos</button>'+
     '</div>'+
     '<div id="cz-progreso" hidden><progress id="cz-barra" max="100" value="0" style="width:100%"></progress>'+
     '<p id="cz-estado" role="status" class="sub">Preparando carga…</p></div>'+
@@ -70,7 +71,7 @@ export async function vistaCatalogosImpar(){
         vistaCatalogosImpar().catch(e=>toast(e.message,'bad'));
       }else{
         estado.textContent='No se importó el ZIP.';
-        resultado.textContent='⚠ '+(respuesta.error||'No se pudo procesar el archivo.');
+        resultado.textContent=(respuesta.error||'No se pudo procesar el archivo.');
         toast(respuesta.error||'No se pudo importar el ZIP','bad','Catálogos');
         subiendo=false;boton.disabled=false;input.disabled=false;
       }

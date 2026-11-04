@@ -1,6 +1,7 @@
 /* IMPAR · Animaciones con intención. Solo transform/opacity (salvo el trazo de gráficos),
    y nada se mueve si el equipo pide «reducir movimiento». */
 import { $, $$, esc } from './core.js';
+import { ic } from './iconos.js';
 
 export const menosMovimiento = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const CURVA = 'cubic-bezier(.2,.7,.2,1)';
@@ -116,7 +117,7 @@ export function guirnalda(nombres) {
     `<path d="M${i * 20 + 2} 6 l9 16 l9 -16z" fill="${colores[i % colores.length]}" style="--i:${i}"/>`).join('');
   return `<div class="guirnalda" role="status"><svg viewBox="0 0 444 26" preserveAspectRatio="none" aria-hidden="true">
     <path d="M0 6 Q222 14 444 6" fill="none" stroke="var(--muted)" stroke-width="1"/>${banderas}</svg>
-    <p>🎂 ¡Hoy cumple ${nombres.map(esc).join(' y ')}! Saludalo${nombres.length > 1 ? 's' : ''} en Comunicación.</p></div>`;
+    <p>${ic('pastel')} ¡Hoy cumple ${nombres.map(esc).join(' y ')}! Saludalo${nombres.length > 1 ? 's' : ''} en Comunicación.</p></div>`;
 }
 
 /** Cifras que corren hasta su valor (300 ms). */

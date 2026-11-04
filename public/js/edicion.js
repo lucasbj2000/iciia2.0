@@ -1,5 +1,6 @@
 /* ============ Edición completa (administrador) ============ */
 import { $, $$, esc, S, get, put, toast, modal, cerrar, fd, fdate, etapa, ORIGENES, ROLES, vacio } from './core.js';
+import { ic } from './iconos.js';
 
 let sub = 'empleados', usuarios = [], QB = '';
 
@@ -12,7 +13,7 @@ export async function vistaEdicion() {
        Corregí cualquier dato de <b>${esc(S.empresa.nombre)}</b>: empleados y su jefe, clientes y su responsable,
        negociaciones con su fecha de creación. Cada cambio queda registrado en Auditoría.</div></div>
    <div class="tabs" style="margin-bottom:12px">
-     ${[['empleados', '👥 Empleados'], ['clientes', '◎ Clientes'], ['negociaciones', '◫ Negociaciones']].map(([k, t]) =>
+     ${[['empleados', 'Empleados'], ['clientes', 'Clientes'], ['negociaciones', 'Negociaciones']].map(([k, t]) =>
        `<button class="tab ${sub === k ? 'active' : ''}" data-sub="${k}">${t}</button>`).join('')}</div>
    <div id="ed-body"></div>`;
   $$('[data-sub]').forEach(b => b.onclick = () => { sub = b.dataset.sub; QB = ''; vistaEdicion(); });
@@ -43,7 +44,7 @@ function empleados() {
      <td class="hide-m">${u.rol === 'jefe' ? u.a_cargo + ' agente(s)' : '—'}</td>
      <td>${u.activo ? '<span style="color:var(--ok)">Activo</span>' : '<span style="color:var(--bad)">Inactivo</span>'}</td>
      <td style="text-align:right"><button class="btn ghost sm" data-eu="${u.id}">✏ Editar</button></td></tr>`).join('')
-     || `<tr><td colspan="8">${vacio('👥', 'Sin empleados', '')}</td></tr>`}</tbody></table></div>`;
+     || `<tr><td colspan="8">${vacio('usuarios', 'Sin empleados', '')}</td></tr>`}</tbody></table></div>`;
   $$('[data-eu]').forEach(b => b.onclick = () => modalEmpleado(usuarios.find(x => x.id === b.dataset.eu)));
 }
 
@@ -62,7 +63,7 @@ function modalEmpleado(u) {
        ${opcionesSelect((S.empresa.lineas || []).map(l => [l, l]), u.linea)}</select></div></div>
     <div class="row"><div class="field"><label>Email</label><input id="u-mail" value="${esc(u.email || '')}" inputmode="email"></div>
      <div class="field"><label>Teléfono</label><input id="u-tel" value="${esc(u.tel || '')}" inputmode="tel"></div>
-     <div class="field"><label>🎂 Nacimiento</label><input id="u-nac" type="date" value="${u.nacimiento ? String(u.nacimiento).slice(0, 10) : ''}"></div></div>
+     <div class="field"><label>Nacimiento</label><input id="u-nac" type="date" value="${u.nacimiento ? String(u.nacimiento).slice(0, 10) : ''}"></div></div>
     <div class="field"><label>Nueva contraseña (dejar vacío para no cambiarla)</label>
       <input id="u-pass" type="password" autocomplete="new-password"></div>
     <label style="display:flex;gap:8px;align-items:center;font-size:var(--fs-sm)">

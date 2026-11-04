@@ -7,14 +7,15 @@ import { modalCargaManual } from './negociaciones.js';
 import { tablaCambios } from './colaboracion.js';
 import { administrarHorarios } from './horarios.js';
 import { solicitarEliminarUsuario } from './organigrama.js';
+import { ic } from './iconos.js';
 
 let TADM = 'canales', defs = null, timerQR = null, sucursalesCache = [], cargaCanalesSeq = 0;
 
 const TABS = [
-  ['canales', '📡 Canales'], ['diseno', 'Diseño'], ['sucursales', 'Sucursales'], ['horarios','◷ Horarios laborales'],
-  ['bitrix','🛡 Carga Bitrix'], ['botones', '⚡ Botones'], ['flags', 'Funciones ON/OFF'], ['ayudas', '❔ Ayudas guiadas'], ['noti', 'Notificaciones'],
-  ['rapidas', 'Respuestas rápidas'], ['catalogos', '📚 Catálogos'], ['usuarios', 'Usuarios'], ['enlaces', '🔗 Enlaces WhatsApp'], ['accesos','🔐 Accesos y exportación'], ['etapas', 'Etapas'], ['reglas', 'Reglas'],
-  ['ubicaciones', '📍 Direcciones'], ['stock', 'Stock'], ['bot', 'Bot'],
+  ['canales', 'Canales'], ['diseno', 'Diseño'], ['sucursales', 'Sucursales'], ['horarios','Horarios laborales'],
+  ['bitrix','Carga Bitrix'], ['botones', 'Botones'], ['flags', 'Funciones ON/OFF'], ['ayudas', 'Ayudas guiadas'], ['noti', 'Notificaciones'],
+  ['rapidas', 'Respuestas rápidas'], ['catalogos', 'Catálogos'], ['usuarios', 'Usuarios'], ['enlaces', 'Enlaces WhatsApp'], ['accesos','Accesos y exportación'], ['etapas', 'Etapas'], ['reglas', 'Reglas'],
+  ['ubicaciones', 'Direcciones'], ['stock', 'Stock'], ['bot', 'Bot'],
   ['mensajeria', 'Salud de mensajería'], ['limpieza', 'Limpieza'], ['audit', 'Auditoría']
 ];
 
@@ -29,7 +30,7 @@ export async function vistaAdmin() {
   }
   if (!defs) defs = await get('/admin/definiciones');
   $('#view').innerHTML = `<div class="section">
-    <div class="tabs">${[...TABS, ...(S.usuario.usuario?.toLowerCase()==='admin' ? [['meta-lab','🧪 Pruebas API']] : [])].map(([k, t]) => `<button class="tab ${TADM === k ? 'active' : ''}" data-adm="${k}">${t}</button>`).join('')}</div>
+    <div class="tabs">${[...TABS, ...(S.usuario.usuario?.toLowerCase()==='admin' ? [['meta-lab','Pruebas API']] : [])].map(([k, t]) => `<button class="tab ${TADM === k ? 'active' : ''}" data-adm="${k}">${t}</button>`).join('')}</div>
     <div id="adm-body" class="fx-vista">${skeleton(4)}</div></div>`;
   $$('[data-adm]').forEach(b => b.onclick = () => { clearInterval(timerQR); TADM = b.dataset.adm; vistaAdmin(); });
   const fn = { 'meta-lab': () => import('./meta-laboratorio-impar.js').then(m=>m.vistaLaboratorioMeta()), canales: aCanales, diseno: aDiseno, sucursales: aSucursales,
@@ -40,7 +41,7 @@ export async function vistaAdmin() {
     accesos: () => import('./accesos.js').then(m=>m.vistaAccesos()), etapas: aEtapas,
     reglas: aReglas, ubicaciones: aUbicaciones, stock: aStock, bot: aBot, mensajeria: aMensajeria,
     limpieza: aLimpieza, audit: aAudit }[TADM];
-  try { await fn(); } catch (e) { AB().innerHTML = `<div class="card-box">${vacio('⚠', 'No se pudo cargar', e.message)}</div>`; }
+  try { await fn(); } catch (e) { AB().innerHTML = `<div class="card-box">${vacio('alerta', 'No se pudo cargar', e.message)}</div>`; }
 }
 const AB = () => $('#adm-body');
 async function recargarCtx() {
@@ -49,7 +50,7 @@ async function recargarCtx() {
 }
 
 /* ================= CANALES ================= */
-const ICONOS = { whatsapp_qr: ['wa', '📱'], whatsapp_api: ['wapi', '☁️'], messenger: ['fb', '💬'], instagram: ['ig', '📸'] };
+const ICONOS = { whatsapp_qr: ['wa', ic('celular')], whatsapp_api: ['wapi', ic('canal')], messenger: ['fb', ic('mensaje')], instagram: ['ig', ic('camara')] };
 const NOMBRES = { whatsapp_qr: 'WhatsApp (QR)', whatsapp_api: 'WhatsApp Cloud API',
   messenger: 'Facebook Messenger', instagram: 'Instagram Direct' };
 
@@ -99,7 +100,7 @@ async function aCanales() {
     : waDisponibles.length===1 ? waDisponibles[0] : null;
   const esPrincipal=c=>c.id===oficial?.id;
   const tarjeta = c => {
-    const [cls, ico] = ICONOS[c.tipo] || ['otro', '📨'];
+    const [cls, ico] = ICONOS[c.tipo] || ['otro', ic('mensaje')];
     const color = ['conectado','verificado'].includes(c.estado) ? 'var(--ok)' : ['pendiente','reconectando','conectando'].includes(c.estado) ? 'var(--warn)' : 'var(--bad)';
     return `<div class="canal ${c.estado === 'conectado' ? 'conectado' : ''}" data-canal-id="${esc(c.id)}"><div class="ico ${cls}">${ico}</div>
       <div style="flex:1;min-width:0"><b>${esc(c.nombre)}</b>
@@ -112,11 +113,11 @@ async function aCanales() {
             : c.estado === 'error' ? 'Error de conexión' : 'Desconectado'}</span>
           ${c.ultima_conexion ? ' · última ' + ago(c.ultima_conexion) + ' atrás' : ''}
           ${!c.activo ? ' · <span style="color:var(--warn)">inactivo / en preparación</span>' : ''}</small>
-        ${esPrincipal(c) ? '<small style="color:var(--ok);font-weight:700">★ Central · principal única para iniciar conversaciones</small>' : ''}
+        ${esPrincipal(c) ? `<small style="color:var(--ok);font-weight:700">${ic('estrella')} Central · principal única para iniciar conversaciones</small>` : ''}
         ${c.ultimo_error ? `<small style="color:var(--bad)">${esc(String(c.ultimo_error).slice(0, 70))}</small>` : ''}</div>
       <div style="flex:none;display:flex;gap:6px;flex-wrap:wrap">
         ${c.tipo === 'whatsapp_qr'
-          ? `<button class="btn sm" data-qr="${c.id}">${c.estado === 'conectado' ? '🔄 Estado' : '📷 Vincular'}</button>`
+          ? `<button class="btn sm" data-qr="${c.id}">${c.estado === 'conectado' ? ic('actualizado') + ' Estado' : ic('camara') + ' Vincular'}</button>`
           : `<button class="btn ghost sm" data-probar="${c.id}">✓ Probar</button>`}
         <button class="btn ghost sm" data-editar="${c.id}">Editar</button>
         ${c.activo && ['whatsapp_qr','whatsapp_api'].includes(c.tipo) && !c.config?.principal_global ?
@@ -126,7 +127,7 @@ async function aCanales() {
 
   AB().innerHTML = `
    <div class="card-box" style="border-color:#2b5a7a">
-     <h3>📡 Canales por sucursal</h3>
+     <h3>${ic('canal')} Canales por sucursal</h3>
      <button class="btn ghost sm" id="canales-actualizar" type="button">Actualizar estados</button>
      <div style="color:var(--muted);font-size:var(--fs-sm);line-height:1.7">
        La línea <b>Central → principal</b> es la única habilitada para iniciar conversaciones nuevas
@@ -136,14 +137,14 @@ async function aCanales() {
    </div>
 
    ${data.sucursales.map(s => `<div class="suc-bloque">
-     <div class="suc-head"><span style="font-size:20px">🏢</span>
+     <div class="suc-head"><span class="suc-ic">${ic('edificio')}</span>
        <div style="flex:1"><b>${esc(s.nombre)}</b><small>${esc(s.ciudad || '')} · ${s.canales.length} canal(es)</small></div>
        <button class="btn sm" data-nuevo-suc="${s.id}">+ Agregar canal</button></div>
      <div class="suc-body">${s.canales.map(tarjeta).join('')
-       || vacio('📡', 'Sin canales en esta sucursal', 'Agregá WhatsApp, Messenger o Instagram')}</div></div>`).join('')}
+       || vacio('canal', 'Sin canales en esta sucursal', 'Agregá WhatsApp, Messenger o Instagram')}</div></div>`).join('')}
 
    ${data.sinSucursal.length ? `<div class="suc-bloque">
-     <div class="suc-head"><span style="font-size:20px">🌐</span>
+     <div class="suc-head"><span class="suc-ic">${ic('canal')}</span>
        <div style="flex:1"><b>Sin sucursal asignada</b><small>Reparten entre todos los agentes</small></div></div>
      <div class="suc-body">${data.sinSucursal.map(tarjeta).join('')}</div></div>` : ''}
 
@@ -162,33 +163,33 @@ async function aCanales() {
        }).join('')}</div></div>
 
    <div class="card-box" style="border-color:var(--brand)">
-     <h3>☁️ WhatsApp Cloud API oficial · IMPAR</h3>
+     <h3>${ic('canal')} WhatsApp Cloud API oficial · IMPAR</h3>
      <p class="sub">Agregá el número con un token de usuario del sistema y Phone Number ID.
        Se guardará inicialmente <b>inactivo</b>. Primero probá el token,
        configurá el webhook en Meta, activá el canal para hacer una prueba piloto
        y recién después elegilo como principal si corresponde. Las conversaciones antiguas
        conservan su canal de origen hasta una migración explícita.</p>
      <p class="sub">${info.listoParaCloud ? '✓ Meta y cifrado de token configurados.'
-       : '⚠ Falta configurar App Secret, Verify Token o clave de cifrado en Hostinger.'}</p>
+       : ic('alerta') + ' Falta configurar App Secret, Verify Token o clave de cifrado en Hostinger.'}</p>
    </div>
-   <div class="card-box"><h3>🔗 Webhook para los canales de Meta</h3>
+   <div class="card-box"><h3>${ic('enlace')} Webhook para los canales de Meta</h3>
      ${info.noDisponible ? '<p class="sub">El estado de Webhooks no respondió. Los canales siguen disponibles.</p>' : ''}
      <p class="sub" style="margin-top:0">Pegá estos datos en tu app de Meta → Webhooks → Editar suscripción.</p>
      ${!info.https ? `<div class="card-box" style="border-color:var(--bad);background:var(--surface2)">
-       <b style="font-size:var(--fs-sm);color:var(--bad)">⚠ Tu PUBLIC_URL no es HTTPS</b>
+       <b style="font-size:var(--fs-sm);color:var(--bad)">${ic('alerta')} Tu PUBLIC_URL no es HTTPS</b>
        <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:5px">
          Meta rechaza webhooks sin certificado válido. Configurá HTTPS antes de conectar estos canales.</div></div>` : ''}
      <div class="field"><label>URL de callback</label><input value="${esc(info.url)}" readonly id="wh-url"></div>
      <div class="field"><label>Token de verificación</label>
        <input value="${esc(info.noDisponible ? '(pendiente de consulta)' : info.verifyToken || '(falta META_VERIFY_TOKEN en el .env)')}" readonly id="wh-tok"></div>
      <div style="display:flex;gap:8px;flex-wrap:wrap">
-       <button class="btn ghost sm" id="wh-copiar">📋 Copiar URL</button>
-       <button class="btn ghost sm" id="wh-copiar-tok">📋 Copiar token</button></div>
+       <button class="btn ghost sm" id="wh-copiar">${ic('portapapeles')} Copiar URL</button>
+       <button class="btn ghost sm" id="wh-copiar-tok">${ic('portapapeles')} Copiar token</button></div>
      <div style="color:var(--muted);font-size:var(--fs-xs);margin-top:12px;line-height:1.8">
        Campos a suscribir: <b>WhatsApp Cloud API</b> → messages · <b>Messenger</b> → messages, messaging_postbacks
        · <b>Instagram</b> → messages.
        ${info.noDisponible ? '<br>Estado de Meta pendiente de verificación.' : info.tieneSecret ? '<br>✓ App Secret configurado: las firmas se validan.'
-         : '<br>⚠ Sin META_APP_SECRET: las firmas no se validan. Configuralo en el .env.'}</div></div>`;
+         : '<br>' + ic('alerta') + ' Sin META_APP_SECRET: las firmas no se validan. Configuralo en el .env.'}</div></div>`;
 
   $('#canales-actualizar').onclick = () => { $('#canales-actualizar').disabled = true; aCanales().catch(e => toast(e.message,'bad','Canales')); };
   $$('[data-nuevo]').forEach(b => b.onclick = () => modalCanal(null, b.dataset.nuevo));
@@ -268,7 +269,7 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
     ? `<div class="field"><label>Prefijo de país (para enviar)</label>
          <input id="c-pref" value="${esc(cfg.prefijoPais || S.empresa.reglas?.prefijoPais || '595')}" placeholder="595"></div>
        <div class="card-box" style="background:var(--surface2);margin-top:12px">
-         <b style="font-size:var(--fs-sm)">📱 Cómo funciona</b>
+         <b style="font-size:var(--fs-sm)">${ic('celular')} Cómo funciona</b>
          <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:6px;line-height:1.7">
            Al guardar tocás <b>Vincular</b> y escaneás el código desde el celular de esa sucursal.
            La sesión queda guardada en el servidor y se reconecta sola, incluso si nadie tiene el CRM abierto.</div></div>`
@@ -280,7 +281,7 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
         <div class="field"><label>WABA ID</label><input id="c-waba" value="${esc(cfg.waba_id || '')}"></div>
         <div class="field"><label>Prefijo de país</label><input id="c-pref" value="${esc(cfg.prefijoPais || '595')}"></div></div>
        <div class="card-box" style="background:var(--surface2);margin-top:12px">
-         <b style="font-size:var(--fs-sm)">☁️ Dónde encontrar estos datos</b>
+         <b style="font-size:var(--fs-sm)">${ic('info')} Dónde encontrar estos datos</b>
          <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:6px;line-height:1.7">
            En <b>developers.facebook.com</b> → tu app → WhatsApp → Configuración de la API.
            Ahí ves el <i>Phone number ID</i> y podés generar el token. Para producción usá un token
@@ -294,7 +295,7 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
         ${tipo === 'instagram' ? `<div class="field"><label>Instagram ID *</label>
          <input id="c-ig" value="${esc(cfg.ig_id || '')}"></div>` : ''}</div>
        <div class="card-box" style="background:var(--surface2);margin-top:12px">
-         <b style="font-size:var(--fs-sm)">${tipo === 'messenger' ? '💬' : '📸'} Requisitos</b>
+         <b style="font-size:var(--fs-sm)">${ic(tipo === 'messenger' ? 'mensaje' : 'camara')} Requisitos</b>
          <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:6px;line-height:1.7">
            ${tipo === 'messenger'
              ? 'Página de Facebook y token con permisos <i>pages_messaging</i> y <i>pages_manage_metadata</i>.'
@@ -347,7 +348,7 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
 
 /* ---------- Vinculación por QR ---------- */
 async function modalQR(canalId) {
-  modal(`<div class="modal-h"><h3>📱 Vincular WhatsApp</h3><button class="x" data-cerrar>✕</button></div>
+  modal(`<div class="modal-h"><h3>${ic('celular')} Vincular WhatsApp</h3><button class="x" data-cerrar>✕</button></div>
    <div class="modal-b"><div class="grid g2">
      <div>
        <div id="qr-estado" class="estado-luz"><span class="spin"></span> Iniciando sesión…</div>
@@ -361,7 +362,7 @@ async function modalQR(canalId) {
          El código se renueva solo cada pocos segundos. Una vez vinculado, la sesión queda guardada
          en el servidor: no hace falta volver a escanear aunque reinicies el CRM.</div>
        <div style="margin-top:12px;display:flex;gap:7px;flex-wrap:wrap">
-         <button class="btn ghost sm" id="qr-refresh">🔄 Regenerar</button>
+         <button class="btn ghost sm" id="qr-refresh">${ic('actualizado')} Regenerar</button>
          <button class="btn danger sm" id="qr-desvincular">Desvincular</button></div>
      </div>
      <div id="qrbox"><span class="spin lg"></span></div></div></div>`, true);
@@ -426,13 +427,13 @@ const EMOJIS = ['⚡','📍','📋','✅','⏰','💰','📦','🚚','🎁','�
 
 async function aBotones() {
   const bs = S.empresa.reglas?.botones || [];
-  AB().innerHTML = `<div class="card-box"><h3>⚡ Botones personalizados de la conversación</h3>
+  AB().innerHTML = `<div class="card-box"><h3>${ic('rayo')} Botones personalizados de la conversación</h3>
    <p class="sub" style="margin-top:0">Accesos rápidos que ven los agentes arriba del campo de mensaje.
      Arrastrá para reordenar. Máximo 12.</p>
-   <div id="lista-btns">${bs.map((b, i) => filaBoton(b, i)).join('') || vacio('⚡', 'Sin botones configurados', 'Agregá el primero abajo')}</div>
+   <div id="lista-btns">${bs.map((b, i) => filaBoton(b, i)).join('') || vacio('rayo', 'Sin botones configurados', 'Agregá el primero abajo')}</div>
    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
      <button class="btn sm" id="bt-add">+ Agregar botón</button>
-     <button class="btn ghost sm" id="bt-guardar">💾 Guardar cambios</button>
+     <button class="btn ghost sm" id="bt-guardar">Guardar cambios</button>
      <button class="btn ghost sm" id="bt-restaurar">Restaurar por defecto</button></div>
    <div class="card-box" style="background:var(--surface2);margin-top:16px">
      <b style="font-size:var(--fs-sm)">Vista previa</b>
@@ -588,7 +589,7 @@ async function modalSucursal(s) {
    <div class="field"><label>Dirección</label><input id="su-d" value="${s ? esc(s.direccion || '') : ''}"></div>
    <div class="row"><div class="field"><label>Latitud</label><input id="su-lat" type="number" step="any" value="${s?.lat ?? ''}"></div>
     <div class="field"><label>Longitud</label><input id="su-lon" type="number" step="any" value="${s?.lon ?? ''}"></div>
-    <div class="field"><label>&nbsp;</label><button class="btn ghost" style="width:100%" id="su-geo">📍 Buscar coordenadas</button></div></div>
+    <div class="field"><label>&nbsp;</label><button class="btn ghost" style="width:100%" id="su-geo">${ic('pin')} Buscar coordenadas</button></div></div>
    <div class="row"><div class="field"><label>Teléfono</label><input id="su-t" value="${s ? esc(s.tel || '') : ''}"></div>
     <div class="field"><label>Email</label><input id="su-e" value="${s ? esc(s.email || '') : ''}"></div>
     <div class="field"><label>Horario</label><input id="su-h" value="${s ? esc(s.horario || '') : '08:00 a 17:00'}"></div></div>
@@ -724,7 +725,7 @@ async function aNoti() {
      <td><label class="sw"><input type="checkbox" data-nv="${i}" ${n.v ? 'checked' : ''}><i></i></label></td></tr>`).join('')}
    </tbody></table>
    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
-     <button class="btn ghost sm" id="n-probar">🔔 Probar</button>
+     <button class="btn ghost sm" id="n-probar">${ic('campana')} Probar</button>
      <button class="btn ghost sm" id="n-restaurar">Restaurar textos</button>
      <button class="btn ghost sm" id="n-permiso">Permitir avisos de escritorio</button></div></div>`;
   const guardar = async () => {
@@ -749,15 +750,15 @@ async function aNoti() {
 async function aRapidas() {
   const [rp, us] = await Promise.all([get('/admin/rapidas'), get('/admin/usuarios')]);
   const sucs = S.sucursales.map(s => s.nombre);
-  AB().innerHTML = `<div class="card-box"><h3>⚡ Respuestas rápidas del equipo</h3>
+  AB().innerHTML = `<div class="card-box"><h3>${ic('rayo')} Respuestas rápidas del equipo</h3>
    <p class="sub" style="margin-top:0">Plantillas para los agentes, por empresa o por sucursal. Pueden incluir imagen o archivo.</p>
-   <button class="btn ghost sm" id="abrir-catalogos" type="button" style="margin-bottom:12px">📚 Cargar catálogos desde ZIP</button>
+   <button class="btn ghost sm" id="abrir-catalogos" type="button" style="margin-bottom:12px">${ic('carpeta')} Cargar catálogos desde ZIP</button>
    <table><thead><tr><th>Texto</th><th>Adjunto</th><th>Alcance</th><th>Autor</th><th></th></tr></thead>
    <tbody>${rp.equipo.map(q => `<tr>
      <td><input value="${esc(q.txt || '')}" data-rtxt="${q.id}" style="width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:7px"></td>
      <td>${q.media_url ? (q.archivo_tipo === 'imagen'
        ? `<img src="${esc(q.media_url)}" style="width:36px;height:36px;object-fit:cover;border-radius:7px" alt="">`
-       : '📎') : '—'}</td>
+       : ic('clip')) : '—'}</td>
      <td style="width:200px"><select data-ramb="${q.id}" style="width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:7px">
        <option value="empresa" ${q.ambito === 'empresa' ? 'selected' : ''}>Toda la empresa</option>
        ${sucs.map(s => `<option value="suc:${esc(s)}" ${q.ambito === 'sucursal' && q.sucursal === s ? 'selected' : ''}>Sucursal ${esc(s)}</option>`).join('')}</select></td>
@@ -796,7 +797,7 @@ async function aUsuarios() {
   const sucs = S.sucursales.map(s => s.nombre);
   AB().innerHTML = `<div class="card-box"><h3>Usuarios de ${esc(S.empresa.nombre)}</h3>
    <table><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th class="hide-m">Sucursal</th>
-     <th class="hide-m">Línea</th><th class="hide-m">🎂</th><th>Estado</th><th></th></tr></thead>
+     <th class="hide-m">Línea</th><th class="hide-m">Nacimiento</th><th>Estado</th><th></th></tr></thead>
    <tbody>${us.map(u => `<tr><td><b>${esc(u.nombre)}</b></td><td class="mono">${esc(u.usuario)}</td>
      <td><select data-rol="${u.id}" style="background:var(--surface2);border:1px solid var(--line);border-radius:7px;padding:5px">
        ${ROLES.map(r => `<option ${u.rol === r ? 'selected' : ''}>${r}</option>`).join('')}</select></td>
@@ -812,7 +813,7 @@ async function aUsuarios() {
    <div class="row"><div class="field"><label>Nombre</label><input id="u-nom"></div>
      <div class="field"><label>Usuario</label><input id="u-usr"></div>
      <div class="field"><label>Contraseña inicial</label><input id="u-pwd" type="password" value="1234"></div>
-     <div class="field"><label>🎂 Nacimiento</label><input id="u-nac" type="date"></div></div>
+     <div class="field"><label>Nacimiento</label><input id="u-nac" type="date"></div></div>
    <div class="row"><div class="field"><label>Rol</label><select id="u-rol">${ROLES.map(r => `<option>${r}</option>`).join('')}</select></div>
      <div class="field"><label>Sucursal</label><select id="u-suc">${sucs.map(s => `<option>${esc(s)}</option>`).join('')}</select></div>
      <div class="field"><label>Línea</label><select id="u-lin">${(S.empresa.lineas || []).map(s => `<option>${esc(s)}</option>`).join('')}</select></div>
@@ -948,7 +949,7 @@ async function aReglas() {
 /* ================= UBICACIONES ================= */
 async function aUbicaciones() {
   const us = await get('/admin/ubicaciones');
-  AB().innerHTML = `<div class="card-box"><h3>📍 Direcciones detectadas</h3>
+  AB().innerHTML = `<div class="card-box"><h3>${ic('pin')} Direcciones detectadas</h3>
    <p class="sub" style="margin-top:0">El sistema identifica ubicaciones que manda el cliente: GPS del canal,
      enlaces de mapas y direcciones escritas en el mensaje.</p>
    <div class="grid g4" style="margin-bottom:14px">
@@ -959,13 +960,13 @@ async function aUbicaciones() {
    <table><thead><tr><th>Cliente</th><th>Dirección</th><th>Fuente</th><th>Confianza</th><th class="hide-m">Fecha</th><th></th></tr></thead>
    <tbody>${us.map(u => `<tr><td><b>${esc(u.cliente)}</b><br><small style="color:var(--muted)">${esc(u.tel || '')}</small></td>
      <td>${esc(u.direccion || u.texto)}</td>
-     <td>${u.fuente === 'gps' ? '🛰 GPS' : u.fuente === 'link' ? '🔗 Enlace' : '✍️ Texto'}</td>
+     <td>${u.fuente === 'gps' ? ic('gps') + ' GPS' : u.fuente === 'link' ? ic('enlace') + ' Enlace' : ic('lapiz') + ' Texto'}</td>
      <td><span class="tag ${u.confianza === 'alta' ? 't-wa' : u.confianza === 'media' ? 't-tel' : 't-otro'}">${u.confianza}</span>
        ${u.confirmada ? ' <span style="color:var(--ok)">✓</span>' : ''}</td>
      <td class="hide-m">${fd(u.ts)}</td>
      <td style="text-align:right">${u.lat != null
-       ? `<a class="btn ghost sm" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener">🗺</a>` : '—'}</td></tr>`).join('')
-     || `<tr><td colspan="6">${vacio('📍', 'Sin direcciones detectadas', 'Aparecerán cuando los clientes las envíen')}</td></tr>`}
+       ? `<a class="btn ghost sm" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener" aria-label="Ver en el mapa" title="Ver en el mapa">${ic('mapa')}</a>` : '—'}</td></tr>`).join('')
+     || `<tr><td colspan="6">${vacio('pin', 'Sin direcciones detectadas', 'Aparecerán cuando los clientes las envíen')}</td></tr>`}
    </tbody></table></div>`;
 }
 
@@ -1035,7 +1036,7 @@ async function aMensajeria() {
   const d = await get('/admin/cuarentena');
   const s = d.stats;
   AB().innerHTML = `<div class="card-box" style="border-color:${Number(s.cuarentena) ? 'var(--bad)' : 'var(--line)'}">
-   <h3>🛡 Garantía de ingesta · ningún mensaje se pierde</h3>
+   <h3>${ic('escudo')} Garantía de ingesta · ningún mensaje se pierde</h3>
    <div class="grid g4" style="margin-bottom:12px">
      <div class="kpi"><span>En cola de proceso</span><b class="chico">${s.pendientes}</b>${Number(s.reintentando) ? `<small style="color:var(--warn)"> · ${s.reintentando} en reintento</small>` : ''}</div>
      <div class="kpi"><span>Procesados</span><b class="chico" style="color:var(--ok)">${s.procesados}</b></div>
@@ -1074,14 +1075,14 @@ async function aMensajeria() {
 /* ================= LIMPIEZA / AUDITORÍA ================= */
 async function aLimpieza() {
   const dupes = await get('/negociaciones/util/duplicados');
-  AB().innerHTML = `<div class="card-box"><h3>🗑 Limpieza de datos</h3>
+  AB().innerHTML = `<div class="card-box"><h3>${ic('papelera')} Limpieza de datos</h3>
    <p class="sub" style="margin-top:0">Solo para el administrador y solo dentro de ${esc(S.empresa.nombre)}. Los contactos se conservan.</p>
    <div class="grid g2" style="margin-bottom:12px">
      <div class="kpi"><span>Duplicados activos detectados</span>
        <b style="color:${dupes.length ? 'var(--bad)' : 'var(--ok)'}">${dupes.length}</b></div>
      <div class="kpi"><span>Regla anti duplicado</span>
        <b class="chico" style="color:${fx('antiDuplicado') ? 'var(--ok)' : 'var(--warn)'}">${fx('antiDuplicado') ? 'Activa' : 'Desactivada'}</b></div></div>
-   ${dupes.length ? `<button class="btn danger sm" id="l-dup">🧹 Eliminar ${dupes.length} duplicada(s)</button>
+   ${dupes.length ? `<button class="btn danger sm" id="l-dup">${ic('papelera')} Eliminar ${dupes.length} duplicada(s)</button>
      <h3 style="margin-top:16px">Duplicados en etapas activas</h3>
      <table><thead><tr><th>Cliente</th><th>Etapa</th><th>Agente</th><th>Creada</th></tr></thead>
      <tbody>${dupes.map(n => `<tr><td>${esc(n.nombre)}</td><td>${esc(etapa(n.etapa).nombre)}</td>

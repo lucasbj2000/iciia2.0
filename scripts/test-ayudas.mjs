@@ -28,7 +28,7 @@ const archivos = [
   ['src/migrations/011_guias_interactivas.sql','CREATE TABLE IF NOT EXISTS guia_configuracion'],
   ['src/migrations/011_guias_interactivas.sql','CREATE TABLE IF NOT EXISTS guia_preferencias'],
   ['public/js/app.js','iniciarAyudas()'],
-  ['public/js/admin.js',"['ayudas', '❔ Ayudas guiadas']"],
+  ['public/js/admin.js',"['ayudas', 'Ayudas guiadas']"],
   ['public/js/ayudas.js','abrirRecorrido(previsualizar=false)'],
   ['public/index.html','id="guia-abrir"']
 ];

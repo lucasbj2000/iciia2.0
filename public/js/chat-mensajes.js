@@ -1,4 +1,32 @@
 import { mostrarEscribiendo, avisarMensajesNuevos } from './animaciones.js';
+
+/* ---------- Separadores por día (Hoy, Ayer, fecha) ---------- */
+const ZONA = 'America/Asuncion';
+const claveDia = t => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleDateString('en-CA', { timeZone: ZONA }); };
+export function etiquetaDia(clave, ahora = new Date()) {
+  const hoy = claveDia(ahora), ayer = claveDia(new Date(ahora.getTime() - 864e5));
+  if (clave === hoy) return 'Hoy';
+  if (clave === ayer) return 'Ayer';
+  const [a, m, d] = clave.split('-').map(Number), f = new Date(Date.UTC(a, m - 1, d, 12));
+  const txt = f.toLocaleDateString('es-PY', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC', ...(a !== Number(hoy.slice(0, 4)) ? { year: 'numeric' } : {}) });
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+/** Hora corta para la burbuja; la fecha completa queda en el separador y en el título. */
+export const horaMensaje = t => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: ZONA }); };
+function separarPorDia(caja) {
+  caja.querySelectorAll(':scope > .dia-sep').forEach(el => el.remove());
+  let previo = '';
+  for (const el of [...caja.children]) {
+    const dia = el.dataset.dia; if (!dia) continue;
+    if (dia !== previo) {
+      const sep = document.createElement('div');
+      sep.className = 'dia-sep'; sep.setAttribute('role', 'separator');
+      sep.innerHTML = `<span>${etiquetaDia(dia)}</span>`;
+      caja.insertBefore(sep, el);
+      previo = dia;
+    }
+  }
+}
 // Conserva los nodos existentes, el audio en reproducción y la posición de lectura.
 export function actualizarMensajes(caja, mensajes, render, seguir = false) {
   const alFinal = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 64;
@@ -9,6 +37,7 @@ export function actualizarMensajes(caja, mensajes, render, seguir = false) {
   const enVivo = existentes.size > 0;
   let entrantesNuevos = 0;
   if (mensajes.length) caja.querySelectorAll('.empty').forEach(el => el.remove());
+  caja.querySelectorAll(':scope > .dia-sep').forEach(el => el.remove());
   let anterior = null;
   for (const mensaje of mensajes) {
     const id = String(mensaje.id), html = render(mensaje);
@@ -32,9 +61,11 @@ export function actualizarMensajes(caja, mensajes, render, seguir = false) {
     anterior = nodo;
     existentes.delete(id);
     delete nodo.dataset.local;
+    nodo.dataset.dia = claveDia(mensaje.ts);
   }
   // Los mensajes locales esperan la confirmación del POST; un SSE temprano no los borra.
   existentes.forEach(el => { if (!el.dataset.local) el.remove(); });
+  separarPorDia(caja);
   caja.scrollTop = seguir || alFinal ? caja.scrollHeight : posicion;
   if (entrantesNuevos) {
     mostrarEscribiendo(caja, false); // el cliente terminó de escribir
@@ -60,8 +91,9 @@ export function mostrarMensajePendiente(caja, mensaje, render) {
   const plantilla = document.createElement('template'); plantilla.innerHTML = render(m);
   const nodo = plantilla.content.firstElementChild;
   nodo.dataset.mensajeId = id; nodo.dataset.local = 'enviando'; nodo._mensajeHTML = render(m);
+  nodo.dataset.dia = claveDia(m.ts);
   caja.querySelectorAll('.empty').forEach(el => el.remove());
-  caja.append(nodo); caja.scrollTop = caja.scrollHeight;
+  caja.append(nodo); separarPorDia(caja); caja.scrollTop = caja.scrollHeight;
   return {
     id,
     confirmar(servidor) {
@@ -81,4 +113,16 @@ export function mostrarMensajePendiente(caja, mensaje, render) {
       nodo.remove(); return true;
     }
   };
+}
+
+/** Caja de texto que empieza en una línea y crece mientras se escribe (hasta un tope).
+ *  También se ajusta cuando el código cambia el texto (envío, respuesta rápida). */
+export function cajaQueCrece(t, maximo = 168) {
+  if (!t || t._crece) return;
+  t._crece = true; t.rows = 1;
+  const ajustar = () => { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, maximo) + 'px'; t.style.overflowY = t.scrollHeight > maximo ? 'auto' : 'hidden'; };
+  const desc = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+  Object.defineProperty(t, 'value', { configurable: true, get() { return desc.get.call(this); }, set(v) { desc.set.call(this, v); requestAnimationFrame(ajustar); } });
+  t.addEventListener('input', ajustar);
+  requestAnimationFrame(ajustar);
 }

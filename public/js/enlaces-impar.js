@@ -1,5 +1,6 @@
 // IMPAR · Enlaces de WhatsApp por agente: el cliente que escribe por el enlace queda asignado a ese agente.
 import { $, $$, esc, get, toast, modal, cerrar } from './core.js';
+import { ic } from './iconos.js';
 
 async function copiar(texto) {
   try { await navigator.clipboard.writeText(texto); }
@@ -15,7 +16,7 @@ export async function abrirMiEnlace() {
   let e;
   try { e = await get('/enlaces/mio'); } catch (err) { return toast(err.message, 'bad'); }
   modal(`<div class="enlace-agente">
-    <h3 style="margin-top:0">🔗 Tu enlace de WhatsApp</h3>
+    <h3 style="margin-top:0">${ic('enlace')} Tu enlace de WhatsApp</h3>
     <p style="color:var(--muted);font-size:var(--fs-sm);margin:0 0 12px">Enviáselo a tus clientes. Al abrirlo, escriben al
       <b>+${esc(e.numero)}</b> y la conversación te queda asignada a vos.</p>
     <div class="row" style="gap:8px;align-items:center">
@@ -35,11 +36,11 @@ export async function abrirMiEnlace() {
 export async function vistaEnlacesAdmin(caja) {
   const lista = await get('/enlaces');
   caja.innerHTML = `<div class="card-box">
-    <h3>🔗 Enlaces de WhatsApp por usuario</h3>
+    <h3>${ic('enlace')} Enlaces de WhatsApp por usuario</h3>
     <div style="color:var(--muted);font-size:var(--fs-sm);line-height:1.7;margin-bottom:12px">
       Cada enlace abre WhatsApp directamente (wa.me) al <b>+${esc(lista[0]?.numero || '')}</b> con un saludo que identifica al usuario.
       Cuando el cliente lo envía, la conversación se asigna directamente a ese usuario (sin bot de recepción),
-      aunque el cliente ya tuviera otro responsable. Cada usuario ve el suyo con el botón 🔗 junto a «Cerrar sesión».</div>
+      aunque el cliente ya tuviera otro responsable. Cada usuario ve el suyo con el botón de enlace junto a «Cerrar sesión».</div>
     <button class="btn ghost sm" id="enl-todos" style="margin-bottom:10px">Copiar todos (nombre + enlace)</button>
     <table><thead><tr><th>Nombre</th><th>Sucursal</th><th>Enlace</th><th title="Negociaciones asignadas por enlace, 30 días">Clientes</th><th></th></tr></thead>
     <tbody>${lista.map((e, i) => `<tr><td><b>${esc(e.nombre)}</b><br><small class="mono" style="color:var(--muted)">${esc(e.usuario)}</small></td>

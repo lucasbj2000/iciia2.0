@@ -16,7 +16,7 @@ const html=leer('public/index.html');
 
 assert.ok(route.includes("r.use(requiere('admin'))"),'Todos los endpoints solo para rol admin');
 assert.ok(server.includes("app.use('/api/admin/accesos', rAccesos)"),'Ruta API conectada');
-assert.ok(admin.includes("'accesos','🔐 Accesos y exportación'"),'Pestaña admin visible');
+assert.ok(admin.includes("'accesos','Accesos y exportación'"),'Pestaña admin visible');
 assert.ok(admin.includes("m.vistaAccesos()"),'Vista accesos asociada');
 assert.ok(html.includes('/accesos.css'), 'Estilos incluidos');
 

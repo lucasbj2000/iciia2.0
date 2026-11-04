@@ -1,5 +1,6 @@
 /* IMPAR · guía de descubrimiento no intrusiva para los usuarios autorizados. */
 import { $, $$, esc, S, get, patch, toast } from './core.js';
+import { ic } from './iconos.js';
 
 const GUIAS = {
   neg: {
@@ -373,7 +374,7 @@ function pintarRecorrido(){
   const i=recorrido.indice,p=recorrido.pasos[i];
   tarjeta.innerHTML='<div class="guia-recorrido-sobre">IMPAR · PASO '+(i+1)+' DE '+recorrido.pasos.length+'</div>'+
     '<h3>'+esc(p.titulo)+'</h3><p>'+esc(p.descripcion)+'</p>'+
-    (p.consejo?'<div class="guia-recorrido-consejo">💡 '+esc(p.consejo)+'</div>':'')+
+    (p.consejo?'<div class="guia-recorrido-consejo">'+ic('info')+' '+esc(p.consejo)+'</div>':'')+
     '<div class="guia-recorrido-puntos">'+recorrido.pasos.map((x,k)=>'<i class="'+(k===i?'activo':'')+'"></i>').join('')+'</div>'+
     '<div class="guia-recorrido-controles"><button type="button" class="btn ghost sm" id="guia-saltar">Salir</button>'+
     (i>0?'<button type="button" class="btn ghost sm" id="guia-atras">Anterior</button>':'')+

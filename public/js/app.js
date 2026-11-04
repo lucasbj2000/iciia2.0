@@ -28,17 +28,17 @@ iniciarViewport();
 iniciarPWA(id=>fichaNeg(id).catch(e=>toast(e.message,'bad')));
 
 const NAV = [
-  { id: 'neg', t: 'Negociaciones', ic: '◫', mod: 'negociaciones' },
-  { id: 'con', t: 'Contactos', ic: '◎', mod: 'contactos' },
-  { id: 'com', t: 'Comunicación', ic: '✉', mod: 'comunicacion', flag: 'comunicacion' },
-  { id: 'cal', t: 'Calendario', ic: '▦', mod: 'calendario', flag: 'calendario' },
-  { id: 'rep', t: 'Reportes', ic: '▤', mod: 'reportes' },
-  { id: 'proy', t: 'Avances del CRM', ic: '◷', proyecto: true },
-  { id: 'sop', t: 'Soporte', ic: '⚑', siempre: true },
-  { id: 'sala', t: 'Sala de control', ic: '◉', sala: true },
-  { id: 'cfg', t: 'Configuración', ic: '⚙', mod: 'configuracion' },
-  { id: 'org', t: 'Organigrama', ic: '▥', mando: true },
-  { id: 'adm', t: 'Administración', ic: '★', admin: true }
+  { id: 'neg', t: 'Negociaciones', ic: '◫', mod: 'negociaciones', g: 'Trabajo' },
+  { id: 'con', t: 'Contactos', ic: '◎', mod: 'contactos', g: 'Trabajo' },
+  { id: 'com', t: 'Comunicación', ic: '✉', mod: 'comunicacion', flag: 'comunicacion', g: 'Trabajo' },
+  { id: 'cal', t: 'Calendario', ic: '▦', mod: 'calendario', flag: 'calendario', g: 'Trabajo' },
+  { id: 'rep', t: 'Reportes', ic: '▤', mod: 'reportes', g: 'Seguimiento' },
+  { id: 'sala', t: 'Sala de control', ic: '◉', sala: true, g: 'Seguimiento' },
+  { id: 'sop', t: 'Soporte', ic: '⚑', siempre: true, g: 'Seguimiento' },
+  { id: 'cfg', t: 'Configuración', ic: '⚙', mod: 'configuracion', g: 'Gestión' },
+  { id: 'org', t: 'Organigrama', ic: '▥', mando: true, g: 'Gestión' },
+  { id: 'adm', t: 'Administración', ic: '★', admin: true, g: 'Gestión' },
+  { id: 'proy', t: 'Avances del CRM', ic: '◷', proyecto: true, g: 'Gestión' }
 ];
 const VISTAS = { neg: vistaNegociaciones, con: vistaContactos, com: vistaComunicacion,
   cal: vistaCalendario, rep: vistaReportes, proy: vistaProyecto,
@@ -163,7 +163,7 @@ export function pintarNav() {
   const mods = S.empresa?.modulos || [];
   $('#nav').innerHTML = NAV
     .filter(n => n.siempre ? true : n.sala ? ['admin','gerente','jefe'].includes(S.usuario.rol) : n.proyecto ? (esAdmin() || !!S.proyectoAcceso?.visible) : n.mando ? ['admin','gerente'].includes(S.usuario.rol) : n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
-    .map(n => `<button class="nav-i ${S.vista === n.id ? 'active' : ''}" data-nav="${n.id}">
+    .map((n, i, l) => `${i === 0 || l[i - 1].g !== n.g ? `<div class="nav-grupo" aria-hidden="true">${n.g}</div>` : ''}<button class="nav-i ${S.vista === n.id ? 'active' : ''}" data-nav="${n.id}">
       <span class="ic">${n.ic}</span>${n.t}${n.id === 'com' ? '<span class="bdg" style="display:none"></span>' : ''}</button>`).join('')
     ;
 

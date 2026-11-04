@@ -1,14 +1,15 @@
 /* ============ Administración · IA y bot ============ */
 import { $, $$, esc, get, put, post, toast, vacio } from './core.js';
+import { ic } from './iconos.js';
 
-const TIPO = { whatsapp_qr: ['📱', 'WhatsApp (QR)'], whatsapp_api: ['☁️', 'WhatsApp Cloud API'],
-  messenger: ['💬', 'Messenger'], instagram: ['📸', 'Instagram'] };
+const TIPO = { whatsapp_qr: [ic('celular'), 'WhatsApp (QR)'], whatsapp_api: [ic('canal'), 'WhatsApp Cloud API'],
+  messenger: [ic('mensaje'), 'Messenger'], instagram: [ic('camara'), 'Instagram'] };
 const campo = 'width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--line);border-radius:10px';
 
 export async function vistaIA() {
   const c = await get('/ia/config');
   $('#adm-body').innerHTML = `
-  <div class="card-box"><h3>🔑 Conexión con OpenAI</h3>
+  <div class="card-box"><h3>${ic('enlace')} Conexión con OpenAI</h3>
     <div class="estado-luz" style="margin-bottom:12px">
       <span class="dot ${c.tieneToken ? 'live' : ''}" style="background:${c.tieneToken ? 'var(--ok)' : 'var(--bad)'}"></span>
       ${c.tieneToken ? `Token cargado · <span class="mono">${esc(c.token)}</span>` : 'Sin token: el bot no responde'}</div>
@@ -30,7 +31,7 @@ export async function vistaIA() {
       El token se genera en <b>platform.openai.com → API keys</b> y la cuenta necesita saldo cargado.
       Se guarda cifrado y nunca se vuelve a mostrar completo.</div></div>
 
-  <div class="card-box"><h3>🤖 Bot</h3>
+  <div class="card-box"><h3>${ic('bot')} Bot</h3>
     <label style="display:flex;gap:9px;align-items:center;font-size:var(--fs-sm);margin-bottom:12px">
       <span class="sw"><input type="checkbox" id="ia-act" ${c.activo ? 'checked' : ''}><i></i></span>
       Bot activo: responde a los clientes mientras ningún agente haya escrito en la conversación</label>
@@ -38,14 +39,14 @@ export async function vistaIA() {
       <textarea id="ia-ins" rows="8" style="${campo}">${esc(c.instrucciones)}</textarea></div>
     <button class="btn sm" id="ia-guardar-bot">Guardar bot</button></div>
 
-  <div class="card-box"><h3>📱 Instrucciones por línea</h3>
+  <div class="card-box"><h3>${ic('celular')} Instrucciones por línea</h3>
     <p class="sub" style="margin-top:-4px">Cada número o red social puede tener su propio instructivo: por ejemplo,
       la línea de Ventas ofrece productos y la de Postventa gestiona reclamos. Si lo dejás vacío, usa las instrucciones generales.</p>
     ${c.canales.map(l => {
-      const [ico, tipo] = TIPO[l.tipo] || ['📨', l.tipo];
+      const [ico, tipo] = TIPO[l.tipo] || [ic('mensaje'), l.tipo];
       return `<div class="card-box" style="background:var(--surface2);margin-bottom:10px">
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-          <span style="font-size:20px">${ico}</span>
+          <span class="linea-ic">${ico}</span>
           <div style="flex:1;min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(l.nombre)}</b>
             <small style="color:var(--muted)">${tipo}${l.sucursal ? ' · ' + esc(l.sucursal) : ''}${l.activo ? '' : ' · canal pausado'}</small></div>
           <label style="display:flex;gap:7px;align-items:center;font-size:var(--fs-xs)">
@@ -54,10 +55,10 @@ export async function vistaIA() {
           placeholder="Vacío = usa las instrucciones generales">${esc(l.bot_instrucciones || '')}</textarea>
         <div style="display:flex;gap:7px;margin-top:8px;flex-wrap:wrap">
           <button class="btn sm" data-lguardar="${l.id}">Guardar línea</button>
-          <button class="btn ghost sm" data-lprobar="${l.id}">🧪 Probar esta línea</button></div></div>`;
-    }).join('') || vacio('📡', 'No hay líneas conectadas', 'Agregalas en Administración → Canales')}</div>
+          <button class="btn ghost sm" data-lprobar="${l.id}">Probar esta línea</button></div></div>`;
+    }).join('') || vacio('canal', 'No hay líneas conectadas', 'Agregalas en Administración → Canales')}</div>
 
-  <div class="card-box"><h3>🧪 Probar el bot</h3>
+  <div class="card-box"><h3>${ic('bot')} Probar el bot</h3>
     <div class="row">
       <div class="field"><label>Línea</label><select id="pr-linea">
         <option value="">Instrucciones generales</option>
@@ -102,7 +103,7 @@ async function probar(instruccionesSinGuardar) {
       ...(instruccionesSinGuardar !== undefined ? { instrucciones: instruccionesSinGuardar } : {}) });
     out.innerHTML = `<div class="chat" style="max-height:none">
       <div class="msg in">${esc($('#pr-msg').value)}</div>
-      <div class="msg out">${esc(r.respuesta)}<small>🤖 Bot · ${(r.ms / 1000).toFixed(1)} s</small></div></div>`;
+      <div class="msg out">${esc(r.respuesta)}<small>${ic('bot')} Bot · ${(r.ms / 1000).toFixed(1)} s</small></div></div>`;
   } catch (e) {
     out.innerHTML = `<div style="color:var(--bad);font-size:var(--fs-sm)">✖ ${esc(e.message)}</div>`;
   }

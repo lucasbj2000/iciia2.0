@@ -82,6 +82,6 @@ assert.ok(route.includes('plan.firma!==body.firma'),'Debe verificar firma antes 
 assert.ok(route.includes('WHERE NOT EXISTS'),'Debe comprobar duplicados al insertar');
 assert.ok(!/UPDATE\s+contactos|DELETE\s+FROM\s+contactos/i.test(route),'Nunca modifica ni elimina contactos previos');
 assert.ok(server.includes("app.use('/api/bitrix', rBitrix)"));
-assert.ok(admin.includes("'bitrix','🛡 Carga Bitrix'"));
+assert.ok(admin.includes("'bitrix','Carga Bitrix'"));
 assert.ok(html.includes('bitrix.css'));
 console.log('✔ Bitrix: existentes intactos, colisiones y responsables protegidos.');

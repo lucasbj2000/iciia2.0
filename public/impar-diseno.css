@@ -652,3 +652,88 @@ header.top .wxa,header.top .wxa *{animation-iteration-count:3!important}
   font:600 var(--fs-sm) var(--f-texto);color:var(--txt);background:color-mix(in srgb,var(--etapa) 16%,transparent);border:1px solid color-mix(in srgb,var(--etapa) 45%,transparent)}
 .ficha-etapa::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--etapa);flex:none}
 .rep-rango button.on{color:var(--sobre-verde)}
+
+/* ============ Chat: días, respuestas como botón y caja que crece ============ */
+.dia-sep{display:flex;justify-content:center;margin:12px 0 6px;position:sticky;top:4px;z-index:2;pointer-events:none}
+.dia-sep span{font:600 var(--fs-xs) var(--f-texto);color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 12px;box-shadow:var(--sombra)}
+.msg time{font-variant-numeric:tabular-nums}
+#modals .conversation-modal .chat-input-row{align-items:flex-end!important;gap:8px}
+#modals .conversation-modal .chat-input-row>textarea{min-height:44px;height:44px;max-height:none;resize:none;line-height:1.45;padding-top:11px;padding-bottom:9px}
+#modals .conversation-modal .chat-input-row>.btn,#modals .conversation-modal .chat-input-row>.btn-adj,#modals .conversation-modal .chat-input-row>.emoji-picker{flex:none}
+/* Respuestas y acciones: botón con ícono de rayo; el panel flota por encima de la caja */
+#modals .conversation-modal .chat-input-row>details.chat-tools{position:static;flex:none;margin:0;border:0;background:none;max-height:none;overflow:visible}
+#modals .conversation-modal .chat-input-row>details.chat-tools>summary{width:44px;height:44px;min-height:44px;padding:0;display:grid;place-items:center;
+  border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted)}
+#modals .conversation-modal .chat-input-row>details.chat-tools>summary::after{content:none}
+#modals .conversation-modal .chat-input-row>details.chat-tools>summary .ic{width:20px;height:20px}
+#modals .conversation-modal .chat-input-row>details.chat-tools>summary:hover{color:var(--txt)}
+#modals .conversation-modal .chat-input-row>details.chat-tools[open]>summary{color:var(--verde-texto);border-color:var(--verde-borde);background:var(--verde-suave)}
+#modals .conversation-modal .chat-input-row>details.chat-tools[open]>.chat-tools-contenido{position:absolute;left:0;right:0;bottom:calc(100% + 8px);z-index:30;
+  max-height:min(50vh,380px);overflow:auto;overscroll-behavior:contain;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;
+  box-shadow:0 18px 40px -16px rgba(0,0,0,.45)}
+@media (prefers-reduced-motion:no-preference){
+  #modals .conversation-modal .chat-input-row>details.chat-tools[open]>.chat-tools-contenido{animation:msg-entra .2s var(--curva) both}
+}
+
+/* ============ Tablero: barra con filtros en un botón y columnas cerradas plegadas ============ */
+.tablero-barra{padding:14px 18px 0;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.tablero-buscar{flex:1 1 280px;max-width:480px;display:flex}
+.tablero-buscar input{width:100%;padding:10px 13px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;min-height:42px}
+.tablero-espacio{flex:1 1 0}
+.filtros-wrap{position:relative}
+#b-filtros{min-height:42px}
+#b-filtros.activo{border-color:var(--verde-borde);color:var(--verde-texto);background:var(--verde-suave)}
+.filtros-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--verde);color:var(--sobre-verde);font-size:var(--fs-xs);font-weight:700}
+.filtros-panel{position:absolute;top:calc(100% + 6px);left:0;z-index:30;width:min(320px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--line);
+  border-radius:12px;box-shadow:0 18px 40px -16px rgba(0,0,0,.4);padding:14px;display:flex;flex-direction:column;gap:10px}
+.filtros-panel[hidden]{display:none}
+.filtros-panel .field{margin:0}
+.filtros-panel select{width:100%;min-height:42px}
+.filtros-panel #b-limpiar-filtros{align-self:flex-start}
+.col-plegada-btn{display:none}
+.col-plegar{margin-left:4px;width:32px;height:32px;border:0;background:none;color:var(--muted);border-radius:8px;display:grid;place-items:center;cursor:pointer}
+.col-plegar:hover{background:var(--surface);color:var(--txt)}
+.col-plegar .ic{width:16px;height:16px}
+@media (min-width:901px){
+  /* Las etapas activas se reparten el ancho; las cerradas, plegadas, ocupan 60 px. */
+  .kanban>.col:not(.plegada){flex:1 1 260px;width:auto;min-width:260px;max-width:380px}
+  .col.plegada{width:60px}
+  .col.plegada>.col-h,.col.plegada>.col-quick,.col.plegada>.col-b{display:none}
+  .col.plegada>.col-plegada-btn{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;padding:14px 0;border:0;background:none;color:var(--txt);cursor:pointer;
+    min-height:220px;border-radius:var(--r)}
+  .col.plegada>.col-plegada-btn:hover{background:var(--surface)}
+  .col-plegada-nom{writing-mode:vertical-rl;transform:rotate(180deg);font:700 var(--fs-sm) var(--f-titulo);white-space:nowrap}
+  .col-plegada-btn .ic{width:16px;height:16px;color:var(--muted)}
+  .col.plegada.drop{width:120px;transition:width var(--t-medio) var(--curva)}
+}
+@media (max-width:900px){
+  .col-plegar{display:none}
+  .tablero-barra{padding:10px 12px 0}
+  .tablero-buscar{flex-basis:100%;max-width:none}
+  .tablero-espacio{display:none}
+}
+
+/* ---------- Menú lateral en grupos ---------- */
+.nav-grupo{font:600 var(--fs-xs) var(--f-texto);color:var(--muted);padding:14px 14px 4px;letter-spacing:.01em}
+#nav .nav-grupo:first-of-type{padding-top:4px}
+.suc-ic .ic,.linea-ic .ic{width:22px;height:22px;color:var(--verde-texto)}
+.datos-ic{margin-bottom:8px}.datos-ic .ic{width:34px;height:34px;stroke-width:1.5;color:var(--muted)}
+.datos-estado .ic{width:24px;height:24px}
+.canal .ico .ic{width:22px;height:22px}
+.rep-alcance .ic{width:14px;height:14px}
+.guia-recorrido-consejo .ic{color:var(--verde-texto)}
+
+/* Rótulos en tipografía normal: nada en mayúsculas sostenidas */
+th,.kpi span,.badge-rol,.cal-h,.org-rol,.pr-eyebrow{text-transform:none!important;letter-spacing:0!important}
+
+@media (max-width:900px){
+  /* Fila de escritura en el celular: clip, respuestas y emoji juntos; enviar a la derecha */
+  #modals .conversation-modal .chat-input-row{grid-template-columns:44px 44px 44px minmax(0,1fr)}
+  #modals .conversation-modal .chat-input-row>details.chat-tools{grid-column:2;grid-row:2}
+  #modals .conversation-modal .chat-input-row>.emoji-picker{grid-column:3;grid-row:2}
+  #modals .conversation-modal .chat-input-row>.btn{grid-column:4}
+}
+@media (max-width:600px){
+  #b-sel:not(.danger){font-size:0;gap:0;width:44px;min-width:44px;padding:0;justify-content:center}
+  #b-sel:not(.danger) .ic{width:18px;height:18px;margin:0}
+}

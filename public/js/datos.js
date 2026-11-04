@@ -1,5 +1,6 @@
 /* ============ Importación y exportación completa de datos ============ */
 import { $, $$, esc, S, get, post, toast, modal, cerrar, confirmar, bajar, vacio, fx } from './core.js';
+import { ic } from './iconos.js';
 
 let columnas = [], analisis = null, textoArchivo = '';
 
@@ -9,7 +10,7 @@ export async function vistaDatos() {
 
   cont.innerHTML = `
    <div class="card-box" style="border-color:#2b5a7a">
-     <h3>🔄 Migración de datos</h3>
+     <h3>${ic('actualizado')} Migración de datos</h3>
      <div style="color:var(--muted);font-size:var(--fs-sm);line-height:1.7">
        Traé la información de otro sistema o llevate la tuya. La importación respeta la
        <b>fecha real de creación</b> de cada negociación, el responsable, la etapa y hasta la conversación,
@@ -21,10 +22,10 @@ export async function vistaDatos() {
        <p class="sub" style="margin-top:0">Archivo CSV separado por punto y coma, coma o tabulación.</p>
        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
          <button class="btn ghost sm" id="d-plantilla">⭳ Descargar plantilla</button>
-         <button class="btn ghost sm" id="d-ayuda">📖 Ver columnas</button></div>
+         <button class="btn ghost sm" id="d-ayuda">${ic('documento')} Ver columnas</button></div>
        <div id="d-zona" style="border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;
             cursor:pointer;transition:.22s var(--ease)">
-         <div style="font-size:34px;margin-bottom:8px">📂</div>
+         <div class="datos-ic">${ic('carpeta')}</div>
          <b style="font-size:var(--fs-sm);display:block">Elegí el archivo o arrastralo acá</b>
          <small style="color:var(--muted)">CSV exportado de tu sistema anterior</small></div>
        <input id="d-file" type="file" accept=".csv,.txt,text/csv" class="hidden">
@@ -33,9 +34,9 @@ export async function vistaDatos() {
      <div class="card-box"><h3>⭳ Exportar</h3>
        <p class="sub" style="margin-top:0">Llevate todo en el mismo formato que acepta la importación.</p>
        <div style="display:flex;flex-direction:column;gap:9px">
-         <button class="btn" id="d-exp-todo">📊 Exportar negociaciones y contactos</button>
-         <button class="btn ghost" id="d-exp-sin">📄 Exportar sin la conversación</button>
-         <button class="btn ghost" id="d-exp-json">🗄 Respaldo completo (JSON)</button></div>
+         <button class="btn" id="d-exp-todo">Exportar negociaciones y contactos</button>
+         <button class="btn ghost" id="d-exp-sin">${ic('documento')} Exportar sin la conversación</button>
+         <button class="btn ghost" id="d-exp-json">${ic('carpeta')} Respaldo completo (JSON)</button></div>
        <div style="color:var(--muted);font-size:var(--fs-xs);margin-top:14px;line-height:1.8">
          El <b>CSV</b> sirve para migrar a otro sistema o revisar en Excel.<br>
          El <b>respaldo JSON</b> incluye usuarios, sucursales, historial, transferencias y ubicaciones:
@@ -100,7 +101,7 @@ function pintarAnalisis(nombreArchivo) {
   $('#d-analisis').innerHTML = `
     <div class="card-box fx-pop" style="margin:0;border-color:${a.faltantes.length ? 'var(--bad)' : 'var(--ok)'}">
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
-        <span style="font-size:24px">${a.faltantes.length ? '⚠' : '✓'}</span>
+        <span class="datos-estado">${ic(a.faltantes.length ? 'alerta' : 'ok')}</span>
         <div style="flex:1"><b style="font-size:var(--fs-md)">${a.total} fila(s) detectada(s)</b>
           <small style="color:var(--muted);display:block">${esc(nombreArchivo)} · separador «${esc(a.separador)}»</small></div></div>
 
@@ -189,7 +190,7 @@ async function importar() {
 }
 
 function modalColumnas() {
-  modal(`<div class="modal-h"><h3>📖 Columnas del archivo</h3><button class="x" data-cerrar>✕</button></div>
+  modal(`<div class="modal-h"><h3>${ic('documento')} Columnas del archivo</h3><button class="x" data-cerrar>✕</button></div>
    <div class="modal-b">
      <p class="sub" style="margin-top:0">El orden no importa: el sistema reconoce las columnas por su nombre.
        Las que no estén en esta lista se ignoran.</p>

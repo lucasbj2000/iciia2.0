@@ -76,7 +76,7 @@ assert.ok(api.includes("join(resolve(MEDIA_DIR),String(req.empresaId))"),'Guarda
 assert.ok(api.includes("No eliminar el PDF"),'Conservar adjuntos enviados');
 assert.ok(server.includes("app.use('/api/admin/catalogos', rCatalogosImpar)"),'Montaje de ruta');
 assert.ok(server.includes("'/api/admin/catalogos/importar'"),'Exento de parser JSON');
-assert.ok(adm.includes("['catalogos', '📚 Catálogos']"),'Nueva pestaña admin');
+assert.ok(adm.includes("['catalogos', 'Catálogos']"),'Nueva pestaña admin');
 assert.ok(adm.includes("catalogos-impar.js"),'UI invocable');
 assert.ok(ui.includes("new FormData()") && ui.includes("xhr.upload.onprogress"),'Subida directa con avance');
 assert.ok(ui.includes("'/api/admin/catalogos/importar'"),'Destino correcto');

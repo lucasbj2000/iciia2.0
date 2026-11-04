@@ -126,4 +126,20 @@ assert.ok(!/<header class="top">[\s\S]*id="btn-tema"[\s\S]*<\/header>/.test(inde
 assert.ok(css.includes('body:has(#kanban){background-image:var(--fondo-grano)'), 'Fondo tranquilo detrás del tablero');
 assert.ok(css.includes('header.top .wxa,header.top .wxa *{animation-iteration-count:3!important}') && css.includes('.sla.r i{animation:none!important}'), 'Solo lo urgente queda en bucle');
 assert.ok(css.includes('--warn:#975A00') && css.includes('.rep-rango button.on{color:var(--sobre-verde)}'), 'Contraste AA en modo claro');
+// Segunda ronda: días en el chat, respuestas como botón, caja que crece, filtros, columnas plegadas, menú en grupos.
+const chatJs = leer('public/js/chat-mensajes.js');
+assert.ok(chatJs.includes('export function etiquetaDia(') && chatJs.includes("return 'Hoy'") && chatJs.includes("return 'Ayer'"), 'Separadores Hoy/Ayer/fecha');
+assert.ok(chatJs.includes('separarPorDia(caja);\n  caja.scrollTop'), 'Los separadores se ubican antes de restaurar el scroll');
+assert.ok(fichaJs.includes('${horaMensaje(m.ts)}</time>'), 'Burbujas con solo la hora');
+assert.ok(chatJs.includes('export function cajaQueCrece(') && fichaJs.includes('<textarea id="msg" rows="1"'), 'Caja de texto que crece');
+assert.ok(fichaJs.includes("<summary>${ic('rayo')}<span class=\"sr\">Respuestas y acciones</span></summary>") && css.includes('details.chat-tools[open]>.chat-tools-contenido{position:absolute'), 'Respuestas como botón con panel flotante');
+assert.ok(negJs.includes('id="b-filtros"') && negJs.includes('id="filtros-n"') && negJs.includes('function contarFiltros()'), 'Filtros en un botón con contador');
+assert.ok(negJs.includes("const TERMINALES = ['ganado', 'cerrado'];") && negJs.includes('data-desplegar') && css.includes('.col.plegada{width:60px}'), 'Columnas cerradas plegadas');
+assert.ok(/g: 'Trabajo'[\s\S]*g: 'Seguimiento'[\s\S]*g: 'Gestión'/.test(appJs) && appJs.includes('class="nav-grupo"'), 'Menú lateral en grupos');
+for (const f of ['public/js/admin.js', 'public/js/ia.js', 'public/js/datos.js', 'public/js/proyecto.js', 'public/js/catalogos-impar.js', 'public/js/edicion.js', 'public/js/reportes.js', 'public/js/enlaces-impar.js']) {
+  // Se conservan solo los emojis que elige el administrador para sus botones y el texto que se envía al cliente.
+  const limpio = leer(f).replace(/const EMOJIS = \[[^\]]*\];/, '').replace(/icono: '[^']*'/g, '').replace(/valor: '[^']*'/g, '');
+  assert.ok(!pictos.test(limpio), 'Sin emojis de interfaz en ' + f);
+}
+assert.ok(!fichaJs.includes('RESPUESTAS RÁPIDAS') && css.includes('th,.kpi span,.badge-rol,.cal-h,.org-rol,.pr-eyebrow{text-transform:none!important'), 'Sin rótulos en mayúsculas');
 console.log('✔ IMPAR: diseño propio, fondo de pliegos, clima animado, logo adaptable y respuestas rápidas sin pérdidas.');

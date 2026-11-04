@@ -3,6 +3,7 @@
    admin/gerente ven toda la empresa, jefe su equipo y agente sus propias negociaciones. */
 import { $, $$, esc, S, get, gs, fd, fdate, fx, etapa, bajar, vacio, skeleton, toast, DISPONIBILIDAD } from './core.js';
 import { fichaNeg } from './ficha.js';
+import { ic } from './iconos.js';
 
 let RANGO = 30;
 let ORDEN = { col: 'ganadas', dir: -1 };
@@ -141,7 +142,7 @@ function embudo(ns) {
 }
 
 function canales(d) {
-  if (!d.porCanal.length) return vacio('📡', 'Sin datos por canal', 'Aparecen cuando ingresan negociaciones por un canal.');
+  if (!d.porCanal.length) return vacio('canal', 'Sin datos por canal', 'Aparecen cuando ingresan negociaciones por un canal.');
   const max = Math.max(1, ...d.porCanal.map(c => Number(c.total)));
   return d.porCanal.map(c => `<div class="rep-fila">
       <div class="rep-fila-t"><span>${esc(c.canal)}${c.sucursal && c.sucursal !== '—' ? `<small> · ${esc(c.sucursal)}</small>` : ''}</span>
@@ -166,7 +167,7 @@ function espera(d) {
     const nivel = e.horasLab >= d.slaHoras ? 'mal' : e.horasLab > d.slaHoras / 2 ? 'medio' : 'bien';
     const txt = { mal: 'Fuera de plazo', medio: 'Cerca del plazo', bien: 'En plazo' }[nivel];
     return `<button class="rep-cola-i" data-neg="${e.id}">
-      <span class="rep-cola-n"><b>${esc(e.cliente)}</b>${e.frecuente ? ' <span class="tag t-frec">★</span>' : ''}<small>${esc(e.agente || 'Sin responsable')}</small></span>
+      <span class="rep-cola-n"><b>${esc(e.cliente)}</b>${e.frecuente ? ` <span class="tag t-frec" title="Frecuente">${ic('estrella', 'Frecuente')}</span>` : ''}<small>${esc(e.agente || 'Sin responsable')}</small></span>
       <span class="rep-medidor ${nivel}" title="${txt}"><i style="width:${Math.min(100, e.horasLab / d.slaHoras * 100)}%"></i></span>
       <span class="rep-cola-h ${nivel}"><b>${e.horasLab} h</b><small>${txt}</small></span></button>`;
   }).join('')}</div>`;
@@ -261,7 +262,7 @@ function pintar(d) {
 
   $('#view').innerHTML = `<div class="section fx-vista rep">
    <div class="rep-barra">
-     <span class="rep-alcance" title="Lo que ves depende de tu rol"><span aria-hidden="true">🔒</span> ${ALCANCE[S.usuario.rol] || 'Tu alcance'}</span>
+     <span class="rep-alcance" title="Lo que ves depende de tu rol">${ic('escudo')} ${ALCANCE[S.usuario.rol] || 'Tu alcance'}</span>
      <div class="rep-rango" role="group" aria-label="Período">${[7, 30, 90, 365].map(x =>
        `<button data-rango="${x}" class="${RANGO === x ? 'on' : ''}" aria-pressed="${RANGO === x}">${x === 365 ? '1 año' : x + ' días'}</button>`).join('')}</div>
      ${fx('exportar') ? `<button class="btn ghost sm" id="r-export">⭳ Exportar CSV</button>` : ''}</div>

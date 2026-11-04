@@ -10,7 +10,7 @@ import { mover, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { conectarAdjuntos, mediaHTML, activarVisor, subir, elegirArchivo, ICONOS } from './adjuntos.js';
 import { conectarEmojis } from './emojis.js';
 import { notasHTML,conectarNotas,cargarNotas,cargarCambiosNeg } from './colaboracion.js';
-import { actualizarMensajes, mostrarMensajePendiente, confirmarIdPendiente } from './chat-mensajes.js';
+import { actualizarMensajes, mostrarMensajePendiente, confirmarIdPendiente, horaMensaje, cajaQueCrece } from './chat-mensajes.js';
 import { combinarHistorial } from './historial-chat.js';
 import { enlazarTexto } from './enlaces.js';
 import { formularioHistorico,botonAnclarHistorico,activarCargaHistorica } from './carga-historica-impar.js';
@@ -129,14 +129,14 @@ function pintar() {
        <div id="adj-re" hidden></div>
        <div class="row chat-input-row" style="align-items:center;position:relative">
          ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj-re" type="button" title="Adjuntar" aria-label="Adjuntar">${ic('clip')}</button>` : ''}
-         <textarea id="remsg" rows="3" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje al cliente…"></textarea>
+         <textarea id="remsg" rows="1" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje al cliente…"></textarea>
          <button class="btn" style="flex:none" id="f-rege">Enviar y re gestionar</button></div></div>`
      : `<div class="chat-compose">${herramientasHTML('msg')}
         <div id="adj-barra" hidden></div>
         <div id="f-cita" class="cita-barra" hidden></div>
         <div class="row chat-input-row" style="margin-top:8px;align-items:center;position:relative">
         ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj" type="button" title="Adjuntar archivo (o pegá con Ctrl+V)" aria-label="Adjuntar archivo">${ic('clip')}</button>` : ''}
-        <textarea id="msg" rows="3" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje, pegar o arrastrar un archivo…"></textarea>
+        <textarea id="msg" rows="1" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje, pegar o arrastrar un archivo…"></textarea>
         <button class="btn" style="flex:none" id="f-enviar">Enviar</button></div></div>`}
    </div>
 
@@ -184,6 +184,14 @@ function pintar() {
   const suscribir = () => { if ($('.conversation-modal')?.dataset.negociacionId === n.id) post(`/negociaciones/${n.id}/presencia`, {}).catch(() => {}); else clearInterval(window._presenciaTimer); };
   clearInterval(window._presenciaTimer); suscribir(); window._presenciaTimer = setInterval(suscribir, 8 * 60000);
   seguirConversacion(n.id);
+  // «Respuestas y acciones» pasa a ser un botón junto al clip; su panel se abre por encima de la caja.
+  for (const campo of ['msg', 'remsg']) {
+    const t = $('#' + campo); if (!t) continue;
+    const zona = t.closest('.chat-compose') || t.closest('.card-box');
+    const herramientas = zona?.querySelector(':scope > details.chat-tools');
+    if (herramientas) { t.before(herramientas); herramientas.addEventListener('click', e => { if (e.target.closest('[data-rapida],[data-bpers]')) herramientas.open = false; }); }
+    cajaQueCrece(t);
+  }
   const cb = $('#chatbox'); if (cb) { cb.innerHTML = ''; actualizarMensajes(cb, historialVista?.mensajes || n.mensajes || [], mensajeHTML, true); activarVisor(cb); }
   conectar(n);
 }
@@ -228,7 +236,7 @@ function mensajeHTML(m) {
          ? `<button type="button" class="msg-responder" data-responder="${m.id}" title="Responder citando este mensaje" aria-label="Responder citando este mensaje">↩</button>` : '';
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
           ${tramo}${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
-          <small>${m.carga_historica ? `${ic('lapiz')} Carga histórica (admin) · ` : ''}${m.bot ? `${ic('bot')} Bot · ` : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ` · ${ic('celular')} `+esc(m.remitente_numero) : ''}
+          <small>${m.carga_historica ? `${ic('lapiz')} Carga histórica (admin) · ` : ''}${m.bot ? `${ic('bot')} Bot · ` : ''}<time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time>${m.dir==='in' && m.remitente_numero ? ` · ${ic('celular')} `+esc(m.remitente_numero) : ''}
           ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ` · ${ic('alerta')} no enviado` : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small>${noDescifrado}</div>`;
 }
 
@@ -368,6 +376,10 @@ async function cargarRutaWA(id){
   }
 }
 
+/* El panel de respuestas se cierra al tocar fuera de él. */
+document.addEventListener('pointerdown', e => {
+  for (const d of document.querySelectorAll('.conversation-modal details.chat-tools[open]')) if (!d.contains(e.target)) d.open = false;
+});
 /* Menú «⋯» de la ficha: lo que no se usa en cada mensaje vive acá, no encima del chat. */
 function mostrarPanel(id, detalles) {
   const panel = $('#' + id); if (!panel) return;
@@ -414,7 +426,7 @@ function conectarMenuFicha() {
 
 function herramientasHTML(campo) {
   const html = botonesHTML(campo) + rapidasHTML(campo);
-  return html ? `<details class="chat-tools"><summary>${ic('rayo')} Respuestas y acciones <span class="ficha-acordeon-ayuda">Desplegar</span></summary><div class="chat-tools-contenido">${html}</div></details>` : '';
+  return html ? `<details class="chat-tools"><summary>${ic('rayo')}<span class="sr">Respuestas y acciones</span></summary><div class="chat-tools-contenido">${html}</div></details>` : '';
 }
 
 /* ---------- Botones personalizados ---------- */
@@ -432,7 +444,7 @@ function rapidasHTML(campo) {
   if (!fx('respuestasRapidas')) return '';
   const qs = misRapidas();
   return `<div style="margin-top:10px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-    <b style="font-size:var(--fs-xs);color:var(--muted);letter-spacing:.4px">RESPUESTAS RÁPIDAS</b>
+    <b style="font-size:var(--fs-xs);color:var(--muted)">Respuestas rápidas</b>
     <button class="btn ghost sm" data-gestionar>${ic('ajustes')} Gestionar</button></div>
    <div class="qr-chips">${qs.map(q => {
      const conImg = q.media_url && (q.media_tipo === 'imagen' || q.archivo_tipo === 'imagen');
@@ -663,7 +675,7 @@ export async function modalRapidas() {
       : `<div class="sin-img">${ICONOS[tipo] || ic('clip')}</div>`;
   };
 
-  modal(`<div class="modal-h"><h3>⚡ Respuestas rápidas</h3><button class="x" data-cerrar>✕</button></div>
+  modal(`<div class="modal-h"><h3>${ic('rayo')} Respuestas rápidas</h3><button class="x" data-cerrar>✕</button></div>
   <div class="modal-b">
    <div class="card-box"><h3>Mis plantillas personales (${rapidas.personales.length})</h3>
     <p class="sub" style="margin-top:-6px">Solo vos las ves. Podés incluir una imagen o archivo.</p>

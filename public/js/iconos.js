@@ -46,8 +46,11 @@ const P = {
   usuarios: '<circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5.2a3.5 3.5 0 0 1 0 6.6M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>',
   mas_simple: '<path d="M12 5v14M5 12h14"/>',
   flecha_arriba: '<path d="M12 19V5M6 11l6-6 6 6"/>',
-  ajustes: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/><circle cx="12" cy="12" r="6.5"/>',
+  ajustes: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/>',
   quitar: '<circle cx="12" cy="12" r="8.5"/><path d="m9 9 6 6M15 9l-6 6"/>',
+  filtro: '<path d="M3.5 5h17l-6.5 8v5.5l-4 2V13z"/>',
+  expandir: '<path d="m9 6 6 6-6 6"/>',
+  plegar: '<path d="m15 6-6 6 6 6"/>',
   responder: '<path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 6 6"/>'
 };
 

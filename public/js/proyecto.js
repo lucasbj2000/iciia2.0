@@ -2,6 +2,7 @@
 import {
   $, $$, esc, S, get, post, put, patch, del, toast, modal, cerrar, confirmar, fdate, fd, vacio
 } from './core.js';
+import { ic } from './iconos.js';
 
 let datos = null;
 let faseActual = null;
@@ -48,7 +49,7 @@ function pintar() {
     '<div class="pr-stat"><strong>' + terminados + ' / ' + totalPasos + '</strong><span>Pasos finalizados</span></div></div>' +
     '<small class="pr-note">El avance de cada fase es el promedio de sus pasos; el avance global es el promedio de las fases. Una fase sin pasos cuenta como 0%.</small></div>';
   html += '<div class="pr-layout"><aside class="pr-aside"><h3>Fases del proyecto</h3>' +
-    '<button class="pr-fase ' + (faseActual ? '' : 'selected') + '" data-pr-fase=""><b>📊 Vista general</b><small>Todas las fases y tareas</small></button>' +
+    '<button class="pr-fase ' + (faseActual ? '' : 'selected') + '" data-pr-fase=""><b>Vista general</b><small>Todas las fases y tareas</small></button>' +
     datos.fases.map((f, i) => '<button class="pr-fase ' + (f.id === faseActual ? 'selected' : '') + '" data-pr-fase="' + esc(f.id) + '">' +
       '<span class="pr-num">' + (i + 1) + '</span><span class="pr-fase-txt"><b>' + esc(f.nombre) + '</b><small>' + porFase(f) + '% completado</small>' +
       barra(porFase(f)) + '</span></button>').join('') +
@@ -66,7 +67,7 @@ function pintar() {
       '<small>' + datos.pasos.filter(p => p.fase_id === f.id && num(p.porcentaje) === 100).length +
       ' de ' + datos.pasos.filter(p => p.fase_id === f.id).length + ' pasos completados</small></div>').join('');
   } else {
-    html += vacio('🗂', 'Aún no hay fases', datos.admin
+    html += vacio('carpeta', 'Aún no hay fases', datos.admin
       ? 'Agregá la primera fase para planificar el proyecto CRM.'
       : 'El administrador cargará las fases y los avances.');
   }
@@ -133,7 +134,7 @@ function pintarDocumentos(faseId) {
   const ds = datos.documentos.filter(d => (d.fase_id || null) === (faseId || null));
   return '<div class="pr-block"><div class="pr-block-head"><div><h4>Documentos y archivos</h4>' +
     '<small>PDF, Word, Excel, PowerPoint e imágenes · máximo 10 MB</small></div></div>' +
-    '<div class="pr-files">' + (ds.length ? ds.map(d => '<div class="pr-file"><span class="pr-file-icon">📎</span>' +
+    '<div class="pr-files">' + (ds.length ? ds.map(d => '<div class="pr-file"><span class="pr-file-icon">' + ic('clip') + '</span>' +
     '<span class="pr-file-name"><b>' + esc(d.nombre) + '</b><small>' + esc(d.autor || 'Usuario') + ' · ' +
       (Number(d.bytes) / 1048576).toFixed(2) + ' MB · ' + esc(fd(d.creado)) + '</small></span>' +
     '<button class="btn ghost sm" data-pr-doc="' + esc(d.id) + '">Descargar</button>' +

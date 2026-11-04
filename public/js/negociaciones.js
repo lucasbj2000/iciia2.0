@@ -66,21 +66,27 @@ function pintarShell() {
   if (!S.etapaMovil || !etapas.some(e => e.id === S.etapaMovil)) S.etapaMovil = etapas[0]?.id;
 
   $('#view').innerHTML = `
-  <div style="padding:14px 18px 0;display:flex;gap:9px;flex-wrap:wrap;align-items:center">
-    <input id="f-q" placeholder="Buscar cliente, teléfono o título…" value="${esc(F.q)}"
-      style="flex:2;min-width:180px;padding:10px 13px;background:var(--surface2);border:1px solid var(--line);border-radius:10px">
-    <select id="f-origen" style="flex:1;min-width:130px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:10px">
-      <option value="">Todos los orígenes</option>
-      ${ORIGENES.map(o => `<option ${F.origen === o ? 'selected' : ''}>${o}</option>`).join('')}</select>
-    <select id="f-marcador" style="flex:1;min-width:140px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:10px">
-      <option value="">Todos los marcadores</option>
-      ${[['frecuente', 'Frecuente'], ['regestionado', 'Re gestionado'], ['transferido', 'Transferido'], ['manual', 'Carga manual']]
-        .map(([k, t]) => `<option value="${k}" ${F.marcador === k ? 'selected' : ''}>${t}</option>`).join('')}</select>
-    ${S.usuario.rol !== 'agente' ? `<select id="f-agente" style="flex:1;min-width:140px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:10px">
-      <option value="">Todos los agentes</option>
-      ${usuarios.filter(u => u.rol === 'agente').map(u => `<option value="${u.id}" ${F.agente === u.id ? 'selected' : ''}>${esc(u.nombre)}</option>`).join('')}</select>` : ''}
+  <div class="tablero-barra">
+    <label class="tablero-buscar"><span class="sr">Buscar negociaciones</span>
+      <input id="f-q" type="search" placeholder="Buscar cliente, teléfono o título…" value="${esc(F.q)}"></label>
+    <div class="filtros-wrap">
+      <button type="button" class="btn ghost sm" id="b-filtros" aria-expanded="false" aria-controls="f-panel">${ic('filtro')} Filtros <span class="filtros-n" id="filtros-n" hidden></span></button>
+      <div class="filtros-panel" id="f-panel" role="group" aria-label="Filtros del tablero" hidden>
+        <div class="field"><label for="f-origen">Origen</label><select id="f-origen">
+          <option value="">Todos los orígenes</option>
+          ${ORIGENES.map(o => `<option ${F.origen === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+        <div class="field"><label for="f-marcador">Marcador</label><select id="f-marcador">
+          <option value="">Todos los marcadores</option>
+          ${[['frecuente', 'Frecuente'], ['regestionado', 'Re gestionado'], ['transferido', 'Transferido'], ['manual', 'Carga manual']]
+            .map(([k, t]) => `<option value="${k}" ${F.marcador === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+        ${S.usuario.rol !== 'agente' ? `<div class="field"><label for="f-agente">Agente</label><select id="f-agente">
+          <option value="">Todos los agentes</option>
+          ${usuarios.filter(u => u.rol === 'agente').map(u => `<option value="${u.id}" ${F.agente === u.id ? 'selected' : ''}>${esc(u.nombre)}</option>`).join('')}</select></div>` : ''}
+        <button type="button" class="btn ghost sm" id="b-limpiar-filtros">Limpiar filtros</button>
+      </div></div>
+    <span class="tablero-espacio"></span>
     ${esAdmin() && fx('cargaManual') ? `<button class="btn sm" id="b-manual">${ic('lapiz')} Carga manual</button>` : ''}
-    ${puedeBorrar ? `<button class="btn ${MODO_SEL ? 'danger' : 'ghost'} sm" id="b-sel">${MODO_SEL ? '✕ Salir de selección' : `${ic('seleccionar')} Seleccionar`}</button>` : ''}
+    ${puedeBorrar ? `<button class="btn ${MODO_SEL ? 'danger' : 'ghost'} sm" id="b-sel" aria-label="${MODO_SEL ? 'Salir de selección' : 'Seleccionar negociaciones'}">${MODO_SEL ? '✕ Salir de selección' : `${ic('seleccionar')} Seleccionar`}</button>` : ''}
   </div>
   ${MODO_SEL ? `<div style="padding:10px 18px 0"><div class="card-box fx-pop" style="margin:0;border-color:var(--bad);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
      <b style="flex:1;font-size:var(--fs-sm)">Seleccionadas: <span id="sel-n">${SEL.size}</span></b>
@@ -95,9 +101,10 @@ function pintarShell() {
 
   let tq;
   $('#f-q').oninput = e => { clearTimeout(tq); F.q = e.target.value; tq = setTimeout(pintarColumnas, 200); };
-  $('#f-origen').onchange = e => { F.origen = e.target.value; pintarColumnas(); };
-  $('#f-marcador').onchange = e => { F.marcador = e.target.value; pintarColumnas(); };
-  if ($('#f-agente')) $('#f-agente').onchange = e => { F.agente = e.target.value; pintarColumnas(); };
+  $('#f-origen').onchange = e => { F.origen = e.target.value; contarFiltros(); pintarColumnas(); };
+  $('#f-marcador').onchange = e => { F.marcador = e.target.value; contarFiltros(); pintarColumnas(); };
+  if ($('#f-agente')) $('#f-agente').onchange = e => { F.agente = e.target.value; contarFiltros(); pintarColumnas(); };
+  conectarFiltros(); contarFiltros();
   if ($('#b-manual')) $('#b-manual').onclick = () => modalCargaManual();
   if ($('#b-sel')) $('#b-sel').onclick = () => { MODO_SEL = !MODO_SEL; SEL.clear(); pintarShell(); };
   if ($('#b-seltodo')) $('#b-seltodo').onclick = () => { filtradas().forEach(n => SEL.add(n.id)); pintarColumnas(); };
@@ -107,6 +114,39 @@ function pintarShell() {
   $$('.etapa-tab').forEach(b => b.onclick = () => { S.etapaMovil = b.dataset.etapa; vibrar(10); pintarShell(); });
   pintarColumnas();
 }
+
+/* ---------- Filtros en un botón ---------- */
+function contarFiltros() {
+  const n = [F.origen, F.marcador, F.agente].filter(Boolean).length, b = $('#filtros-n');
+  if (!b) return;
+  b.hidden = !n; b.textContent = n;
+  $('#b-filtros')?.classList.toggle('activo', !!n);
+  $('#b-filtros')?.setAttribute('aria-label', n ? `Filtros, ${n} ${n === 1 ? 'activo' : 'activos'}` : 'Filtros');
+}
+function conectarFiltros() {
+  const boton = $('#b-filtros'), panel = $('#f-panel');
+  if (!boton || !panel) return;
+  const cerrarPanel = (foco = false) => { panel.hidden = true; boton.setAttribute('aria-expanded', 'false'); document.removeEventListener('pointerdown', fuera, true); if (foco) boton.focus(); };
+  const fuera = e => { if (!panel.contains(e.target) && !boton.contains(e.target)) cerrarPanel(); };
+  boton.onclick = () => {
+    if (!panel.hidden) return cerrarPanel();
+    panel.hidden = false; boton.setAttribute('aria-expanded', 'true');
+    panel.querySelector('select')?.focus();
+    document.addEventListener('pointerdown', fuera, true);
+  };
+  panel.onkeydown = e => { if (e.key === 'Escape') { e.stopPropagation(); cerrarPanel(true); } };
+  $('#b-limpiar-filtros').onclick = () => {
+    Object.assign(F, { origen: '', marcador: '', agente: '' });
+    for (const id of ['f-origen', 'f-marcador', 'f-agente']) { const el = $('#' + id); if (el) el.value = ''; }
+    contarFiltros(); pintarColumnas();
+  };
+}
+
+/* ---------- Columnas cerradas plegadas (solo en PC) ---------- */
+const TERMINALES = ['ganado', 'cerrado'];
+let plegadas;
+try { plegadas = new Set(JSON.parse(localStorage.getItem('impar_plegadas') ?? '["ganado","cerrado"]')); } catch { plegadas = new Set(TERMINALES); }
+const guardarPlegadas = () => { try { localStorage.setItem('impar_plegadas', JSON.stringify([...plegadas])); } catch {} };
 
 function filtradas() {
   const q = F.q.toLowerCase();
@@ -130,12 +170,16 @@ function pintarColumnas() {
     const limite=limitesEtapa.get(e.id)||BLOQUE_TARJETAS;
     const visibles=lista.slice(0,limite);
     const restantes=lista.length-visibles.length;
-    return `<div class="col ${S.etapaMovil === e.id ? 'movil-visible' : ''}" data-col="${e.id}" style="animation-delay:${i * .05}s">
+    const plegable = TERMINALES.includes(e.id), plegada = plegable && plegadas.has(e.id);
+    return `<div class="col ${S.etapaMovil === e.id ? 'movil-visible' : ''}${plegada ? ' plegada' : ''}" data-col="${e.id}" style="animation-delay:${i * .05}s">
+      ${plegable ? `<button type="button" class="col-plegada-btn" data-desplegar="${e.id}" aria-label="Mostrar ${esc(e.nombre)} (${lista.length})" title="Mostrar ${esc(e.nombre)}">
+        <span class="dot" style="background:${e.color}"></span><span class="count">${lista.length}</span><span class="col-plegada-nom">${esc(e.nombre)}</span>${ic('expandir')}</button>` : ''}
       <div class="col-h"><span class="dot" style="background:${e.color}"></span><b>${esc(e.nombre)}</b>
-        <span class="count">${lista.length}</span></div>
+        <span class="count">${lista.length}</span>
+        ${plegable ? `<button type="button" class="col-plegar" data-plegar="${e.id}" aria-label="Plegar ${esc(e.nombre)}" title="Plegar columna">${ic('plegar')}</button>` : ''}</div>
       ${e.id === 'nuevo' && esAdmin() && fx('cargaManual') ? '<div class="col-quick"><button type="button" class="btn ghost sm" id="b-rapida">+ Crear negociación rápida</button></div>' : ''}
       <div class="col-b" data-body="${e.id}">
-        ${visibles.map(n => tarjeta(n)).join('') || vacio('◇', 'Sin negociaciones',
+        ${visibles.map(n => tarjeta(n)).join('') || vacio('mensaje', 'Sin negociaciones',
           e.id === 'nuevo' ? 'Los contactos entrantes caen acá' : '')}
         ${restantes>0 ? `<button class="btn ghost sm" type="button" data-mas-etapa="${e.id}"
           style="width:100%;margin:10px 0">Mostrar ${Math.min(restantes,BLOQUE_TARJETAS)} más · quedan ${restantes}</button>`:''}
@@ -146,6 +190,8 @@ function pintarColumnas() {
     if (c) c.textContent = ns.filter(n => n.etapa === e.id).length;
   });
   if ($('#b-rapida')) $('#b-rapida').onclick = modalNegociacionRapida;
+  $$('[data-desplegar]').forEach(b => b.onclick = () => { plegadas.delete(b.dataset.desplegar); guardarPlegadas(); pintarColumnas(); $(`[data-plegar="${b.dataset.desplegar}"]`)?.focus(); });
+  $$('[data-plegar]').forEach(b => b.onclick = () => { plegadas.add(b.dataset.plegar); guardarPlegadas(); pintarColumnas(); $(`[data-desplegar="${b.dataset.plegar}"]`)?.focus(); });
   $$('[data-mas-etapa]').forEach(b=>b.onclick=()=>{
     const et=b.dataset.masEtapa;
     limitesEtapa.set(et,(limitesEtapa.get(et)||BLOQUE_TARJETAS)+BLOQUE_TARJETAS);
@@ -211,10 +257,11 @@ function actualizarContadores() {
     const body = $(`[data-body="${e.id}"]`); if (!body) return;
     // Los contadores representan toda la cartera, no solo las tarjetas del bloque visible.
     const n=filtradas().filter(x=>x.etapa===e.id).length;
-    const c = body.closest('.col')?.querySelector('.count');
-    if (c && c.textContent !== String(n)) { c.textContent = n; animarContador(c); }
+    const col = body.closest('.col');
+    for (const c of col ? col.querySelectorAll('.count') : []) if (c.textContent !== String(n)) { c.textContent = n; if (c.offsetParent) animarContador(c); }
+    const bp = col?.querySelector('[data-desplegar]'); if (bp) bp.setAttribute('aria-label', bp.getAttribute('aria-label').replace(/\(\d+\)$/, `(${n})`));
     const t = $(`[data-cnt="${e.id}"]`); if (t) t.textContent = n;
-    if (!n && !body.querySelector('.empty')) body.innerHTML = vacio('◇', 'Sin negociaciones', '');
+    if (!n && !body.querySelector('.empty')) body.innerHTML = vacio('mensaje', 'Sin negociaciones', '');
   });
 }
 

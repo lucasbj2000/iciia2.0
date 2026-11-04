@@ -94,7 +94,7 @@ assert.ok(!E.slugValido('../admin') && !E.slugValido('a') && E.slugValido('ana.f
   const sql = leer('src/migrations/028_enlaces_agentes_impar.sql');
   assert.ok(!/\b(DROP|DELETE|TRUNCATE|UPDATE)\b/i.test(sql.replace(/ON DELETE (CASCADE|SET NULL)/g, '')), 'Migración solo aditiva');
   assert.ok(leer('public/index.html').includes('id="btn-enlace"'));
-  assert.ok(leer('public/js/admin.js').includes("['enlaces', '🔗 Enlaces WhatsApp']"));
+  assert.ok(leer('public/js/admin.js').includes("['enlaces', 'Enlaces WhatsApp']"));
 }
 
 console.log('✔ IMPAR: enlaces de WhatsApp por agente, asignación directa y respaldo por nombre.');
