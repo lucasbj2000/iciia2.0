@@ -1,14 +1,19 @@
-import { $, $$, esc, S, get, post, patch, toast, modal, cerrar, confirmar } from './core.js';
+import { $, $$, esc, S, get, post, patch, toast, modal, cerrar, confirmar, iniciales, DISPONIBILIDAD } from './core.js';
 let empleados=[];
 const rolTexto={admin:'Administrador',gerente:'Gerencia general',jefe:'Jefatura',agente:'Agente'};
 export async function vistaOrganigrama(){
   empleados=await get('/organigrama');const admin=S.usuario.rol==='admin';
   const activos=empleados.filter(u=>u.activo),bajas=empleados.filter(u=>!u.activo);
   const sucursales=[...new Set([...S.sucursales.map(s=>s.nombre),...activos.filter(u=>['jefe','agente'].includes(u.rol)).map(u=>u.sucursal||'Sin sucursal')])];
-  const card=u=>`<article class="org-persona"><span class="org-rol">${esc(rolTexto[u.rol])}</span><h3>${esc(u.nombre)}</h3><p>${esc(u.cargo||rolTexto[u.rol])}</p><small>${esc(u.usuario)}</small>${u.superior_id?`<p class="org-superior">Depende de ${esc(empleados.find(x=>x.id===u.superior_id)?.nombre||'—')}</p>`:''}${admin?`<button class="btn ghost sm" data-edit="${u.id}">Gestionar empleado</button>`:''}</article>`;
+  const tienePersonal=s=>activos.some(u=>['jefe','agente'].includes(u.rol)&&(u.sucursal||'Sin sucursal')===s);
+  const conPersonal=sucursales.filter(tienePersonal),sinPersonal=sucursales.filter(s=>!tienePersonal(s));
+  const disp=u=>DISPONIBILIDAD.find(x=>x.id===u.disponibilidad);
+  const card=u=>{const d=disp(u);return `<article class="org-persona"><div class="org-cab"><span class="org-av">${u.foto?`<img src="${esc(u.foto)}" alt="">`:esc(iniciales(u.nombre))}${u.activo&&d?`<i class="org-disp" style="background:${d.c}" title="${esc(d.t)}"></i>`:''}</span><div class="org-id"><span class="org-rol">${esc(rolTexto[u.rol])}</span><h3>${esc(u.nombre)}</h3><p>${esc(u.cargo||rolTexto[u.rol])}${u.activo&&d?` · <span class="org-estado">${esc(d.t)}</span>`:''}</p></div></div>${u.superior_id?`<p class="org-superior">Depende de ${esc(empleados.find(x=>x.id===u.superior_id)?.nombre||'—')}</p>`:''}${admin?`<button class="btn ghost sm" data-edit="${u.id}">Gestionar</button>`:''}</article>`;};
   $('#view').innerHTML=`<div class="section org-section"><div class="org-toolbar"><div><h2>Organigrama IMPAR</h2><p class="sub">${activos.length} empleados activos · ${bajas.length} bajas</p></div>${admin?'<button class="btn" id="org-alta">+ Contratar empleado</button><label class="btn ghost" for="org-file">Importar clientes y empleados</label><input hidden type="file" accept=".json,application/json" id="org-file">':''}</div>
   <div class="org-direccion">${activos.filter(u=>['admin','gerente'].includes(u.rol)).map(card).join('')}</div>
-  <div class="org-sucursales">${sucursales.map(s=>`<section class="org-rama"><h3 class="org-sucursal">${esc(s)}</h3>${activos.filter(u=>(u.sucursal||'Sin sucursal')===s&&u.rol==='jefe').map(card).join('')}${activos.filter(u=>(u.sucursal||'Sin sucursal')===s&&u.rol==='agente').map(card).join('')}</section>`).join('')}</div>
+  <div class="org-sucursales">${conPersonal.map(s=>{const jefes=activos.filter(u=>(u.sucursal||'Sin sucursal')===s&&u.rol==='jefe'),agentes=activos.filter(u=>(u.sucursal||'Sin sucursal')===s&&u.rol==='agente');
+    return `<section class="org-rama"><h3 class="org-sucursal">${esc(s)} <small>${jefes.length+agentes.length} ${jefes.length+agentes.length===1?'persona':'personas'}</small></h3>${jefes.map(card).join('')}${agentes.length?`<div class="org-equipo${jefes.length?' con-jefe':''}">${agentes.map(card).join('')}</div>`:''}</section>`;}).join('')}</div>
+  ${sinPersonal.length?`<p class="org-sin-personal">Sin personal asignado: ${sinPersonal.map(esc).join(', ')}.</p>`:''}
   ${bajas.length?`<details class="card-box"><summary>Empleados dados de baja (${bajas.length})</summary><div class="org-direccion">${bajas.map(card).join('')}</div></details>`:''}
   ${admin?'<div class="card-box"><h3>Vincular vendedores SAP con empleados</h3><p class="sub">Podés resolver los nombres que no coinciden con la nómina. Esto cambia el responsable de los contactos seleccionados.</p><div id="org-vendedores"></div></div>':''}
   <div id="org-result" aria-live="polite"></div></div>`;

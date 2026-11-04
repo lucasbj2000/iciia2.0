@@ -171,6 +171,7 @@ export function modal(html, ancho) {
   const reemplazo = !!$('#modals .mask');
   $('#modals').innerHTML = `<div class="mask${reemplazo ? ' reemplazo' : ''}"><div class="modal ${ancho ? 'wide' : ''}">${html}</div></div>`;
   window._hojaModal?.();
+  mejorarContrasenas($('#modals'));
   const mask = $('.mask');
   mask.addEventListener('click', e => { if (e.target === mask) cerrar(); });
   document.addEventListener('keydown', escCerrar);
@@ -207,6 +208,29 @@ export function skeleton(n = 5) {
   const anchos = [95, 70, 88, 60, 80, 74];
   return `<div class="card-box">${[...Array(n)].map((_, i) =>
     `<div class="skel" style="width:${anchos[i % anchos.length]}%"></div>`).join('')}</div>`;
+}
+/** Campos de contraseña: botón para ver lo escrito y aviso de mayúsculas activadas. */
+export function mejorarContrasenas(raiz = document) {
+  for (const input of raiz.querySelectorAll('input[type="password"]:not([data-ojo])')) {
+    input.dataset.ojo = '1';
+    const caja = document.createElement('span'); caja.className = 'pass-caja';
+    input.before(caja); caja.append(input);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pass-ver'; b.setAttribute('aria-label', 'Mostrar contraseña'); b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = icLinea('ojo');
+    b.onclick = () => {
+      const ver = input.type === 'password'; input.type = ver ? 'text' : 'password';
+      b.setAttribute('aria-pressed', String(ver)); b.setAttribute('aria-label', ver ? 'Ocultar contraseña' : 'Mostrar contraseña');
+      b.innerHTML = icLinea(ver ? 'ojo_tachado' : 'ojo'); input.focus();
+    };
+    caja.append(b);
+    const aviso = document.createElement('small'); aviso.className = 'pass-mayus'; aviso.hidden = true; aviso.setAttribute('role', 'status');
+    aviso.innerHTML = `${icLinea('alerta')} Las mayúsculas están activadas`;
+    caja.after(aviso);
+    const revisar = e => { if (e.getModifierState) aviso.hidden = !e.getModifierState('CapsLock'); };
+    input.addEventListener('keydown', revisar); input.addEventListener('keyup', revisar);
+    input.addEventListener('blur', () => { aviso.hidden = true; });
+  }
 }
 export function vacio(ico, titulo, sub, accion) {
   // Acepta el nombre de un ícono de línea («calendario») o, por compatibilidad, un símbolo.

@@ -117,7 +117,7 @@ export function guirnalda(nombres) {
     `<path d="M${i * 20 + 2} 6 l9 16 l9 -16z" fill="${colores[i % colores.length]}" style="--i:${i}"/>`).join('');
   return `<div class="guirnalda" role="status"><svg viewBox="0 0 444 26" preserveAspectRatio="none" aria-hidden="true">
     <path d="M0 6 Q222 14 444 6" fill="none" stroke="var(--muted)" stroke-width="1"/>${banderas}</svg>
-    <p>${ic('pastel')} ¡Hoy cumple ${nombres.map(esc).join(' y ')}! Saludalo${nombres.length > 1 ? 's' : ''} en Comunicación.</p></div>`;
+    <p>${ic('pastel')} ¡Hoy cumple${nombres.length > 1 ? 'n' : ''} ${nombres.map(esc).join(' y ')}!</p></div>`;
 }
 
 /** Cifras que corren hasta su valor (300 ms). */

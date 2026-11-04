@@ -97,14 +97,20 @@ r.post('/notificaciones/prueba', requiere('admin'), async (req, res) => {
 r.get('/com/resumen', requiere(), async (req, res) => {
   const [grupos, usuarios] = await Promise.all([
     q(`SELECT g.*, (SELECT COUNT(*) FROM mensajes_internos m
-          WHERE m.grupo_id=g.id AND m.de_id<>$2 AND NOT (m.leido @> to_jsonb($2::text))) AS no_leidos
-         FROM grupos g WHERE g.empresa_id=$1 AND (g.miembros @> to_jsonb($2::text) OR $3) ORDER BY g.creado`,
-      [req.empresaId, req.user.id, req.user.rol === 'admin']),
+          WHERE m.grupo_id=g.id AND m.de_id<>$2 AND NOT (m.leido @> to_jsonb($4::text))) AS no_leidos,
+         (SELECT json_build_object('txt',LEFT(m.txt,120),'ts',m.ts,'mio',m.de_id=$2,'autor',a.nombre)
+            FROM mensajes_internos m LEFT JOIN usuarios a ON a.id=m.de_id
+           WHERE m.grupo_id=g.id ORDER BY m.ts DESC LIMIT 1) AS ultimo
+         FROM grupos g WHERE g.empresa_id=$1 AND (g.miembros @> to_jsonb($4::text) OR $3) ORDER BY g.creado`,
+      [req.empresaId, req.user.id, req.user.rol === 'admin', String(req.user.id)]),
     q(`SELECT u.id,u.nombre,u.rol,u.sucursal,u.foto,u.disponibilidad,
          (SELECT COUNT(*) FROM mensajes_internos m WHERE m.empresa_id=$1 AND m.de_id=u.id AND m.para_id=$2
-            AND NOT (m.leido @> to_jsonb($2::text))) AS no_leidos
+            AND NOT (m.leido @> to_jsonb($3::text))) AS no_leidos,
+         (SELECT json_build_object('txt',LEFT(m.txt,120),'ts',m.ts,'mio',m.de_id=$2) FROM mensajes_internos m
+           WHERE m.empresa_id=$1 AND m.grupo_id IS NULL AND ((m.de_id=u.id AND m.para_id=$2) OR (m.de_id=$2 AND m.para_id=u.id))
+           ORDER BY m.ts DESC LIMIT 1) AS ultimo
          FROM usuarios u WHERE u.empresa_id=$1 AND u.activo AND NOT u.oculto AND u.id<>$2 ORDER BY u.nombre`,
-      [req.empresaId, req.user.id])
+      [req.empresaId, req.user.id, String(req.user.id)])
   ]);
   res.json({ grupos: grupos.rows, usuarios: usuarios.rows });
 });
@@ -116,18 +122,18 @@ r.get('/com/mensajes', requiere(), async (req, res) => {
     ({ rows } = await q(
       `SELECT m.*, u.nombre AS autor FROM mensajes_internos m JOIN usuarios u ON u.id=m.de_id
         WHERE m.grupo_id=$1 AND m.empresa_id=$2 ORDER BY m.ts ASC LIMIT 300`, [id, req.empresaId]));
-    await q(`UPDATE mensajes_internos SET leido = leido || to_jsonb($2::text)
-             WHERE grupo_id=$1 AND empresa_id=$3 AND de_id<>$2 AND NOT (leido @> to_jsonb($2::text))`,
-      [id, req.user.id, req.empresaId]);
+    await q(`UPDATE mensajes_internos SET leido = leido || to_jsonb($4::text)
+             WHERE grupo_id=$1 AND empresa_id=$3 AND de_id<>$2 AND NOT (leido @> to_jsonb($4::text))`,
+      [id, req.user.id, req.empresaId, String(req.user.id)]);
   } else {
     ({ rows } = await q(
       `SELECT m.*, u.nombre AS autor FROM mensajes_internos m JOIN usuarios u ON u.id=m.de_id
         WHERE m.empresa_id=$1 AND m.grupo_id IS NULL
           AND ((m.de_id=$2 AND m.para_id=$3) OR (m.de_id=$3 AND m.para_id=$2)) ORDER BY m.ts ASC LIMIT 300`,
       [req.empresaId, req.user.id, id]));
-    await q(`UPDATE mensajes_internos SET leido = leido || to_jsonb($3::text)
-             WHERE empresa_id=$1 AND de_id=$2 AND para_id=$3 AND NOT (leido @> to_jsonb($3::text))`,
-      [req.empresaId, id, req.user.id]);
+    await q(`UPDATE mensajes_internos SET leido = leido || to_jsonb($4::text)
+             WHERE empresa_id=$1 AND de_id=$2 AND para_id=$3 AND NOT (leido @> to_jsonb($4::text))`,
+      [req.empresaId, id, req.user.id, String(req.user.id)]);
   }
   res.json(rows);
 });
@@ -139,14 +145,15 @@ r.post('/com/mensajes', requiere(), async (req, res) => {
     const { rows } = await q('SELECT * FROM grupos WHERE id=$1 AND empresa_id=$2', [id, req.empresaId]);
     const g = rows[0];
     if (!g) return res.status(404).json({ error: 'grupo no encontrado' });
+    // El autor va como uuid ($3) y como texto ($5): PostgreSQL no admite un mismo parámetro con dos tipos.
     await q(`INSERT INTO mensajes_internos (empresa_id,grupo_id,de_id,txt,leido)
-             VALUES ($1,$2,$3,$4,to_jsonb(ARRAY[$3::text]))`, [req.empresaId, g.id, req.user.id, texto]);
+             VALUES ($1,$2,$3,$4,to_jsonb(ARRAY[$5::text]))`, [req.empresaId, g.id, req.user.id, texto, String(req.user.id)]);
     const otros = (g.miembros || []).filter(x => x !== req.user.id);
     await notificar(req.empresa, 'mensaje', { origenUsr: `${req.user.nombre} en #${g.nombre}`, texto: texto.slice(0, 60) }, otros);
     emitir(req.empresaId, 'com', { tipo: 'grupo', id: g.id }, otros);
   } else {
     await q(`INSERT INTO mensajes_internos (empresa_id,de_id,para_id,txt,leido)
-             VALUES ($1,$2,$3,$4,to_jsonb(ARRAY[$2::text]))`, [req.empresaId, req.user.id, id, texto]);
+             VALUES ($1,$2,$3,$4,to_jsonb(ARRAY[$5::text]))`, [req.empresaId, req.user.id, id, texto, String(req.user.id)]);
     await notificar(req.empresa, 'mensaje', { origenUsr: req.user.nombre, texto: texto.slice(0, 60) }, [id]);
     emitir(req.empresaId, 'com', { tipo: 'dm', id: req.user.id }, [id]);
   }
@@ -163,8 +170,8 @@ r.post('/com/grupos', requiere(), async (req, res) => {
     `INSERT INTO grupos (empresa_id,nombre,descripcion,miembros) VALUES ($1,$2,$3,$4) RETURNING *`,
     [req.empresaId, nombre, descripcion || '', JSON.stringify(ms)]);
   await q(`INSERT INTO mensajes_internos (empresa_id,grupo_id,de_id,txt,leido)
-           VALUES ($1,$2,$3,$4,to_jsonb(ARRAY[$3::text]))`,
-    [req.empresaId, rows[0].id, req.user.id, `Grupo creado por ${req.user.nombre}`]);
+           VALUES ($1,$2,$3,$4,to_jsonb(ARRAY[$5::text]))`,
+    [req.empresaId, rows[0].id, req.user.id, `Grupo creado por ${req.user.nombre}`, String(req.user.id)]);
   await notificar(req.empresa, 'mensaje', { origenUsr: 'Sistema', texto: `Fuiste agregado al grupo ${nombre}` },
     ms.filter(x => x !== req.user.id));
   emitir(req.empresaId, 'com', {});
@@ -243,7 +250,9 @@ r.get('/reportes', requiere(), async (req, res) => {
       ORDER BY n.creado DESC`, [req.empresaId, String(dias), ...params]);
 
   const { rows: tr } = await q(
-    `SELECT AVG(EXTRACT(EPOCH FROM (m.primera - n.creado))/60) AS minutos FROM negociaciones n
+    // Mediana: unas pocas conversaciones viejas no inflan el número (el promedio llegaba a «232 h»).
+    `SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY GREATEST(0, EXTRACT(EPOCH FROM (m.primera - n.creado))/60)) AS minutos,
+            COUNT(*)::int AS medidas FROM negociaciones n
        JOIN LATERAL (SELECT MIN(ts) AS primera FROM mensajes
                       WHERE negociacion_id=n.id AND dir='out' AND NOT bot AND NOT carga_historica) m ON TRUE
       WHERE n.empresa_id=$1 AND n.creado >= now() - ($2 || ' days')::interval
@@ -285,6 +294,7 @@ r.get('/reportes', requiere(), async (req, res) => {
     negociaciones: negs, universo, porCanal, etapasActivas: activas, anterior: ant[0], dias,
     colaEspera: espera.map(e => ({ ...e, horasLab: Number(horasLaborales(e.entrada_etapa, new Date(), r2).toFixed(1)) })),
     primeraRespuestaMin: Math.round(Number(tr[0]?.minutos) || 0),
+    primeraRespuestaMedidas: tr[0]?.medidas || 0,
     slaHoras: r2.slaHoras || 24
   });
 });

@@ -7,7 +7,7 @@ import { importarImpar } from '../importar-impar.mjs';
 import { vistaPreviaTransferencia, eliminarConTransferencia } from '../eliminar-usuario-impar.mjs';
 const r=Router();
 const roles=new Set(['admin','gerente','jefe','agente']);
-const campos='id,nombre,usuario,rol,cargo,sucursal,linea,equipo,superior_id,email,tel,activo,fecha_baja';
+const campos='id,nombre,usuario,rol,cargo,sucursal,linea,equipo,superior_id,email,tel,activo,fecha_baja,foto,disponibilidad';
 r.get('/',requiere('admin','gerente'),async(req,res)=>{
   const {rows}=await q(`SELECT ${campos} FROM usuarios WHERE empresa_id=$1 AND NOT oculto ORDER BY nombre`,[req.empresaId]);
   res.json(rows);

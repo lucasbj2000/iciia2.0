@@ -3,16 +3,16 @@ import { guirnalda } from './animaciones.js';
 import {
   $, $$, esc, S, get, post, patch, del, put, gs, fd, fdate, ago, fechaISO, iniciales, toast,
   modal, cerrar, confirmar, fx, esAdmin, esMando, etapa, bajar, vacio, skeleton,
-  DISPONIBILIDAD, ORIGENES, TIPOS_EV, aplicarTema, aplicarFX
+  DISPONIBILIDAD, ORIGENES, TIPOS_EV, aplicarTema, aplicarFX, esMovil, nombreLegible, mejorarContrasenas
 } from './core.js';
 import { fichaNeg, modalRapidas } from './ficha.js';
 import { conectarEmojis } from './emojis.js';
-import { actualizarMensajes } from './chat-mensajes.js';
+import { actualizarMensajes, horaMensaje, cajaQueCrece } from './chat-mensajes.js';
 import { enlazarTexto } from './enlaces.js';
 import { ic } from './iconos.js';
 
 /* ================= COMUNICACIÓN ================= */
-let CHAT = null, resumenCom = { grupos: [], usuarios: [] };
+let CHAT = null, resumenCom = { grupos: [], usuarios: [] }, BUSCA_COM = '';
 
 export async function vistaComunicacion() {
   if (!fx('comunicacion')) {
@@ -23,28 +23,43 @@ export async function vistaComunicacion() {
   const { grupos, usuarios } = resumenCom;
   if (!CHAT) CHAT = grupos.length ? { tipo: 'grupo', id: grupos[0].id } : (usuarios[0] ? { tipo: 'dm', id: usuarios[0].id } : null);
 
+  const hora = t => { if (!t) return ''; const d = new Date(t), hoy = new Date();
+    return d.toDateString() === hoy.toDateString() ? d.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false })
+      : d.toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit' }); };
+  const previa = (u, defecto) => u?.ultimo ? `${u.ultimo.mio ? 'Vos: ' : u.ultimo.autor ? esc(String(u.ultimo.autor).split(' ')[0]) + ': ' : ''}${esc(String(u.ultimo.txt || '').replace(/\s+/g, ' '))}` : defecto;
+  const contador = n => Number(n) ? `<span class="ci-n" aria-label="${Number(n)} sin leer">${Number(n) > 99 ? '99+' : Number(n)}</span>` : '';
+  // Empleados: primero con quien se habló más recientemente; después por nombre.
+  const empleados = [...usuarios].sort((a, b) => (b.ultimo?.ts ? new Date(b.ultimo.ts) : 0) - (a.ultimo?.ts ? new Date(a.ultimo.ts) : 0) || a.nombre.localeCompare(b.nombre));
   $('#view').innerHTML = `<div class="section fx-vista com-section"><div class="ci">
    <div class="ci-side">
-     <div style="padding:11px 13px;border-bottom:1px solid var(--line);display:flex;gap:7px;align-items:center">
-       <b style="flex:1;font-size:var(--fs-xs);color:var(--muted);letter-spacing:.4px">GRUPOS</b>
-       ${(esAdmin() || fx('gruposAgente')) ? `<button class="btn sm" id="g-nuevo">+</button>` : ''}</div>
-     ${grupos.map(g => `<div class="ci-i ${CHAT?.tipo === 'grupo' && CHAT.id === g.id ? 'sel' : ''}" data-chat="grupo" data-id="${g.id}">
-        <div class="avatar" style="background:linear-gradient(135deg,var(--brand),#7c5cff);color:#fff">#</div>
-        <div style="flex:1;min-width:0"><b>${esc(g.nombre)}</b><small>${(g.miembros || []).length} miembros</small></div>
-        ${Number(g.no_leidos) ? '<span class="unread-dot"></span>' : ''}</div>`).join('')
-       || '<div class="empty">Sin grupos</div>'}
-     <div style="padding:11px 13px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
-       <b style="font-size:var(--fs-xs);color:var(--muted);letter-spacing:.4px">EMPLEADOS</b></div>
-     ${usuarios.map(u => {
+     <label class="ci-buscar"><span class="sr">Buscar personas o grupos</span>
+       <input id="ci-buscar" type="search" placeholder="Buscar persona o grupo…" value="${esc(BUSCA_COM)}"></label>
+     <div class="ci-sec"><b>Grupos</b>
+       ${(esAdmin() || fx('gruposAgente')) ? `<button class="btn sm ci-mas" id="g-nuevo" aria-label="Nuevo grupo" title="Nuevo grupo">+</button>` : ''}</div>
+     ${grupos.map(g => `<div class="ci-i ${CHAT?.tipo === 'grupo' && CHAT.id === g.id ? 'sel' : ''}" data-chat="grupo" data-id="${g.id}" data-nombre="${esc(g.nombre.toLowerCase())}" tabindex="0" role="button">
+        <div class="avatar ci-grupo">#</div>
+        <div class="ci-txt"><span class="ci-l1"><b>${esc(g.nombre)}</b><time>${hora(g.ultimo?.ts)}</time></span>
+          <span class="ci-l2"><small>${previa(g, `${(g.miembros || []).length} miembros`)}</small>${contador(g.no_leidos)}</span></div></div>`).join('')
+       || '<div class="ci-vacio">Sin grupos</div>'}
+     <div class="ci-sec"><b>Empleados</b></div>
+     ${empleados.map(u => {
        const d = DISPONIBILIDAD.find(x => x.id === u.disponibilidad) || {};
-       return `<div class="ci-i ${CHAT?.tipo === 'dm' && CHAT.id === u.id ? 'sel' : ''}" data-chat="dm" data-id="${u.id}">
-        <div class="avatar">${u.foto ? `<img src="${esc(u.foto)}" alt="">` : iniciales(u.nombre)}</div>
-        <div style="flex:1;min-width:0"><b>${esc(u.nombre)}</b>
-          <small><span class="dot" style="background:${d.c || '#666'}"></span> ${esc(d.t || '—')} · ${esc(u.sucursal || '')}</small></div>
-        ${Number(u.no_leidos) ? '<span class="unread-dot"></span>' : ''}</div>`;
+       return `<div class="ci-i ${CHAT?.tipo === 'dm' && CHAT.id === u.id ? 'sel' : ''}" data-chat="dm" data-id="${u.id}" data-nombre="${esc(u.nombre.toLowerCase())}" tabindex="0" role="button">
+        <div class="avatar ci-av">${u.foto ? `<img src="${esc(u.foto)}" alt="">` : iniciales(u.nombre)}<i class="ci-disp" style="background:${d.c || '#666'}" title="${esc(d.t || '')}"></i></div>
+        <div class="ci-txt"><span class="ci-l1"><b>${esc(u.nombre)}</b><time>${hora(u.ultimo?.ts)}</time></span>
+          <span class="ci-l2"><small>${previa(u, `${esc(d.t || '—')} · ${esc(u.sucursal || '')}`)}</small>${contador(u.no_leidos)}</span></div></div>`;
      }).join('')}
+     <div class="ci-vacio" id="ci-sin" hidden>Nadie coincide con la búsqueda.</div>
    </div><div class="ci-main" id="ci-main"></div></div></div>`;
 
+  const filtrar = () => {
+    const q = BUSCA_COM.trim().toLowerCase(); let visibles = 0;
+    $$('.ci-i').forEach(el => { const ok = !q || el.dataset.nombre.includes(q); el.hidden = !ok; visibles += ok; });
+    $('#ci-sin').hidden = visibles > 0;
+  };
+  $('#ci-buscar').oninput = e => { BUSCA_COM = e.target.value; filtrar(); };
+  filtrar();
+  $$('[data-chat]').forEach(el => el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } });
   $$('[data-chat]').forEach(el => el.onclick = () => { CHAT = { tipo: el.dataset.chat, id: el.dataset.id }; vistaComunicacion(); });
   if ($('#g-nuevo')) $('#g-nuevo').onclick = () => modalGrupo();
   await pintarChat();
@@ -60,9 +75,10 @@ async function pintarChat(suave = false, seguir = false) {
   const msgs = await get(`/com/mensajes?tipo=${chat.tipo}&id=${chat.id}`);
   if ($('#ci-main') !== box || `${CHAT?.tipo}:${CHAT?.id}` !== clave || box._revision !== revision) return;
   const render = m => `<div class="msg ${m.de_id === S.usuario.id ? 'out' : 'in'}">
-    ${chat.tipo === 'grupo' && m.de_id !== S.usuario.id ? `<b style="font-size:var(--fs-xs);color:var(--brand);display:block">${esc(m.autor)}</b>` : ''}
-    <div class="message-text">${enlazarTexto(m.txt)}</div><small>${fdate(m.ts)}</small></div>`;
-  if (actualizar) { actualizarMensajes($('#ci-body'), msgs, render, seguir); return; }
+    ${chat.tipo === 'grupo' && m.de_id !== S.usuario.id ? `<b class="ci-autor">${esc(m.autor)}</b>` : ''}
+    <div class="message-text">${enlazarTexto(m.txt)}</div><small><time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time></small></div>`;
+  const conDir = l => l.map(m => ({ ...m, dir: m.de_id === S.usuario.id ? 'out' : 'in' }));
+  if (actualizar) { actualizarMensajes($('#ci-body'), conDir(msgs), render, seguir); return; }
   box.dataset.chatKey = clave;
   const esGrupo = CHAT.tipo === 'grupo';
   let titulo, sub;
@@ -79,10 +95,14 @@ async function pintarChat(suave = false, seguir = false) {
        <div style="color:var(--muted);font-size:var(--fs-xs)">${esc(sub)}</div></div>
      ${esGrupo && esAdmin() ? `<button class="btn ghost sm" id="g-editar">Editar grupo</button>` : ''}</div>
    <div class="ci-body" id="ci-body"></div>
-   <div class="ci-f"><textarea id="ci-msg" rows="3" enterkeyhint="enter" aria-label="Mensaje interno" placeholder="Escribir mensaje…"></textarea>
+   <div class="ci-f"><textarea id="ci-msg" rows="1" enterkeyhint="send" aria-label="Mensaje interno" placeholder="Escribir mensaje…"></textarea>
      <button class="btn" id="ci-enviar">Enviar</button></div>`;
-  actualizarMensajes($('#ci-body'), msgs, render, true);
+  actualizarMensajes($('#ci-body'), conDir(msgs), render, true);
+  if (!msgs.length) $('#ci-body').innerHTML = vacio('mensaje', esGrupo ? 'Todavía no hay mensajes en este grupo' : `Escribile el primer mensaje a ${String(titulo).split(' ')[0]}`,
+    'Los mensajes internos solo los ve el equipo, nunca el cliente.');
   conectarEmojis('#ci-msg');
+  cajaQueCrece($('#ci-msg'));
+  if (BORRADOR_COM) { $('#ci-msg').value = BORRADOR_COM; BORRADOR_COM = null; $('#ci-msg').focus(); }
   let enviando = false;
   const input = $('#ci-msg'), boton = $('#ci-enviar');
   boton.onpointerdown = e => { if (document.activeElement === input) e.preventDefault(); };
@@ -98,6 +118,8 @@ async function pintarChat(suave = false, seguir = false) {
     }
   };
   $('#ci-enviar').onclick = enviar;
+  // Enter envía (Shift+Enter agrega una línea); en el celular, el botón del teclado.
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !esMovil()) { e.preventDefault(); enviar(); } });
   actualizarBadgeCom();
 }
 
@@ -142,7 +164,7 @@ async function modalGrupo(gid) {
 }
 
 /* ================= CALENDARIO ================= */
-let CAL = { m: new Date().getMonth(), a: new Date().getFullYear() }, datosCal = null;
+let CAL = { m: new Date().getMonth(), a: new Date().getFullYear() }, datosCal = null, VISTA_CAL = null, BORRADOR_COM = null;
 
 export async function vistaCalendario() {
   if (!fx('calendario')) {
@@ -178,34 +200,41 @@ function pintarCalendario() {
     const iso = `${CAL.a}-${String(CAL.m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const evs = eventosDelDia(iso), fer = evs.some(e => e.tipo === 'feriado');
     celdas += `<div class="cal-d ${iso === hoy ? 'hoy' : ''} ${fer ? 'fer' : ''}" data-dia="${iso}">
-      <div class="nd">${d}</div>${evs.slice(0, 3).map(e => `<div class="ev ${claseEv(e.tipo)}">${esc(e.titulo)}</div>`).join('')}
+      <div class="nd">${d}</div>${evs.slice(0, 3).map(e => `<div class="ev ${claseEv(e.tipo)}" title="${esc(e.titulo)}">${esc(e.titulo)}</div>`).join('')}
       ${evs.length > 3 ? `<div class="ev" style="background:transparent;color:var(--muted)">+${evs.length - 3} más</div>` : ''}</div>`;
   }
   const prox = proximos(30);
-  const cumpleHoy = fx('cumpleanos') ? (datosCal.cumples || []).filter(c => c.md === hoy.slice(5)).map(c => c.nombre.split(' ')[0]) : [];
+  const cumplenHoy = fx('cumpleanos') ? (datosCal.cumples || []).filter(c => c.md === hoy.slice(5)) : [];
+  const cumpleHoy = cumplenHoy.map(c => c.nombre.split(' ')[0]);
+  // En el celular el mes es diminuto: la agenda es la vista por defecto.
+  const vista = VISTA_CAL || (esMovil() ? 'agenda' : 'mes');
+  const agenda = proximos(60, 40);
   $('#view').innerHTML = `<div class="section fx-vista">
-   ${cumpleHoy.length ? guirnalda(cumpleHoy) : ''}
+   ${cumpleHoy.length ? guirnalda(cumpleHoy) + `<div class="cal-saludos">${cumplenHoy.filter(c => c.id !== S.usuario.id).map(c =>
+     `<button class="btn sm" data-saludar="${esc(c.id)}" data-nombre="${esc(c.nombre.split(' ')[0])}">${ic('mensaje')} Saludar a ${esc(c.nombre.split(' ')[0])}</button>`).join('')}</div>` : ''}
    <div class="row" style="align-items:center;margin-bottom:14px">
      <div style="flex:none;display:flex;gap:7px;align-items:center">
        <button class="btn ghost sm" id="cal-prev">‹</button>
        <b style="font-size:var(--fs-lg);min-width:180px;text-align:center;display:inline-block">${meses[CAL.m]} ${CAL.a}</b>
        <button class="btn ghost sm" id="cal-next">›</button>
        <button class="btn ghost sm" id="cal-hoy">Hoy</button></div>
-     <div></div>
+     <div class="seg cal-vistas" role="group" aria-label="Vista del calendario">
+       <button class="btn ${vista === 'mes' ? '' : 'ghost'} sm" data-cal-vista="mes" aria-pressed="${vista === 'mes'}">Mes</button>
+       <button class="btn ${vista === 'agenda' ? '' : 'ghost'} sm" data-cal-vista="agenda" aria-pressed="${vista === 'agenda'}">Agenda</button></div>
      <div style="flex:none"><button class="btn" id="cal-nuevo">+ Nuevo evento</button></div></div>
-   ${datosCal.sinNacimiento?.length && esMando() ? `<div class="card-box" style="border-color:var(--warn)">
-     <b style="font-size:var(--fs-sm)">${ic('alerta')} ${datosCal.sinNacimiento.length} persona(s) sin fecha de nacimiento</b>
-     <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:5px">${datosCal.sinNacimiento.map(esc).join(', ')}</div></div>` : ''}
+   ${datosCal.sinNacimiento?.length && esAdmin() ? `<details class="cal-aviso">
+     <summary>${ic('info')} ${datosCal.sinNacimiento.length} ${datosCal.sinNacimiento.length === 1 ? 'persona no tiene' : 'personas no tienen'} fecha de nacimiento cargada</summary>
+     <p>${datosCal.sinNacimiento.map(esc).join(', ')}. Se completa desde Administración → Usuarios o desde el perfil de cada uno.</p></details>` : ''}
    <div class="grid" style="grid-template-columns:1fr 310px">
-     <div class="card-box"><div class="cal">
-       ${['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(d => `<div class="cal-h">${d}</div>`).join('')}${celdas}</div>
+     <div class="card-box">${vista === 'agenda' ? `<div class="cal-agenda">${agendaHTML(agenda)}</div>` : `<div class="cal">
+       ${['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(d => `<div class="cal-h">${d}</div>`).join('')}${celdas}</div>`}
        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:13px;font-size:var(--fs-xs)">
          <span class="ev cum">Cumpleaños</span><span class="ev fer">Feriado</span>
          <span class="ev act">Actividad</span><span class="ev reu">Reunión</span><span class="ev cap">Capacitación</span></div></div>
      <div><div class="card-box"><h3>Próximos 30 días</h3>
        ${prox.map(p => `<div style="display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer" data-dia="${p.iso}">
          <div style="text-align:center;min-width:38px"><b style="font-size:var(--fs-lg);display:block">${p.iso.slice(8)}</b>
-           <small style="color:var(--muted);font-size:10px">${['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'][+p.iso.slice(5,7)-1]}</small></div>
+           <small style="color:var(--muted);font-size:var(--fs-xs)">${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][+p.iso.slice(5,7)-1]}</small></div>
          <div style="flex:1;min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(p.ev.titulo)}</b>
            <small style="color:var(--muted)">${p.dias === 0 ? 'Hoy' : p.dias === 1 ? 'Mañana' : 'En ' + p.dias + ' días'}</small></div></div>`).join('')
          || vacio('calendario', 'Sin eventos próximos', '')}</div>
@@ -220,16 +249,30 @@ function pintarCalendario() {
   $('#cal-next').onclick = () => { CAL.m++; if (CAL.m > 11) { CAL.m = 0; CAL.a++; } vistaCalendario(); };
   $('#cal-hoy').onclick = () => { CAL = { m: new Date().getMonth(), a: new Date().getFullYear() }; vistaCalendario(); };
   $('#cal-nuevo').onclick = () => modalEvento();
+  $$('[data-cal-vista]').forEach(b => b.onclick = () => { VISTA_CAL = b.dataset.calVista; pintarCalendario(); });
+  $$('[data-saludar]').forEach(b => b.onclick = async () => {
+    CHAT = { tipo: 'dm', id: b.dataset.saludar }; BORRADOR_COM = `¡Feliz cumpleaños, ${b.dataset.nombre}!`;
+    const { ir } = await import('./app.js'); ir('com');
+  });
   $$('[data-dia]').forEach(el => el.onclick = () => modalDia(el.dataset.dia));
 }
 
-function proximos(dias) {
+function proximos(dias, max = 14) {
   const out = [], hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-  for (let i = 0; i < dias && out.length < 14; i++) {
+  for (let i = 0; i < dias && out.length < max; i++) {
     const iso = fechaISO(new Date(hoy.getTime() + i * 86400000));
     eventosDelDia(iso).forEach(ev => out.push({ iso, ev, dias: i }));
   }
-  return out.slice(0, 14);
+  return out.slice(0, max);
+}
+/** Agenda: los próximos eventos agrupados por día, con el título completo. */
+function agendaHTML(lista) {
+  if (!lista.length) return vacio('calendario', 'Sin eventos en los próximos 60 días', 'Agregá uno con «Nuevo evento»');
+  const dias = []; for (const p of lista) { const d = dias.at(-1); if (d?.iso === p.iso) d.evs.push(p.ev); else dias.push({ iso: p.iso, dias: p.dias, evs: [p.ev] }); }
+  return dias.map(d => { const f = new Date(d.iso + 'T12:00:00');
+    const titulo = d.dias === 0 ? 'Hoy' : d.dias === 1 ? 'Mañana' : f.toLocaleDateString('es-PY', { weekday: 'long', day: 'numeric', month: 'long' });
+    return `<section class="ag-dia" data-dia="${d.iso}"><h4>${titulo.charAt(0).toUpperCase() + titulo.slice(1)}</h4>
+      ${d.evs.map(e => `<div class="ag-ev"><span class="ev ${claseEv(e.tipo)} ag-marca" aria-hidden="true"></span><span>${esc(e.titulo)}</span>${e.sucursal ? `<small>${ic('pin')} ${esc(e.sucursal)}</small>` : ''}</div>`).join('')}</section>`; }).join('');
 }
 
 function modalDia(iso) {
@@ -295,20 +338,22 @@ export async function vistaConfig() {
         <div><button class="btn ghost sm" id="p-foto">Cambiar foto</button>
         ${p.foto ? `<button class="btn ghost sm" id="p-quitar">Quitar</button>` : ''}
         <input id="p-file" type="file" accept="image/*" class="hidden"></div></div>
-      <div class="row"><div class="field"><label>Nombre</label><input id="p-nom" value="${esc(p.nombre)}"></div>
-        <div class="field"><label>Usuario</label><input value="${esc(p.usuario)}" disabled></div></div>
+      <div class="field"><label for="p-nom">Nombre</label><input id="p-nom" value="${esc(p.nombre)}"></div>
       <div class="row"><div class="field"><label>Email</label><input id="p-mail" value="${esc(p.email || '')}"></div>
         <div class="field"><label>Teléfono</label><input id="p-tel" value="${esc(p.tel || '')}"></div>
         <div class="field"><label>Nacimiento ${fx('natalicioObligatorio') ? '*' : ''}</label>
           <input id="p-nac" type="date" value="${p.nacimiento ? String(p.nacimiento).slice(0,10) : ''}" max="${fechaISO(new Date())}"></div></div>
-      <div class="row"><div class="field"><label>Sucursal</label><input value="${esc(p.sucursal || '')}" disabled></div>
-        <div class="field"><label>Línea</label><input value="${esc(p.linea || '')}" disabled></div>
-        <div class="field"><label>Rol</label><input value="${p.rol}" disabled></div></div>
+      <dl class="perfil-datos" aria-label="Datos asignados por administración">
+        <div><dt>Usuario</dt><dd>${esc(p.usuario)}</dd></div>
+        <div><dt>Rol</dt><dd>${esc({ admin: 'Administrador', gerente: 'Gerente', jefe: 'Jefe de equipo', agente: 'Agente' }[p.rol] || p.rol)}</dd></div>
+        <div><dt>Sucursal</dt><dd>${esc(p.sucursal || '—')}</dd></div>
+        <div><dt>Línea</dt><dd>${esc(p.linea || '—')}</dd></div></dl>
+      <p class="perfil-nota">Usuario, rol, sucursal y línea los asigna administración.</p>
       <button class="btn sm" id="p-guardar">Guardar</button></div>
 
     <div class="card-box"><h3>Seguridad, apariencia y disponibilidad</h3>
-      <div class="field"><label>Contraseña actual</label><input id="p-p0" type="password"></div>
-      <div class="field"><label>Nueva contraseña</label><input id="p-p1" type="password"></div>
+      <div class="field"><label for="p-p0">Contraseña actual</label><input id="p-p0" type="password" autocomplete="current-password"></div>
+      <div class="field"><label for="p-p1">Nueva contraseña</label><input id="p-p1" type="password" autocomplete="new-password"></div>
       <button class="btn sm" id="p-pass">Cambiar contraseña</button>
       <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
       <div class="row"><div class="field"><label>Tema</label><select id="p-tema">
@@ -322,8 +367,9 @@ export async function vistaConfig() {
       <button class="btn ghost sm" id="p-disp">Marcar disponibilidad</button>
       ${fx('respuestasRapidas') ? `<button class="btn ghost sm" id="p-rapidas">${ic('rayo')} Mis respuestas rápidas</button>` : ''}
       <h3 style="margin-top:16px">Últimas marcaciones</h3>
-      <div class="mono" style="color:var(--muted);max-height:130px;overflow:auto">
-        ${(p.marcaciones || []).map(m => `${fdate(m.ts)} → ${(DISPONIBILIDAD.find(x => x.id === m.estado)||{}).t || m.estado}`).join('<br>') || 'Sin marcaciones'}</div></div></div>
+      <ul class="marcaciones">
+        ${(p.marcaciones || []).map(m => { const x = DISPONIBILIDAD.find(y => y.id === m.estado) || {};
+          return `<li><span class="dot" style="background:${x.c || '#888'}"></span><span>${esc(x.t || m.estado)}</span><time>${fdate(m.ts)}</time></li>`; }).join('') || '<li class="marc-vacio">Todavía no marcaste tu disponibilidad.</li>'}</ul></div></div>
    ${suc ? `<div class="card-box"><h3>${ic('pin')} Mi sucursal · ${esc(suc.nombre)}</h3>
      <div style="color:var(--muted);font-size:var(--fs-sm);line-height:1.8">
        ${suc.direccion ? ic('casa') + ' ' + esc(suc.direccion) + '<br>' : ''}${ic('edificio')} ${esc(suc.ciudad || '—')}<br>
@@ -333,6 +379,7 @@ export async function vistaConfig() {
      <p style="color:var(--muted);font-size:var(--fs-sm);margin-top:0">${esc(S.empresa.stock.nota || 'Catálogo publicado por el administrador.')}</p>
      <a class="btn sm" href="${esc(S.empresa.stock.link)}" target="_blank" rel="noopener">Abrir catálogo</a></div>` : ''}</div>`;
 
+  mejorarContrasenas($('#view'));
   $('#p-foto').onclick = () => $('#p-file').click();
   $('#p-file').onchange = e => {
     const f = e.target.files[0]; if (!f) return;

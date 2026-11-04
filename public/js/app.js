@@ -7,7 +7,7 @@ import { icTono } from './iconos.js';
 import {
   $, $$, esc, S, api, get, post, patch, toast, modal, cerrar, ago, iniciales,
   fechaISO, saludo, fx, esAdmin, aplicarTema, aplicarFX, salir, DISPONIBILIDAD,
-  vacio, confeti, vibrar, gs
+  vacio, confeti, vibrar, gs, mejorarContrasenas
 } from './core.js';
 import { vistaNegociaciones, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { vistaContactos } from './contactos.js?v=impar-busqueda-principal-20261019-3';
@@ -25,6 +25,7 @@ import { iniciarPWA, notificarApp } from './pwa.js';
 import { cargarNotas, cargarCambiosNeg } from './colaboracion.js';
 
 iniciarViewport();
+mejorarContrasenas($('#login'));
 iniciarPWA(id=>fichaNeg(id).catch(e=>toast(e.message,'bad')));
 
 const NAV = [

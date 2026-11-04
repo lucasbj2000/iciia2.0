@@ -153,6 +153,26 @@ assert.ok(chatJs.includes('function agruparMensajes(') && css.includes('#chatbox
 assert.ok(fichaJs.includes('ultimos8(m.remitente_numero) !== ultimos8(actual?.tel)'), 'Número solo si escribe desde otro');
 assert.ok(fichaJs.includes(' data-tramo="') && chatJs.includes("t.className = 'tramo-sep'") && !fichaJs.includes('<div class="historial-tramo'), '«Conversación actual» como separador');
 assert.ok(fichaJs.includes('function etiquetaCanal(n)'), 'Canal con su tipo');
+// Secciones: contactos, comunicación, calendario, reportes, configuración, administración y organigrama.
+{
+  const contactos = leer('public/js/contactos.js'), mod = leer('public/js/modulos.js'), rep = leer('public/js/reportes.js');
+  const adminJs = leer('public/js/admin.js'), org = leer('public/js/organigrama.js'), core = leer('public/js/core.js'), varios = leer('src/routes/varios.mjs');
+  assert.ok(contactos.includes('class="contactos-barra') && contactos.includes('class="c-dir"') && !contactos.includes('<th>Dirección</th>'), 'Contactos: barra única y dirección bajo el nombre');
+  assert.ok(contactos.includes("n === 1 ? 'cerrada' : 'cerradas'"), 'Contactos: «1 cerrada» en singular');
+  assert.ok(mod.includes('BUSCA_COM') && mod.includes('class="ci-n"') && mod.includes('Escribile el primer mensaje a'), 'Comunicación: buscador, sin leer y estado vacío');
+  assert.ok(mod.includes("cajaQueCrece(") && mod.includes('!esMovil()'), 'Comunicación: caja que crece y Enter envía en computadora');
+  assert.ok(varios.includes("'mio',m.de_id=$2") && !/to_jsonb\(\$(\d)::text\)[\s\S]{0,400}?de_id[<>=]+\$\1\b/.test(varios), 'Comunicación: último mensaje y parámetros uuid/texto separados');
+  assert.ok(mod.includes('VISTA_CAL') && mod.includes('details class="cal-aviso"') && mod.includes('data-saludar'), 'Calendario: agenda, aviso compacto y «Saludar»');
+  assert.ok(!leer('public/js/animaciones.js').includes('Saludalo'), 'Sin «Saludalo»');
+  assert.ok(varios.includes('percentile_cont(0.5)') && rep.includes('Mediana del período'), 'Reportes: primera respuesta como mediana');
+  const tiempo = new Function(rep.slice(rep.indexOf('const tiempo ='), rep.indexOf('/** Variación')) + '; return tiempo;')();
+  assert.equal(tiempo(14), '14 min'); assert.equal(tiempo(200), '3 h 20 min'); assert.equal(tiempo(13920), '9 días 16 h');
+  assert.equal(tiempo(1440 + 1430), '2 días', 'Las horas nunca llegan a 24');
+  assert.ok(mod.includes('class="perfil-datos"') && mod.includes('class="marcaciones"'), 'Configuración: datos de solo lectura y marcaciones en lista');
+  assert.ok(core.includes('export function mejorarContrasenas(') && core.includes("getModifierState('CapsLock')") && leer('public/js/app.js').includes("mejorarContrasenas($('#login'))"), 'Contraseñas: ver/ocultar y aviso de mayúsculas, también al ingresar');
+  assert.ok(adminJs.includes('GRUPOS_ADM') && adminJs.includes('BUSCA_ADM') && adminJs.includes('suc-vacia'), 'Administración: menú agrupado con buscador y sucursales vacías compactas');
+  assert.ok(org.includes('org-sin-personal') && org.includes('con-jefe') && org.includes('org-disp'), 'Organigrama: vacías en una línea, jerarquía y disponibilidad');
+}
 { // nombreLegible: solo cambia nombres escritos todo en mayúsculas
   const core = leer('public/js/core.js'), ini = core.indexOf('const MENORES'), fin = core.indexOf('export const fd =');
   const f = new Function(core.slice(ini, fin).replace('export function', 'function') + '; return nombreLegible;')();

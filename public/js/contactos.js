@@ -59,37 +59,37 @@ export async function vistaContactos() {
        <div><b>${esc(s.solicitante)}</b> solicita el contacto <b>${esc(s.nombre)}</b> · ${esc(s.tel || '')}</div>
        <div style="flex:none"><button class="btn ok sm" data-sol="${s.id}" data-ok="1">Aceptar</button>
        <button class="btn danger sm" data-sol="${s.id}" data-ok="0">Rechazar</button></div></div>`).join('')}</div>` : ''}
-   <div class="row" style="margin-bottom:12px;align-items:center">
-     <input id="c-buscar" placeholder="Buscar por nombre, teléfono, email o dirección…" value="${esc(QC)}"
-       style="padding:10px 13px;background:var(--surface2);border:1px solid var(--line);border-radius:10px">
-     <small id="c-busqueda-estado" aria-live="polite" style="color:var(--muted)">${busqueda ? cs.length+' resultado(s)'+(busqueda.trim().length>=2?' en todos los contactos de IMPAR':'') : QF==='libres' ? cs.length+' contacto(s) libre(s)' : ''}</small>
-     <div class="seg" role="group" aria-label="Filtro de contactos" style="flex:none;display:flex;gap:4px">
+   <div class="contactos-barra">
+     <label class="contactos-buscar"><span class="sr">Buscar contactos</span>
+       <input id="c-buscar" type="search" placeholder="Buscar por nombre, teléfono, email o dirección…" value="${esc(QC)}"></label>
+     <div class="seg" role="group" aria-label="Filtro de contactos">
        <button class="btn ${QF ? 'ghost' : ''} sm" data-filtro-contactos="">${S.usuario.rol==='agente' ? 'Mis contactos' : 'Todos'}</button>
        <button class="btn ${QF==='libres' ? '' : 'ghost'} sm" data-filtro-contactos="libres" title="Contactos sin responsable: cualquiera puede tomarlos">Libres</button></div>
-     <div style="flex:none;display:flex;gap:8px;flex-wrap:wrap">
-       <button class="btn" id="c-nuevo">+ Nuevo contacto</button>
-       <button class="btn ghost" id="c-buscar-registrado" title="Buscar cliente de cualquier sucursal para iniciar conversación">Buscar registrado en IMPAR</button>
-       ${(esAdmin() || S.usuario.rol === 'gerente') && fx('exportar') ? `<button class="btn ghost" id="c-export">⭳ Exportar</button>` : ''}
-       ${(esAdmin() || S.usuario.rol === 'gerente') && fx('importar') ? `<button class="btn ghost" id="c-import">⭱ Importar</button>
+     <small id="c-busqueda-estado" class="contactos-estado" aria-live="polite">${busqueda ? cs.length+' resultado(s)'+(busqueda.trim().length>=2?' en todos los contactos de IMPAR':'') : QF==='libres' ? cs.length+' contacto(s) libre(s)' : cs.length+' contacto(s)'}</small>
+     <div class="contactos-acciones">
+       <button class="btn sm" id="c-nuevo">+ Nuevo contacto</button>
+       <button class="btn ghost sm" id="c-buscar-registrado" title="Buscar cliente de cualquier sucursal para iniciar conversación">Buscar registrado en IMPAR</button>
+       ${(esAdmin() || S.usuario.rol === 'gerente') && fx('exportar') ? `<button class="btn ghost sm" id="c-export">⭳ Exportar</button>` : ''}
+       ${(esAdmin() || S.usuario.rol === 'gerente') && fx('importar') ? `<button class="btn ghost sm" id="c-import">⭱ Importar</button>
        <input id="c-file" type="file" accept=".csv" class="hidden">` : ''}</div></div>
    <div class="card-box"><table class="tabla-contactos"><thead><tr><th>Cliente</th><th class="hide-m">Teléfono</th>
-     <th class="hide-m">Dirección</th><th>Responsable</th><th>Estado</th><th class="hide-m">Alta</th><th></th></tr></thead>
-   <tbody>${cs.map(c => `<tr><td><b>${esc(nombreLegible(c.nombre))}</b> ${c.frecuente && fx('marcadorFrecuente') ? `<span class="tag t-frec" title="Frecuente">${ic('estrella', 'Frecuente')}</span>` : ''}</td>
-     <td class="hide-m">${esc(c.tel || '—')}</td>
-     <td class="hide-m">${c.direccion ? `<span title="${esc(c.direccion)}">${ic('pin')} ${esc(c.direccion.slice(0, 32))}${c.direccion.length > 32 ? '…' : ''}</span>` : '—'}</td>
-     <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-       <span>${c.responsable ? esc(c.responsable) : '<b style="color:var(--warn)">Libre</b>'}</span>
+     <th>Responsable</th><th>Estado</th><th class="hide-m">Alta</th><th><span class="sr">Acciones</span></th></tr></thead>
+   <tbody>${cs.map(c => { const n = Number(c.n_negociaciones) || 0;
+     return `<tr><td><b class="c-nombre">${esc(nombreLegible(c.nombre))}</b> ${c.frecuente && fx('marcadorFrecuente') ? `<span class="tag t-frec" title="Frecuente">${ic('estrella', 'Frecuente')}</span>` : ''}
+       ${c.direccion ? `<small class="c-dir" title="${esc(c.direccion)}">${ic('pin')} ${esc(c.direccion.slice(0, 48))}${c.direccion.length > 48 ? '…' : ''}</small>` : ''}
+       <small class="c-tel-m">${esc(c.tel || '')}</small></td>
+     <td class="hide-m c-tel">${esc(c.tel || '—')}</td>
+     <td><div class="c-resp">
+       <span>${c.responsable ? esc(c.responsable) : '<b class="c-libre">Libre</b>'}</span>
        ${!c.responsable_id && puedeTomar() ?
          `<button class="btn sm" data-tomar-contacto="${c.id}" title="Asignármelo">Tomar</button>` : ''}
-       ${c.responsable_id !== S.usuario.id || !puedeTomar() ?
-         `<button class="btn ghost sm" data-cambiar-responsable="${c.id}" title="Asignar a otro empleado o a mí">Cambiar</button>` :
-         `<button class="btn ghost sm" data-cambiar-responsable="${c.id}" title="Pasar a otro empleado">Pasar</button>`}
+       <button class="btn ghost sm c-ico" data-cambiar-responsable="${c.id}" aria-label="${c.responsable_id === S.usuario.id && puedeTomar() ? 'Pasar a otro empleado' : 'Cambiar responsable'}" title="${c.responsable_id === S.usuario.id && puedeTomar() ? 'Pasar a otro empleado' : 'Cambiar responsable'}">${ic('transferir')}</button>
        </div></td>
-     <td>${c.etapa_abierta ? `<span class="tag t-re">Abierta · ${esc(etapa(c.etapa_abierta).nombre)}</span>`
-       : `<span style="color:var(--muted)">${c.n_negociaciones} cerradas</span>`}</td>
-     <td class="hide-m">${fd(c.creado)}</td>
-     <td><div style="display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap"><button class="btn sm" data-conversacion="${c.id}">Conversación</button><button class="btn ghost sm" data-360="${c.id}">Ficha 360°</button></div></td></tr>`).join('')
-     || `<tr><td colspan="7">${vacio('◎', 'Sin contactos', 'Los que ingresen por los canales aparecerán acá')}</td></tr>`}
+     <td>${c.etapa_abierta ? `<span class="c-etapa" style="--etapa:${etapa(c.etapa_abierta).color}" title="Negociación abierta">${esc(etapa(c.etapa_abierta).nombre)}</span>`
+       : `<span class="c-cerradas">${n ? `${n} ${n === 1 ? 'cerrada' : 'cerradas'}` : 'Sin negociaciones'}</span>`}</td>
+     <td class="hide-m c-alta">${fd(c.creado)}</td>
+     <td><div class="c-acc"><button class="btn sm" data-conversacion="${c.id}">Conversación</button><button class="btn ghost sm c-ico" data-360="${c.id}" aria-label="Ficha 360° de ${esc(nombreLegible(c.nombre))}" title="Ficha 360°">${ic('usuarios')}</button></div></td></tr>`; }).join('')
+     || `<tr><td colspan="6">${vacio('usuarios', 'Sin contactos', 'Los que ingresen por los canales aparecerán acá')}</td></tr>`}
    </tbody></table></div></div>`;
 
   if(teniaFoco && $('#c-buscar')){

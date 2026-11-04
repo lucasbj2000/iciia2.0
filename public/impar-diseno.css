@@ -762,3 +762,145 @@ th,.kpi span,.badge-rol,.cal-h,.org-rol,.pr-eyebrow{text-transform:none!importan
 .tramo-sep{align-self:center;max-width:92%;margin:8px 0 4px;padding:5px 14px;border-radius:999px;font:600 var(--fs-xs) var(--f-texto);
   color:var(--muted);background:var(--surface2);border:1px dashed var(--line);text-align:center;overflow-wrap:anywhere}
 .tramo-sep.anterior{border-style:solid;border-color:var(--verde-borde);color:var(--txt)}
+
+/* ============ Contactos: filas compactas ============ */
+.contactos-barra{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:12px}
+.contactos-buscar{flex:1 1 300px;max-width:520px;display:flex}
+.contactos-buscar input{width:100%;padding:10px 13px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;min-height:42px}
+.contactos-barra .seg{display:flex;gap:4px;flex:none}
+.contactos-estado{color:var(--muted);flex:none}
+.contactos-acciones{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+@media (min-width:901px){.tabla-contactos td{padding-top:9px;padding-bottom:9px;vertical-align:middle}}
+.c-nombre{font-weight:600}
+.c-dir{display:block;color:var(--muted);font-size:var(--fs-xs);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
+.c-dir .ic{width:12px;height:12px}
+.c-tel-m{display:none}
+.c-tel,.c-alta{font-variant-numeric:tabular-nums;color:var(--muted)}
+.c-resp{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.c-libre{color:var(--warn)}
+.c-ico{width:34px;min-width:34px;padding:0!important;justify-content:center}
+.c-ico .ic{width:16px;height:16px;margin:0}
+.c-etapa{display:inline-flex;align-items:center;gap:7px;font-size:var(--fs-sm);white-space:nowrap}
+.c-etapa::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--etapa);flex:none}
+.c-cerradas{color:var(--muted);font-size:var(--fs-sm)}
+.c-acc{display:flex;justify-content:flex-end;gap:6px}
+@media (max-width:900px){
+  .contactos-buscar{flex-basis:100%;max-width:none}
+  .contactos-acciones{margin-left:0}
+  .c-tel-m{display:block;color:var(--muted);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
+  .c-dir{max-width:none}
+  .tabla-contactos td:nth-child(3){grid-column:2;grid-row:1;justify-self:end}
+  .tabla-contactos td:nth-child(4){grid-column:1;grid-row:2;align-self:center}
+  .tabla-contactos td:last-child{grid-column:2!important;grid-row:2}
+  .tabla-contactos tbody tr{row-gap:8px!important}
+}
+@media (max-width:600px){
+  /* Importar y exportar son tareas de PC */
+  #c-export,#c-import{display:none}
+  .contactos-acciones .btn{flex:1 1 auto}
+}
+
+/* ============ Comunicación interna ============ */
+.ci-buscar{display:block;padding:10px 12px;border-bottom:1px solid var(--line)}
+.ci-buscar input{width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;min-height:40px}
+.ci-sec{display:flex;align-items:center;gap:7px;padding:12px 14px 6px}
+.ci-sec b{flex:1;font-size:var(--fs-xs);color:var(--muted);font-weight:600}
+.ci-mas{width:32px;min-width:32px;min-height:32px;padding:0!important;justify-content:center}
+.ci-vacio{padding:10px 14px;color:var(--muted);font-size:var(--fs-sm)}
+.ci-i[hidden]{display:none!important}
+.ci-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ci-l1,.ci-l2{display:flex;align-items:center;gap:8px;min-width:0}
+.ci-l1 b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci-l1 time{flex:none;font-size:var(--fs-xs);color:var(--muted);font-variant-numeric:tabular-nums}
+.ci-l2 small{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.ci-i:has(.ci-n) .ci-l1 time{color:var(--verde-texto);font-weight:600}
+.ci-i:has(.ci-n) .ci-l2 small{color:var(--txt)}
+.ci-n{flex:none;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--verde);color:var(--sobre-verde);font:700 var(--fs-xs) var(--f-texto);display:inline-grid;place-items:center}
+.ci-av{position:relative;overflow:visible}
+.ci-av img{border-radius:50%}
+.ci-disp{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;box-shadow:0 0 0 2px var(--surface)}
+.ci-grupo{background:var(--verde-suave)!important;color:var(--verde-texto)!important}
+.ci-autor{font-size:var(--fs-xs);color:var(--verde-texto);display:block;margin-bottom:2px}
+.ci-f{align-items:flex-end}
+#ci-msg{min-height:44px;resize:none;line-height:1.45}
+#ci-body .empty{margin:auto}
+
+/* ============ Calendario ============ */
+.cal-saludos{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:-4px 0 14px}
+.cal-vistas{display:flex;gap:4px;margin:0 auto}
+.cal-aviso{margin:0 0 12px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:var(--fs-sm)}
+.cal-aviso summary{cursor:pointer;color:var(--muted);display:flex;align-items:center;gap:8px;list-style:none}
+.cal-aviso summary::-webkit-details-marker{display:none}
+.cal-aviso p{margin:8px 0 2px;color:var(--muted)}
+.cal-agenda{display:flex;flex-direction:column;gap:14px}
+.ag-dia h4{margin:0 0 6px;font:700 var(--fs-sm) var(--f-titulo)}
+.ag-dia{cursor:pointer}
+.ag-ev{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:6px;font-size:var(--fs-sm)}
+.ag-ev small{margin-left:auto;color:var(--muted);white-space:nowrap}
+.ag-marca{width:10px;height:10px;min-width:10px;padding:0!important;border-radius:50%;font-size:0!important}
+
+/* ============ Configuración y contraseñas ============ */
+.perfil-datos{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px 16px;margin:4px 0 8px}
+.perfil-datos div{min-width:0}
+.perfil-datos dt{font-size:var(--fs-xs);color:var(--muted)}
+.perfil-datos dd{margin:2px 0 0;font-weight:600;font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis}
+.perfil-nota{color:var(--muted);font-size:var(--fs-xs);margin:0 0 12px}
+.marcaciones{list-style:none;margin:0;padding:0;max-height:160px;overflow:auto}
+.marcaciones li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line-suave);font-size:var(--fs-sm)}
+.marcaciones time{margin-left:auto;color:var(--muted);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
+.marc-vacio{color:var(--muted)}
+.pass-caja{position:relative;display:block;width:100%}
+.pass-caja input{width:100%;padding-right:48px!important}
+.pass-ver{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:40px;height:40px;display:grid;place-items:center;border:0;background:none;color:var(--muted);border-radius:8px;cursor:pointer}
+.pass-ver:hover{color:var(--txt);background:var(--surface2)}
+.pass-ver .ic{width:19px;height:19px}
+.pass-mayus{display:flex;align-items:center;gap:6px;color:var(--warn);font-size:var(--fs-xs);margin-top:6px}
+.pass-mayus[hidden]{display:none}
+.pass-mayus .ic{width:14px;height:14px}
+
+/* ============ Administración: menú lateral agrupado ============ */
+.adm-layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:16px;align-items:start}
+.adm-menu{position:sticky;top:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:4px;max-height:calc(var(--crm-viewport-height,100dvh) - 110px);overflow:auto}
+.adm-buscar input{width:100%;padding:8px 11px;background:var(--surface2);border:1px solid var(--line);border-radius:9px;min-height:38px;margin-bottom:4px}
+.adm-grupo{display:flex;flex-direction:column;gap:1px;margin-top:6px}
+.adm-grupo[hidden],.adm-i[hidden]{display:none!important}
+.adm-grupo>b{font-size:var(--fs-xs);color:var(--muted);font-weight:600;padding:4px 10px}
+.adm-i{text-align:left;border:0;background:none;color:var(--txt);font:400 var(--fs-sm) var(--f-texto);padding:8px 10px;border-radius:8px;cursor:pointer;min-height:36px}
+.adm-i:hover{background:var(--surface2)}
+.adm-i.active{background:var(--verde-suave);color:var(--verde-texto);font-weight:600;border-radius:var(--esquina)}
+.adm-sin{color:var(--muted);font-size:var(--fs-sm);padding:6px 10px;margin:0}
+.adm-movil{display:none}
+#adm-body{min-width:0}
+@media (max-width:900px){
+  .adm-layout{grid-template-columns:1fr}
+  .adm-menu{position:static;max-height:none;padding:8px}
+  .adm-buscar,.adm-grupo,.adm-sin{display:none!important}
+  .adm-movil{display:block;width:100%;min-height:44px}
+}
+/* Sucursales sin canales: una sola línea compacta, al final de la lista */
+.suc-bloque.suc-vacia{background:transparent}
+.suc-bloque.suc-vacia .suc-head{padding-top:10px;padding-bottom:10px;border-bottom:0}
+.suc-bloque.suc-vacia .suc-head small{color:var(--muted)}
+
+/* ============ Organigrama ============ */
+.org-persona .org-cab{display:flex;gap:12px;align-items:center}
+.org-av{position:relative;width:46px;height:46px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--verde-suave);color:var(--verde-texto);font:700 15px var(--f-titulo)}
+.org-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.org-disp{position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;box-shadow:0 0 0 2px var(--surface)}
+.org-id{min-width:0}
+.org-id h3{margin:2px 0!important}
+.org-id p{margin:0!important}
+.org-estado{color:var(--muted)}
+.org-persona .btn{margin-top:10px}
+.org-sucursal small{font:400 var(--fs-xs) var(--f-texto);color:var(--muted);margin-left:6px}
+/* Quién reporta a quién: el equipo cuelga del jefe con una línea */
+.org-equipo{display:flex;flex-direction:column;gap:10px}
+.org-equipo.con-jefe{margin-left:22px;padding-left:18px;border-left:2px solid var(--verde-borde);position:relative}
+.org-equipo.con-jefe>.org-persona{position:relative}
+.org-equipo.con-jefe>.org-persona::before{content:"";position:absolute;left:-20px;top:34px;width:18px;border-top:2px solid var(--verde-borde)}
+.org-rama{display:flex;flex-direction:column;gap:10px}
+.org-sin-personal{color:var(--muted);font-size:var(--fs-sm);margin:16px 0}
+
+.rep-cifra b{white-space:nowrap}
+.rep-cifra b.largo{font-size:clamp(17px,1.5vw,22px);padding-top:4px}
+.org-sucursales{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))!important}

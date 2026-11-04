@@ -14,7 +14,14 @@ const ALCANCE = {
 };
 const montoDe = n => Number(n.monto_cierre || n.valor || 0);
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
-const tiempo = min => min >= 60 ? `${Math.round(min / 60)} h` : `${min} min`;
+/** 14 min · 3 h 20 min · 9 días 16 h */
+const tiempo = min => {
+  min = Math.max(0, Math.round(Number(min) || 0));
+  if (min < 60) return `${min} min`;
+  if (min < 1440) { const h = Math.floor(min / 60), m = min % 60; return m ? `${h} h ${m} min` : `${h} h`; }
+  const horas = Math.round(min / 60), d = Math.floor(horas / 24), h = horas % 24;
+  return `${d} ${d === 1 ? 'día' : 'días'}${h ? ` ${h} h` : ''}`;
+};
 
 /** Variación frente al período anterior. masEsMejor decide el color. */
 function delta(actual, previo, { masEsMejor = true, puntos = false } = {}) {
@@ -100,8 +107,8 @@ function graficoEvolucion(ns, ancho0 = 720) {
       ${cs.map(barra).join('')}
       <path class="rep-line" d="${linea}" pathLength="1"/>
       ${cs.map((c, i) => c.ganadas || i === ultimo ? `<circle class="rep-dot" cx="${cx(i)}" cy="${y(c.ganadas)}" r="4"/>` : '').join('')}
-      ${cs.map((c, i) => i % cadaCuanto === 0 || i === ultimo
-        ? `<text class="rep-xtick" x="${cx(i)}" y="${H - 8}" text-anchor="middle">${esc(c.etiqueta)}</text>` : '').join('')}
+      ${cs.map((c, i) => (i % cadaCuanto === 0 && (i === ultimo || ultimo - i >= Math.ceil(cadaCuanto * .7))) || i === ultimo
+        ? `<text class="rep-xtick" x="${cx(i)}" y="${H - 8}" text-anchor="${i === ultimo && cs.length > 1 ? 'end' : i === 0 ? 'start' : 'middle'}">${esc(c.etiqueta)}</text>` : '').join('')}
       ${cs.map((c, i) => `<rect class="rep-hit" x="${izq + banda * i}" y="${arr}" width="${banda}" height="${H - arr - abj}" data-i="${i}"/>`).join('')}
     </svg>
     <div class="rep-tip" hidden></div></div>
@@ -278,7 +285,7 @@ function pintar(d) {
        <div class="rep-cifra"><span class="rep-et">Negociaciones</span><b>${total}</b>${delta(total, a?.total)}</div>
        <div class="rep-cifra"><span class="rep-et">Ganadas</span><b>${gan.length}</b>${delta(gan.length, a?.ganadas)}</div>
        <div class="rep-cifra"><span class="rep-et">Conversión</span><b>${conv}%</b>${convAnt == null ? '<span class="rep-delta">Sin período anterior para comparar</span>' : delta(conv, convAnt, { puntos: true })}</div>
-       <div class="rep-cifra"><span class="rep-et">Primera respuesta</span><b>${tiempo(d.primeraRespuestaMin)}</b><span class="rep-delta">Promedio del período</span></div>
+       <div class="rep-cifra"><span class="rep-et">Primera respuesta</span><b class="${tiempo(d.primeraRespuestaMin).length > 6 ? 'largo' : ''}">${d.primeraRespuestaMedidas === 0 ? '—' : tiempo(d.primeraRespuestaMin)}</b><span class="rep-delta" title="La mitad de las negociaciones recibió su primera respuesta en menos de este tiempo">Mediana del período</span></div>
      </div>
      <ul class="rep-menores">
        <li><b>${abiertas.length}</b> abiertas</li>

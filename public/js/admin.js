@@ -19,6 +19,15 @@ const TABS = [
   ['mensajeria', 'Salud de mensajería'], ['limpieza', 'Limpieza'], ['audit', 'Auditoría']
 ];
 
+/* Las pestañas se muestran como menú lateral en cuatro grupos (los ids no cambian). */
+const GRUPOS_ADM = [
+  ['WhatsApp y canales', ['canales', 'enlaces', 'bot', 'mensajeria', 'ubicaciones']],
+  ['Equipo', ['usuarios', 'horarios', 'accesos', 'noti', 'ayudas']],
+  ['Ventas', ['etapas', 'reglas', 'rapidas', 'botones', 'catalogos', 'stock']],
+  ['Sistema', ['diseno', 'sucursales', 'flags', 'bitrix', 'limpieza', 'audit', 'meta-lab']]
+];
+let BUSCA_ADM = '';
+
 export function irABotones() { TADM = 'botones'; import('./app.js').then(m => m.ir('adm')); }
 export function irABitrix() { TADM = 'bitrix'; import('./app.js').then(m => m.ir('adm')); }
 export function irACatalogos() { TADM = 'catalogos'; import('./app.js').then(m => m.ir('adm')); }
@@ -29,10 +38,27 @@ export async function vistaAdmin() {
     return;
   }
   if (!defs) defs = await get('/admin/definiciones');
-  $('#view').innerHTML = `<div class="section">
-    <div class="tabs">${[...TABS, ...(S.usuario.usuario?.toLowerCase()==='admin' ? [['meta-lab','Pruebas API']] : [])].map(([k, t]) => `<button class="tab ${TADM === k ? 'active' : ''}" data-adm="${k}">${t}</button>`).join('')}</div>
+  const todas = new Map([...TABS, ...(S.usuario.usuario?.toLowerCase()==='admin' ? [['meta-lab','Pruebas API']] : [])]);
+  const enGrupo = new Set(GRUPOS_ADM.flatMap(g => g[1]));
+  const grupos = [...GRUPOS_ADM.map(([t, ks]) => [t, ks.filter(k => todas.has(k))]), ['Otros', [...todas.keys()].filter(k => !enGrupo.has(k))]].filter(g => g[1].length);
+  $('#view').innerHTML = `<div class="section adm-layout">
+    <nav class="adm-menu" aria-label="Secciones de administración">
+      <label class="adm-buscar"><span class="sr">Buscar sección</span><input id="adm-buscar" type="search" placeholder="Buscar sección…" value="${esc(BUSCA_ADM)}"></label>
+      <select id="adm-movil" class="adm-movil" aria-label="Sección de administración">${grupos.map(([t, ks]) => `<optgroup label="${t}">${ks.map(k => `<option value="${k}" ${TADM === k ? 'selected' : ''}>${todas.get(k)}</option>`).join('')}</optgroup>`).join('')}</select>
+      ${grupos.map(([t, ks]) => `<div class="adm-grupo"><b>${t}</b>${ks.map(k => `<button type="button" class="adm-i ${TADM === k ? 'active' : ''}" data-adm="${k}" data-nombre="${esc(todas.get(k).toLowerCase())}" ${TADM === k ? 'aria-current="page"' : ''}>${todas.get(k)}</button>`).join('')}</div>`).join('')}
+      <p class="adm-sin" id="adm-sin" hidden>Ninguna sección coincide.</p>
+    </nav>
     <div id="adm-body" class="fx-vista">${skeleton(4)}</div></div>`;
-  $$('[data-adm]').forEach(b => b.onclick = () => { clearInterval(timerQR); TADM = b.dataset.adm; vistaAdmin(); });
+  const irA = k => { clearInterval(timerQR); TADM = k; vistaAdmin(); };
+  $$('[data-adm]').forEach(b => b.onclick = () => irA(b.dataset.adm));
+  $('#adm-movil').onchange = e => irA(e.target.value);
+  const filtrarAdm = () => {
+    const q = BUSCA_ADM.trim().toLowerCase(); let n = 0;
+    $$('.adm-grupo').forEach(g => { let vis = 0; g.querySelectorAll('.adm-i').forEach(b => { const ok = !q || b.dataset.nombre.includes(q); b.hidden = !ok; vis += ok; }); g.hidden = !vis; n += vis; });
+    $('#adm-sin').hidden = n > 0;
+  };
+  $('#adm-buscar').oninput = e => { BUSCA_ADM = e.target.value; filtrarAdm(); };
+  filtrarAdm();
   const fn = { 'meta-lab': () => import('./meta-laboratorio-impar.js').then(m=>m.vistaLaboratorioMeta()), canales: aCanales, diseno: aDiseno, sucursales: aSucursales,
     bitrix: () => import('./importar-bitrix.js').then(m=>m.vistaImportarBitrix()),
     botones: aBotones, flags: aFlags, ayudas: aAyudas, horarios: administrarHorarios, noti: aNoti, rapidas: aRapidas,
@@ -136,12 +162,11 @@ async function aCanales() {
        No es necesario cambiar la sucursal de los empleados.</div>
    </div>
 
-   ${data.sucursales.map(s => `<div class="suc-bloque">
+   ${[...data.sucursales].sort((a, b) => (b.canales.length > 0) - (a.canales.length > 0)).map(s => `<div class="suc-bloque ${s.canales.length ? '' : 'suc-vacia'}">
      <div class="suc-head"><span class="suc-ic">${ic('edificio')}</span>
-       <div style="flex:1"><b>${esc(s.nombre)}</b><small>${esc(s.ciudad || '')} · ${s.canales.length} canal(es)</small></div>
-       <button class="btn sm" data-nuevo-suc="${s.id}">+ Agregar canal</button></div>
-     <div class="suc-body">${s.canales.map(tarjeta).join('')
-       || vacio('canal', 'Sin canales en esta sucursal', 'Agregá WhatsApp, Messenger o Instagram')}</div></div>`).join('')}
+       <div style="flex:1"><b>${esc(s.nombre)}</b><small>${esc(s.ciudad || '')} · ${s.canales.length ? `${s.canales.length} ${s.canales.length === 1 ? 'canal' : 'canales'}` : 'sin canales'}</small></div>
+       <button class="btn ${s.canales.length ? '' : 'ghost'} sm" data-nuevo-suc="${s.id}">+ Agregar canal</button></div>
+     ${s.canales.length ? `<div class="suc-body">${s.canales.map(tarjeta).join('')}</div>` : ''}</div>`).join('')}
 
    ${data.sinSucursal.length ? `<div class="suc-bloque">
      <div class="suc-head"><span class="suc-ic">${ic('canal')}</span>
