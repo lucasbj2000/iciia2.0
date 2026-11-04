@@ -3,13 +3,19 @@ import { emitir } from './realtime.mjs';
 import { normalizar, sucursalDe } from './geografia-impar.mjs';
 
 const central = nombre => /\bcentral\b/.test(normalizar(nombre));
-const matriz = nombre => /\bmatriz\b/.test(normalizar(nombre));
+const matriz = nombre => /\bmatriz\b|\bbarrio obrero\b/.test(normalizar(nombre));
+const fernando = nombre => /\bfernando de la mora\b|\bmadame lynch\b|\bfdo de la mora\b/.test(normalizar(nombre));
+// Lo que el cliente puede escribir para cada sucursal, además de su nombre en el CRM.
+const ALIAS_MATRIZ = ['matriz', 'casa matriz', 'asuncion', 'matriz asuncion', 'barrio obrero', 'obrero', 'b obrero'];
+const ALIAS_FERNANDO = ['fernando de la mora', 'fdo de la mora', 'fernando', 'fdo', 'madame lynch', 'madam lynch', 'madame', 'lynch'];
 
-// Orden solicitado por IMPAR. No cambia los IDs ni la asignación real de usuarios.
+// Orden y nombres que ve el cliente, solicitados por IMPAR. Solo cambia el texto mostrado:
+// «Barrio Obrero» es la sucursal Matriz del CRM y «Madame Lynch» es Fernando de la Mora,
+// así que la asignación y las transferencias siguen usando las sucursales reales.
 const ORDEN_MOSTRADO = [
-  {p:0, etiqueta:'Matriz - Asunción', patron:/\bmatriz\b/},
+  {p:0, etiqueta:'Barrio Obrero', patron:/\bmatriz\b|\bbarrio obrero\b/},
   {p:1, etiqueta:'Lambaré', patron:/\blambare\b/},
-  {p:2, etiqueta:'Fernando de la Mora', patron:/\bfernando de la mora\b|\bmadame lynch\b|\bfdo de la mora\b/},
+  {p:2, etiqueta:'Madame Lynch', patron:/\bfernando de la mora\b|\bmadame lynch\b|\bfdo de la mora\b/},
   {p:3, etiqueta:'Ciudad del Este', patron:/\bciudad del este\b|\bcde\b/},
   {p:4, etiqueta:'Encarnación', patron:/\bencarnacion\b/},
   {p:5, etiqueta:'Pedro Juan Caballero', patron:/\bpedro juan caballero\b|\bpjc\b/}
@@ -34,8 +40,8 @@ export function elegirSucursal(texto, opciones) {
   const halladas = opciones.filter(s => {
     // Central no participa de recepción aunque comparta alias geográficos con Matriz.
     if (central(s.nombre)) return false;
-    const alias = [normalizar(s.nombre), ...(matriz(s.nombre) ? ['matriz', 'casa matriz', 'asuncion', 'matriz asuncion']
-      : [...(sucursalDe(s.nombre)?.alias || []), ...(normalizar(s.nombre).includes('fernando de la mora') ? ['fernando', 'fdo'] : [])]
+    const alias = [normalizar(s.nombre), ...(matriz(s.nombre) ? ALIAS_MATRIZ
+      : [...(sucursalDe(s.nombre)?.alias || []), ...(fernando(s.nombre) ? ALIAS_FERNANDO : [])]
         .filter(a => !central(a) && !matriz(a)))];
     return alias.some(a => a && (` ${t} `).includes(` ${a} `));
   });
@@ -146,9 +152,10 @@ export async function responderRecepcionImpar(empresaId, negId, { porVencimiento
       return null;
     }
     st.fase='sucursal'; st.opciones=opciones;
-    let respuesta='¡Hola! Te damos la bienvenida a Papelerías IMPAR. ¿Con qué sucursal querés hablar?';
-    respuesta += opciones.length ? '\n'+textoMenuRecepcion(opciones)+'\nRespondé con el número o el nombre de la sucursal.'
-      : '\nTu consulta será derivada a Matriz.';
+    let respuesta='¡Hola! Te damos la bienvenida a Papelerías IMPAR. ¿Con qué sucursal deseas contactarte?';
+    respuesta += opciones.length
+      ? '\n\n'+textoMenuRecepcion(opciones)+'\n\nResponde con el número o el nombre de la sucursal y en un momento serás atendido.'
+      : '\n\nEn un momento te atiende nuestra sucursal Barrio Obrero.';
     await db.query(`UPDATE negociaciones SET bot_recepcion=$3,recepcion_vence=now()+interval '2 hours'
       WHERE id=$1 AND empresa_id=$2`, [negId,empresaId,JSON.stringify(st)]);
     await db.query(`INSERT INTO mensajes(empresa_id,negociacion_id,dir,txt,bot,estado) VALUES($1,$2,'out',$3,true,'pendiente')`, [empresaId,negId,respuesta]);

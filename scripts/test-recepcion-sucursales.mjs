@@ -49,7 +49,7 @@ completo.entorno.opciones=[
   {id:'lam',nombre:'Lambaré'},{id:'matriz',nombre:'Matriz'},
   {id:'central',nombre:'Central'}];
 await completo.responder();
-const menuDeseado=['1 - Matriz - Asunción','2 - Lambaré','3 - Fernando de la Mora',
+const menuDeseado=['1 - Barrio Obrero','2 - Lambaré','3 - Madame Lynch',
  '4 - Ciudad del Este','5 - Encarnación','6 - Pedro Juan Caballero'].join('\n');
 assert.ok(completo.mensajes[0].includes(menuDeseado), 'Menú exactamente en el orden comercial');
 assert.doesNotMatch(completo.mensajes[0],/7 - Central/);
@@ -69,7 +69,10 @@ const nuevo=escenario();
 await nuevo.responder();
 assert.equal(nuevo.mensajes.length,1);
 assert.match(nuevo.mensajes[0],/bienvenida a Papelerías IMPAR/);
-assert.match(nuevo.mensajes[0],/1 - Matriz - Asunción\n2 - Ciudad del Este/);
+assert.match(nuevo.mensajes[0],/1 - Barrio Obrero\n2 - Ciudad del Este/);
+assert.equal(completo.mensajes[0],'¡Hola! Te damos la bienvenida a Papelerías IMPAR. ¿Con qué sucursal deseas contactarte?\n\n'
+  +menuDeseado+'\n\nResponde con el número o el nombre de la sucursal y en un momento serás atendido.','Texto de bienvenida pedido por IMPAR');
+assert.doesNotMatch(completo.mensajes[0],/Matriz|Fernando/,'El cliente no ve los nombres internos');
 assert.doesNotMatch(nuevo.mensajes[0],/Central|ciudad vivís|llamás/);
 assert.equal(nuevo.n.agente_id,null);
 assert.equal(nuevo.n.responsable_id,null);
@@ -99,6 +102,11 @@ for(const texto of ['CDE','Quiero hablar con Ciudad del Este','ciudad del éste'
 assert.equal(nuevo.f.elegirSucursal('Matriz',sucursales).id,'matriz');
 assert.equal(nuevo.f.elegirSucursal('Asunción',sucursales).id,'matriz');
 assert.equal(completo.f.elegirSucursal('Fernando',completo.entorno.opciones).id,'fm');
+// Los nombres que ve el cliente llevan a la sucursal real del CRM (asignación y transferencias).
+for(const texto of ['Barrio Obrero','barrio obrero por favor','Obrero','1'])
+  assert.equal(completo.f.elegirSucursal(texto,completo.n.bot_recepcion.opciones||completo.entorno.opciones).id,'matriz',texto);
+for(const texto of ['Madame Lynch','madame lynch','Madam Lynch','Fernando de la Mora'])
+  assert.equal(completo.f.elegirSucursal(texto,completo.entorno.opciones).id,'fm',texto);
 for(const texto of ['Central','casa central','CDE o Matriz','0','99'])assert.equal(nuevo.f.elegirSucursal(texto,sucursales),null);
 console.log('✓ Selección por nombre y alias; entradas ambiguas o Central no asignan');
 

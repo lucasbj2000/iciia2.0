@@ -4,7 +4,8 @@
 
 - Se activa la recepción estructurada de IMPAR sin necesitar una clave de IA.
 - Solo una ficha creada por un mensaje entrante después de actualizar, sin responsable, obtiene elegibilidad. Las fichas anteriores, incluidos contactos importados sin responsable, siguen en atención manual.
-- Bienvenida: «¡Hola! Te damos la bienvenida a Papelerías IMPAR. ¿Con qué sucursal querés hablar?».
+- Bienvenida: «¡Hola! Te damos la bienvenida a Papelerías IMPAR. ¿Con qué sucursal deseas contactarte?», el menú y «Responde con el número o el nombre de la sucursal y en un momento serás atendido.».
+- Nombres que ve el cliente: **Barrio Obrero** = sucursal Matriz del CRM; **Madame Lynch** = sucursal Fernando de la Mora. Solo cambia el texto: la asignación y las transferencias usan las sucursales reales, y el cliente puede escribir cualquiera de los dos nombres.
 - El menú usa las sucursales activas con agentes habilitados y visibles. Excluye cualquier sucursal llamada Central. Acepta número, nombre y alias conocidos. Conserva la numeración enviada a cada cliente.
 - El cliente permanece sin responsable hasta elegir. El reparto es por menor carga entre agentes activos de la sucursal elegida; actualiza la ficha y la negociación, con historial y notificación interna.
 - Si no hay elección en **2 horas corridas desde que se registra la bienvenida**, deriva en silencio a un agente de **Matriz**. Los mensajes sin elección no reinician el plazo.
