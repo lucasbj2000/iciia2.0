@@ -13,6 +13,21 @@ export function etiquetaDia(clave, ahora = new Date()) {
 }
 /** Hora corta para la burbuja; la fecha completa queda en el separador y en el título. */
 export const horaMensaje = t => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: ZONA }); };
+/* Mensajes seguidos del mismo lado (hasta 10 minutos entre sí) se agrupan como en WhatsApp. */
+const VENTANA_GRUPO = 10 * 60000;
+function agruparMensajes(caja) {
+  let previo = null;
+  for (const el of caja.children) {
+    if (!el.classList.contains('msg') || !el.dataset.dir) { previo = null; continue; }
+    const junto = previo && previo.dataset.dir === el.dataset.dir
+      && Math.abs(new Date(el.dataset.ts) - new Date(previo.dataset.ts)) <= VENTANA_GRUPO;
+    el.classList.toggle('g-cont', !!junto);
+    if (previo) previo.classList.toggle('g-sigue', !!junto);
+    el.classList.remove('g-sigue');
+    previo = el;
+  }
+}
+
 /* Rótulo flotante del día que se está mirando: cambia mientras se desplaza y se oculta al detenerse. */
 function diaFlotante(caja) {
   const zona = caja.parentElement; if (!zona) return null;
@@ -48,7 +63,7 @@ function seguirDia(caja) {
 }
 
 function separarPorDia(caja) {
-  caja.querySelectorAll(':scope > .dia-sep').forEach(el => el.remove());
+  caja.querySelectorAll(':scope > .dia-sep, :scope > .tramo-sep').forEach(el => el.remove());
   let previo = '';
   for (const el of [...caja.children]) {
     const dia = el.dataset.dia; if (!dia) continue;
@@ -59,7 +74,15 @@ function separarPorDia(caja) {
       caja.insertBefore(sep, el);
       previo = dia;
     }
+    // Inicio de una conversación (actual o anterior): separador propio, fuera de la burbuja.
+    if (el.dataset.tramo) {
+      const t = document.createElement('div');
+      t.className = 'tramo-sep' + (el.dataset.tramoAnterior ? ' anterior' : ''); t.setAttribute('role', 'separator');
+      t.textContent = el.dataset.tramo;
+      caja.insertBefore(t, el);
+    }
   }
+  agruparMensajes(caja);
   seguirDia(caja);
 }
 // Conserva los nodos existentes, el audio en reproducción y la posición de lectura.
@@ -97,6 +120,7 @@ export function actualizarMensajes(caja, mensajes, render, seguir = false) {
     existentes.delete(id);
     delete nodo.dataset.local;
     nodo.dataset.dia = claveDia(mensaje.ts);
+    nodo.dataset.dir = mensaje.dir || ''; nodo.dataset.ts = mensaje.ts || '';
   }
   // Los mensajes locales esperan la confirmación del POST; un SSE temprano no los borra.
   existentes.forEach(el => { if (!el.dataset.local) el.remove(); });
@@ -126,7 +150,7 @@ export function mostrarMensajePendiente(caja, mensaje, render) {
   const plantilla = document.createElement('template'); plantilla.innerHTML = render(m);
   const nodo = plantilla.content.firstElementChild;
   nodo.dataset.mensajeId = id; nodo.dataset.local = 'enviando'; nodo._mensajeHTML = render(m);
-  nodo.dataset.dia = claveDia(m.ts);
+  nodo.dataset.dia = claveDia(m.ts); nodo.dataset.dir = m.dir || ''; nodo.dataset.ts = m.ts;
   caja.querySelectorAll('.empty').forEach(el => el.remove());
   caja.append(nodo); separarPorDia(caja); caja.scrollTop = caja.scrollHeight;
   return {

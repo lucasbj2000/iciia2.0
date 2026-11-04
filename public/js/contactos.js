@@ -1,8 +1,7 @@
 /* ============ Contactos y ficha 360° ============ */
 import {
   $, $$, esc, S, api, get, post, patch, del, gs, fd, fdate, toast, modal, cerrar,
-  fx, esAdmin, etapa, bajar, vacio, skeleton
-} from './core.js';
+  fx, esAdmin, etapa, bajar, vacio, skeleton, nombreLegible } from './core.js';
 import { fichaNeg } from './ficha.js';
 import { chequearDuplicado } from './negociaciones.js';
 import { activarVisor } from './adjuntos.js';
@@ -75,7 +74,7 @@ export async function vistaContactos() {
        <input id="c-file" type="file" accept=".csv" class="hidden">` : ''}</div></div>
    <div class="card-box"><table class="tabla-contactos"><thead><tr><th>Cliente</th><th class="hide-m">Teléfono</th>
      <th class="hide-m">Dirección</th><th>Responsable</th><th>Estado</th><th class="hide-m">Alta</th><th></th></tr></thead>
-   <tbody>${cs.map(c => `<tr><td><b>${esc(c.nombre)}</b> ${c.frecuente && fx('marcadorFrecuente') ? `<span class="tag t-frec" title="Frecuente">${ic('estrella', 'Frecuente')}</span>` : ''}</td>
+   <tbody>${cs.map(c => `<tr><td><b>${esc(nombreLegible(c.nombre))}</b> ${c.frecuente && fx('marcadorFrecuente') ? `<span class="tag t-frec" title="Frecuente">${ic('estrella', 'Frecuente')}</span>` : ''}</td>
      <td class="hide-m">${esc(c.tel || '—')}</td>
      <td class="hide-m">${c.direccion ? `<span title="${esc(c.direccion)}">${ic('pin')} ${esc(c.direccion.slice(0, 32))}${c.direccion.length > 32 ? '…' : ''}</span>` : '—'}</td>
      <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">

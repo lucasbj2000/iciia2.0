@@ -66,6 +66,14 @@ export function salir() {
 export const gs = v => 'Gs ' + (Number(v) || 0).toLocaleString('es-PY');
 export const fdate = t => t ? new Date(t).toLocaleDateString('es-PY') + ' ' +
   new Date(t).toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' }) : '—';
+/** «LILIANA BRITEZ» → «Liliana Britez». Solo para mostrar: el dato guardado no cambia.
+ *  Se aplica únicamente a nombres escritos todo en mayúsculas. */
+const MENORES = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e', 'da', 'do', 'van', 'von']);
+export function nombreLegible(nombre) {
+  const t = String(nombre ?? '');
+  if (!/\p{Lu}/u.test(t) || /\p{Ll}/u.test(t)) return t;
+  return t.toLocaleLowerCase('es').replace(/[\p{L}\p{M}]+/gu, (p, i) => (i > 0 && MENORES.has(p) ? p : p.charAt(0).toLocaleUpperCase('es') + p.slice(1)));
+}
 export const fd = t => t ? new Date(t).toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
 export function ago(t) {
   if (!t) return '—';

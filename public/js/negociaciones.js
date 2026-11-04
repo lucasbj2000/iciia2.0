@@ -3,7 +3,7 @@ import { volar, volarDesde, desplegarDesde } from './animaciones.js';
 import { avataresEquipo, cargarPresencias } from './presencia-equipo.js';
 import { ic } from './iconos.js';
 import {
-  $, $$, esc, S, get, post, patch, gs, fd, ago, toast, modal, cerrar, confirmar,
+  $, $$, esc, nombreLegible, S, get, post, patch, gs, fd, ago, toast, modal, cerrar, confirmar,
   fx, esAdmin, etapa, etapaActiva, ORIGENES, vacio, skeleton, confeti, vibrar,
   destacar, animarContador, esMovil
 } from './core.js';
@@ -300,7 +300,7 @@ function tarjeta(n) {
   return `<div class="card ${SEL.has(n.id) ? 'sel' : ''}${plazo}" data-id="${n.id}"
       style="--acc:${etapa(n.etapa).color}" draggable="${MODO_SEL ? 'false' : 'true'}">
     ${MODO_SEL ? `<input type="checkbox" class="chk" ${SEL.has(n.id) ? 'checked' : ''} data-chk="${n.id}">` : ''}
-    ${avataresEquipo(n.id)}<span class="nom">${esc(n.cliente || '—')}</span>
+    ${avataresEquipo(n.id)}<span class="nom">${esc(nombreLegible(n.cliente) || '—')}</span>
     <div class="linea"><span class="card-canal canal-${cls}" role="img" aria-label="Canal ${esc(n.origen || 'otro')}" title="${esc(n.origen || 'otro')}">${ic(CANAL_IC[cls] || 'mensaje')}</span>
       ${n.agente_nombre ? esc(n.agente_nombre) : '<span style="color:var(--warn)">Sin asignar</span>'}
       ${monto ? '· ' + monto : ''}</div>
@@ -393,7 +393,7 @@ export async function mover(id, destino, extra = {}) {
 
 function modalGanado(id) {
   const n = S.negociaciones.find(x => x.id === id) || {};
-  modal(`<div class="modal-h"><h3>${ic('dinero')} Cerrar ganado · ${esc(n.cliente || '')}</h3><button class="x" data-cerrar>✕</button></div>
+  modal(`<div class="modal-h"><h3>${ic('dinero')} Cerrar ganado · ${esc(nombreLegible(n.cliente || ''))}</h3><button class="x" data-cerrar>✕</button></div>
    <div class="modal-b"><p class="sub" style="margin-top:0">El monto de cierre es obligatorio para registrar la venta.</p>
    <div class="field"><label for="gm">Monto por el cual se cerró (Gs) *</label>
      <input id="gm" type="number" inputmode="numeric" min="1" value="${n.valor || ''}" placeholder="Ej: 3500000"></div>

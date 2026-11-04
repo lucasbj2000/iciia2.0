@@ -747,3 +747,18 @@ th,.kpi span,.badge-rol,.cal-h,.org-rol,.pr-eyebrow{text-transform:none!importan
 /* Con el teclado abierto (área visible chica) la ficha cede espacio al chat */
 .crm-viewport-compact .conversation-modal .ficha-meta{display:none}
 .crm-viewport-compact .conversation-modal .tabs{margin-bottom:4px}
+
+/* ============ Chat: mensajes agrupados e inicio de conversación ============ */
+/* Mismo lado y pocos minutos entre sí: más juntos; en los del cliente la hora va solo en el último. */
+#chatbox .msg.g-cont{margin-top:-5px}
+#chatbox .msg.in.g-sigue{border-bottom-left-radius:12px}
+#chatbox .msg.in.g-cont{border-top-left-radius:4px}
+#chatbox .msg.out.g-sigue{border-bottom-right-radius:12px}
+#chatbox .msg.out.g-cont{border-top-right-radius:4px}
+#chatbox .msg.in.g-sigue>small:not(:has(.msg-otro-num)){display:none}
+#chatbox .msg.in.g-sigue{padding-bottom:9px}
+.msg-otro-num{color:var(--warn);font-weight:600;white-space:nowrap}
+/* «Conversación actual / anterior» como separador centrado */
+.tramo-sep{align-self:center;max-width:92%;margin:8px 0 4px;padding:5px 14px;border-radius:999px;font:600 var(--fs-xs) var(--f-texto);
+  color:var(--muted);background:var(--surface2);border:1px dashed var(--line);text-align:center;overflow-wrap:anywhere}
+.tramo-sep.anterior{border-style:solid;border-color:var(--verde-borde);color:var(--txt)}

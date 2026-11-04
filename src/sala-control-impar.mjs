@@ -37,7 +37,10 @@ export function pulsoSala(empresaId, negociacionId, tipo) {
 
 /** «María González» → «María G.» para pantallas a la vista de todos. */
 export const nombreCorto = n => {
-  const p = String(n || '').trim().split(/\s+/).filter(Boolean);
+  let t = String(n || '').trim();
+  // Nombres escritos todo en mayúsculas se muestran con mayúscula inicial.
+  if (/\p{Lu}/u.test(t) && !/\p{Ll}/u.test(t)) t = t.toLocaleLowerCase('es').replace(/[\p{L}\p{M}]+/gu, w => w.charAt(0).toLocaleUpperCase('es') + w.slice(1));
+  const p = t.split(/\s+/).filter(Boolean);
   if (!p.length) return 'Cliente';
   return p.length > 1 ? `${p[0]} ${p[p.length - 1][0].toUpperCase()}.` : p[0];
 };

@@ -148,4 +148,17 @@ assert.ok(chatJs.includes('function actualizarDiaFlotante(') && css.includes('.d
 assert.ok(index.includes('interactive-widget=resizes-content'), 'El teclado achica el contenido en Android');
 assert.ok(!css.includes('height:100dvh!important') && css.includes('height:var(--crm-viewport-height,100dvh)!important'), 'La ficha usa el alto visible real');
 assert.ok(chatJs.includes("window.visualViewport?.addEventListener('resize', () => requestAnimationFrame(ubicar), { once: true })"), 'La caja se ubica al abrir el teclado, sin esperar una tecla');
+// Chat más limpio: agrupar, número solo si es otro, inicio de conversación como separador, nombres y canal.
+assert.ok(chatJs.includes('function agruparMensajes(') && css.includes('#chatbox .msg.in.g-sigue>small:not(:has(.msg-otro-num)){display:none}'), 'Mensajes seguidos agrupados');
+assert.ok(fichaJs.includes('ultimos8(m.remitente_numero) !== ultimos8(actual?.tel)'), 'Número solo si escribe desde otro');
+assert.ok(fichaJs.includes(' data-tramo="') && chatJs.includes("t.className = 'tramo-sep'") && !fichaJs.includes('<div class="historial-tramo'), '«Conversación actual» como separador');
+assert.ok(fichaJs.includes('function etiquetaCanal(n)'), 'Canal con su tipo');
+{ // nombreLegible: solo cambia nombres escritos todo en mayúsculas
+  const core = leer('public/js/core.js'), ini = core.indexOf('const MENORES'), fin = core.indexOf('export const fd =');
+  const f = new Function(core.slice(ini, fin).replace('export function', 'function') + '; return nombreLegible;')();
+  assert.equal(f('LILIANA BRITEZ'), 'Liliana Britez');
+  assert.equal(f('MARÍA DE LA CRUZ'), 'María de la Cruz');
+  assert.equal(f('Juan PÉREZ'), 'Juan PÉREZ', 'Si ya tiene minúsculas no se toca');
+  assert.equal(f('595981000111'), '595981000111');
+}
 console.log('✔ IMPAR: diseño propio, fondo de pliegos, clima animado, logo adaptable y respuestas rápidas sin pérdidas.');

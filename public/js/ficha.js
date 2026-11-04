@@ -3,7 +3,7 @@ import { tildesHTML } from './animaciones.js';
 import { seguirConversacion } from './presencia-equipo.js';
 import { ic } from './iconos.js';
 import {
-  $, $$, esc, S, get, post, patch, put, del, gs, fdate, fd, ago, toast, modal, cerrar,
+  $, $$, esc, nombreLegible, S, get, post, patch, put, del, gs, fdate, fd, ago, toast, modal, cerrar,
   confirmar, fx, esAdmin, esMando, etapa, ORIGENES, vacio, vibrar, esMovil
 } from './core.js';
 import { mover, patchTarjeta, quitarTarjetas } from './negociaciones.js';
@@ -40,6 +40,16 @@ const misRapidas = () => {
   return [...(rapidas.personales || []).map(q => ({ ...q, ambito: 'personal' })), ...eq];
 };
 
+const TIPOS_CANAL = { whatsapp_qr: 'WhatsApp', whatsapp_api: 'WhatsApp', messenger: 'Messenger', instagram: 'Instagram', telefonia: 'Teléfono' };
+/** «principal» → «WhatsApp · principal»; si el nombre ya dice el tipo, se deja como está. */
+function etiquetaCanal(n) {
+  const tipo = TIPOS_CANAL[n.canal_tipo] || '', nombre = String(n.canal_nombre || '').trim();
+  if (!tipo) return nombre;
+  if (!nombre || nombre.toLowerCase().includes(tipo.toLowerCase())) return nombre || tipo;
+  return `${tipo} · ${nombre}`;
+}
+const ultimos8 = v => String(v || '').replace(/\D/g, '').slice(-8);
+
 function pintar() {
   const n = actual;
   const cerrada = ['ganado', 'cerrado'].includes(n.etapa);
@@ -53,11 +63,11 @@ function pintar() {
 
   const puedeBorrar = esAdmin() && fx('eliminarNegociaciones');
   modal(`<div class="modal-h ficha-h">
-   <div class="ficha-titulo"><h3>${esc(n.cliente)} <span id="f-etapa" class="ficha-etapa" style="--etapa:${etapa(n.etapa).color}">${esc(etapa(n.etapa).nombre)}</span></h3>
+   <div class="ficha-titulo"><h3>${esc(nombreLegible(n.cliente))} <span id="f-etapa" class="ficha-etapa" style="--etapa:${etapa(n.etapa).color}">${esc(etapa(n.etapa).nombre)}</span></h3>
     <div class="ficha-meta">
      ${!cerrada ? `<label class="meta-item meta-tel" title="Número del cliente al que responderá esta negociación">${ic('celular')}<span class="sr">Número del cliente al que responderá esta negociación</span>
        <select id="f-telefono-chat" aria-label="Número de destino del chat" disabled><option>Consultando números…</option></select></label>` : ''}
-     ${n.canal_nombre ? `<span class="meta-item" title="Canal">${ic('canal')}${esc(n.canal_nombre)}</span>` : ''}
+     ${n.canal_nombre || n.canal_tipo ? `<span class="meta-item" title="Canal por el que escribe el cliente">${ic('canal')}${esc(etiquetaCanal(n))}</span>` : ''}
      <label class="meta-item meta-bot" title="Respuestas automáticas en esta conversación">${ic('bot')}Bot
        <span class="sw"><input type="checkbox" id="f-bot" ${n.bot_activo !== false ? 'checked' : ''} aria-label="Bot activo en esta conversación"><i></i></span></label>
      ${ubis.length && fx('detectarUbicacion') ? `<button type="button" class="meta-item meta-btn" data-abrir-info>${ic('pin')}${ubis.length} ${ubis.length === 1 ? 'dirección' : 'direcciones'}</button>` : ''}
@@ -143,7 +153,7 @@ function pintar() {
    <div id="t-det" class="hidden">
     <div class="grid g2">
       <div class="card-box"><h3>Cliente</h3>
-       <div><b>${esc(n.cliente)}</b> ${n.frecuente ? `<span class="tag t-frec">${ic('estrella')} Frecuente</span>` : ''}</div>
+       <div><b>${esc(nombreLegible(n.cliente))}</b> ${n.frecuente ? `<span class="tag t-frec">${ic('estrella')} Frecuente</span>` : ''}</div>
        <div class="ficha-contacto">${ic('telefono')} ${esc(n.tel || '—')}<br>
          ${ic('correo')} ${esc(n.cliente_email || '—')}<br>
          ${n.cliente_direccion ? `${ic('pin')} ${esc(n.cliente_direccion)}<br>` : ''}
@@ -229,14 +239,16 @@ function mensajeHTML(m) {
          ? `<div class="msg-no-visto ${m.wa_rescate==='reenviado'?'resuelto':''}" role="note"><span>${textoNoVisto}</span>
             ${m.wa_reenviado || !['sin_alternativa','agotado'].includes(m.wa_rescate) ? '' : `<button type="button" class="btn ghost sm" data-reenviar="${m.id}">Reenviar ahora</button>`}</div>` : '';
        const marcaReenvio = m.es_reenvio ? ' · ↻ Reenvío' : '';
+       // El inicio de cada conversación se muestra como separador centrado (lo inserta chat-mensajes.js).
        const tramo = m.inicioConversacion
-         ? `<div class="historial-tramo ${m.anterior?'anterior':''}">${m.anterior?'↶ Conversación anterior':'Conversación actual'}
-              · ${fd(m.creado_negociacion)}${m.titulo_negociacion?' · '+esc(m.titulo_negociacion):''}</div>` : '';
+         ? ` data-tramo="${esc((m.anterior ? 'Conversación anterior' : 'Conversación actual') + ' · ' + fd(m.creado_negociacion) + (m.titulo_negociacion ? ' · ' + m.titulo_negociacion : ''))}"${m.anterior ? ' data-tramo-anterior="1"' : ''}` : '';
+       // El número solo aparece si el cliente escribió desde uno distinto al principal.
+       const otroNumero = m.dir === 'in' && m.remitente_numero && ultimos8(m.remitente_numero) !== ultimos8(actual?.tel);
        const responder = /^\d+$/.test(String(m.id || ''))
          ? `<button type="button" class="msg-responder" data-responder="${m.id}" title="Responder citando este mensaje" aria-label="Responder citando este mensaje">↩</button>` : '';
-       return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
-          ${tramo}${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
-          <small>${m.carga_historica ? `${ic('lapiz')} Carga histórica (admin) · ` : ''}${m.bot ? `${ic('bot')} Bot · ` : ''}<time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time>${m.dir==='in' && m.remitente_numero ? ` · ${ic('celular')} `+esc(m.remitente_numero) : ''}
+       return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}"${tramo}>
+          ${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
+          <small>${m.carga_historica ? `${ic('lapiz')} Carga histórica (admin) · ` : ''}${m.bot ? `${ic('bot')} Bot · ` : ''}<time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time>${otroNumero ? ` · <span class="msg-otro-num" title="Escribió desde otro número">${ic('celular')} ${esc(m.remitente_numero)}</span>` : ''}
           ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ` · ${ic('alerta')} no enviado` : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small>${noDescifrado}</div>`;
 }
 
