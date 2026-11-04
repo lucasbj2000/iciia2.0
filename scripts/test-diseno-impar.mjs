@@ -142,4 +142,10 @@ for (const f of ['public/js/admin.js', 'public/js/ia.js', 'public/js/datos.js', 
   assert.ok(!pictos.test(limpio), 'Sin emojis de interfaz en ' + f);
 }
 assert.ok(!fichaJs.includes('RESPUESTAS RÁPIDAS') && css.includes('th,.kpi span,.badge-rol,.cal-h,.org-rol,.pr-eyebrow{text-transform:none!important'), 'Sin rótulos en mayúsculas');
+// Fechas sin superponerse y caja visible con el teclado del celular.
+assert.ok(css.includes('.dia-sep{display:flex;justify-content:center;margin:12px 0 6px;pointer-events:none}') && !/\.dia-sep\{[^}]*sticky/.test(css), 'Separadores sin pegarse arriba');
+assert.ok(chatJs.includes('function actualizarDiaFlotante(') && css.includes('.dia-flotante.on{opacity:1'), 'Un solo rótulo flotante que cambia al desplazarse');
+assert.ok(index.includes('interactive-widget=resizes-content'), 'El teclado achica el contenido en Android');
+assert.ok(!css.includes('height:100dvh!important') && css.includes('height:var(--crm-viewport-height,100dvh)!important'), 'La ficha usa el alto visible real');
+assert.ok(chatJs.includes("window.visualViewport?.addEventListener('resize', () => requestAnimationFrame(ubicar), { once: true })"), 'La caja se ubica al abrir el teclado, sin esperar una tecla');
 console.log('✔ IMPAR: diseño propio, fondo de pliegos, clima animado, logo adaptable y respuestas rápidas sin pérdidas.');

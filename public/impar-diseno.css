@@ -257,7 +257,7 @@ small,.tag,.ev,.badge-rol,.card .mas,.ficha-acordeon-ayuda,.historial-tramo,.cha
   .tabla-contactos td:last-child>div{justify-content:flex-start!important}
   .card-box:has(>.tabla-contactos){padding:4px 12px}
   /* Conversación a pantalla completa y compacta */
-  .conversation-modal{max-width:none!important;width:100%!important;height:100dvh!important;max-height:100dvh!important;border-radius:0!important;border:0!important}
+  .conversation-modal{max-width:none!important;width:100%!important;height:var(--crm-viewport-height,100dvh)!important;max-height:var(--crm-viewport-height,100dvh)!important;border-radius:0!important;border:0!important}
   .msg{max-width:88%}
   /* Áreas táctiles de 44 px */
   #cal-prev,#cal-next{min-width:44px;min-height:44px}
@@ -654,7 +654,7 @@ header.top .wxa,header.top .wxa *{animation-iteration-count:3!important}
 .rep-rango button.on{color:var(--sobre-verde)}
 
 /* ============ Chat: días, respuestas como botón y caja que crece ============ */
-.dia-sep{display:flex;justify-content:center;margin:12px 0 6px;position:sticky;top:4px;z-index:2;pointer-events:none}
+.dia-sep{display:flex;justify-content:center;margin:12px 0 6px;pointer-events:none}
 .dia-sep span{font:600 var(--fs-xs) var(--f-texto);color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 12px;box-shadow:var(--sombra)}
 .msg time{font-variant-numeric:tabular-nums}
 #modals .conversation-modal .chat-input-row{align-items:flex-end!important;gap:8px}
@@ -737,3 +737,13 @@ th,.kpi span,.badge-rol,.cal-h,.org-rol,.pr-eyebrow{text-transform:none!importan
   #b-sel:not(.danger){font-size:0;gap:0;width:44px;min-width:44px;padding:0;justify-content:center}
   #b-sel:not(.danger) .ic{width:18px;height:18px;margin:0}
 }
+
+/* Día que se está mirando: un solo rótulo flotante que cambia al desplazarse */
+.dia-flotante{position:absolute;left:0;right:0;display:flex;justify-content:center;z-index:5;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity .2s,transform .2s}
+.dia-flotante.on{opacity:1;transform:none}
+.dia-flotante span{font:600 var(--fs-xs) var(--f-texto);color:var(--txt);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 14px;box-shadow:0 6px 18px -8px rgba(0,0,0,.45)}
+.dia-flotante span:empty{display:none}
+@media (prefers-reduced-motion:reduce){.dia-flotante{transition:none}}
+/* Con el teclado abierto (área visible chica) la ficha cede espacio al chat */
+.crm-viewport-compact .conversation-modal .ficha-meta{display:none}
+.crm-viewport-compact .conversation-modal .tabs{margin-bottom:4px}

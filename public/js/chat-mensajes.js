@@ -13,6 +13,40 @@ export function etiquetaDia(clave, ahora = new Date()) {
 }
 /** Hora corta para la burbuja; la fecha completa queda en el separador y en el título. */
 export const horaMensaje = t => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: ZONA }); };
+/* Rótulo flotante del día que se está mirando: cambia mientras se desplaza y se oculta al detenerse. */
+function diaFlotante(caja) {
+  const zona = caja.parentElement; if (!zona) return null;
+  zona.classList.add('chat-zona');
+  let el = zona.querySelector(':scope > .dia-flotante');
+  if (!el) {
+    el = document.createElement('div'); el.className = 'dia-flotante'; el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = '<span></span>'; zona.append(el);
+  }
+  el.style.top = (caja.offsetTop + 8) + 'px';
+  return el;
+}
+function actualizarDiaFlotante(caja, mostrar) {
+  const el = diaFlotante(caja); if (!el) return;
+  const arriba = caja.getBoundingClientRect().top;
+  const seps = [...caja.querySelectorAll(':scope > .dia-sep')];
+  let actual = null, siguiente = null;
+  // Un separador cuenta como «pasado» recién cuando salió por completo por arriba.
+  for (const s of seps) { if (s.getBoundingClientRect().bottom <= arriba + 2) actual = s; else { siguiente = s; break; } }
+  // Sin día «pasado» arriba, o con el próximo separador por llegar: no se superponen.
+  const visible = mostrar && actual && !(siguiente && siguiente.getBoundingClientRect().top - arriba < 40);
+  if (actual) el.firstElementChild.textContent = actual.textContent;
+  el.classList.toggle('on', !!visible);
+}
+function seguirDia(caja) {
+  if (caja._dia) return;
+  caja._dia = true;
+  let quieto;
+  caja.addEventListener('scroll', () => {
+    actualizarDiaFlotante(caja, true);
+    clearTimeout(quieto); quieto = setTimeout(() => actualizarDiaFlotante(caja, false), 1400);
+  }, { passive: true });
+}
+
 function separarPorDia(caja) {
   caja.querySelectorAll(':scope > .dia-sep').forEach(el => el.remove());
   let previo = '';
@@ -26,6 +60,7 @@ function separarPorDia(caja) {
       previo = dia;
     }
   }
+  seguirDia(caja);
 }
 // Conserva los nodos existentes, el audio en reproducción y la posición de lectura.
 export function actualizarMensajes(caja, mensajes, render, seguir = false) {
@@ -125,4 +160,18 @@ export function cajaQueCrece(t, maximo = 168) {
   Object.defineProperty(t, 'value', { configurable: true, get() { return desc.get.call(this); }, set(v) { desc.set.call(this, v); requestAnimationFrame(ajustar); } });
   t.addEventListener('input', ajustar);
   requestAnimationFrame(ajustar);
+  // Celular: al abrir el teclado, la caja y el último mensaje quedan a la vista sin esperar una tecla.
+  t.addEventListener('focus', () => {
+    if (!matchMedia('(max-width: 900px)').matches) return;
+    const caja = document.getElementById('chatbox');
+    const alFinal = caja && caja.scrollHeight - caja.scrollTop - caja.clientHeight < 96;
+    let hechas = 0;
+    const ubicar = () => {
+      if (document.activeElement !== t || hechas++ > 3) return;
+      if (alFinal && caja) caja.scrollTop = caja.scrollHeight;
+      t.scrollIntoView({ block: 'nearest' });
+    };
+    window.visualViewport?.addEventListener('resize', () => requestAnimationFrame(ubicar), { once: true });
+    setTimeout(ubicar, 320); setTimeout(ubicar, 650);
+  });
 }
