@@ -229,15 +229,14 @@ function mensajeHTML(m) {
               <span class="pin">${ic('pin')}</span><div style="min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.nombre || 'Ubicación compartida')}</b>
               <small style="color:var(--muted)">${esc(u.direccion || `${u.lat}, ${u.lon}`)}</small></div></a>` : '';
        const estadoWA=m.wa_estado_meta==='failed' ? ` · ${ic('alerta')} Meta no entregó` : m.wa_ack == null ? '' : ' · ' + tildesHTML(m.wa_ack);
-       // WhatsApp avisó que el teléfono del cliente no pudo descifrarlo: probablemente ve «Esperando mensaje».
-       // El CRM lo resuelve solo: reenvía por la otra ruta. El botón queda como respaldo si no hay otra ruta.
-       const textoNoVisto = m.wa_rescate==='reenviado' ? '↻ El cliente no pudo leerlo; se reenvió automáticamente por la otra ruta.'
-         : m.wa_rescate==='agotado' ? ic('alerta') + ' El cliente no pudo leerlo por ninguna ruta. Administración fue avisada.'
-         : m.wa_rescate==='sin_alternativa' ? ic('alerta') + ' El cliente no pudo leerlo. Se reenviará solo cuando WhatsApp informe otra ruta.'
-         : '↻ El cliente no pudo leerlo; el CRM lo está reintentando.';
-       const noDescifrado = m.dir==='out' && Number(m.wa_reintentos)>0
-         ? `<div class="msg-no-visto ${m.wa_rescate==='reenviado'?'resuelto':''}" role="note"><span>${textoNoVisto}</span>
-            ${m.wa_reenviado || !['sin_alternativa','agotado'].includes(m.wa_rescate) ? '' : `<button type="button" class="btn ghost sm" data-reenviar="${m.id}">Reenviar ahora</button>`}</div>` : '';
+       // WhatsApp avisó que el teléfono del cliente no pudo descifrarlo. El CRM lo reintenta y reenvía solo,
+       // así que el agente no ve nada mientras tanto: el aviso aparece únicamente si tiene que actuar.
+       const requiereAccion = ['sin_alternativa','agotado'].includes(m.wa_rescate);
+       const textoNoVisto = m.wa_rescate==='agotado' ? ic('alerta') + ' Este mensaje no le llegó al cliente. Administración ya fue avisada.'
+         : ic('alerta') + ' Este mensaje no le llegó al cliente. Podés reenviarlo.';
+       const noDescifrado = m.dir==='out' && Number(m.wa_reintentos)>0 && requiereAccion
+         ? `<div class="msg-no-visto" role="note"><span>${textoNoVisto}</span>
+            ${m.wa_reenviado ? '' : `<button type="button" class="btn ghost sm" data-reenviar="${m.id}">Reenviar ahora</button>`}</div>` : '';
        const marcaReenvio = m.es_reenvio ? ' · ↻ Reenvío' : '';
        // El inicio de cada conversación se muestra como separador centrado (lo inserta chat-mensajes.js).
        const tramo = m.inicioConversacion

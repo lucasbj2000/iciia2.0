@@ -32,6 +32,6 @@ assert.ok(ent.includes('leido_ts=CASE WHEN EXCLUDED.ack>=4'), 'Registra la lectu
 assert.ok(fuente.includes("AND reenviado_ts IS NULL AND (rescate IS NULL OR rescate='sin_alternativa')"), 'Reclamo atómico');
 assert.ok(rutas.includes('UPDATE outbox SET reenvio_de=$1'), 'El reenvío manual también se marca');
 assert.ok(mig.includes('reenvio_de BIGINT REFERENCES outbox(id)') && mig.includes("conrelid='wa_entregas_impar'::regclass"), 'Migración');
-assert.ok(ui.includes('se reenvió automáticamente por la otra ruta'), 'El agente ve que se resolvió solo');
+assert.ok(!ui.includes('lo está reintentando') && !ui.includes('se reenvió automáticamente') && ui.includes("const requiereAccion = ['sin_alternativa','agotado'].includes(m.wa_rescate)"), 'Sin avisos mientras el CRM lo resuelve solo; solo cuando el agente tiene que actuar');
 assert.ok(!/autoReenviarWA/.test(ui), 'Sin reenvíos desde el navegador');
 console.log('✔ IMPAR: rescate automático de «Esperando mensaje» (espera, una sola vez, sin rebotes, aviso al admin).');
