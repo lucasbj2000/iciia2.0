@@ -9,6 +9,7 @@ import { fichaNeg, modalRapidas } from './ficha.js';
 import { conectarEmojis } from './emojis.js';
 import { actualizarMensajes } from './chat-mensajes.js';
 import { enlazarTexto } from './enlaces.js';
+import { ic } from './iconos.js';
 
 /* ================= COMUNICACIÓN ================= */
 let CHAT = null, resumenCom = { grupos: [], usuarios: [] };
@@ -51,7 +52,7 @@ export async function vistaComunicacion() {
 
 async function pintarChat(suave = false, seguir = false) {
   const box = $('#ci-main'); if (!box) return;
-  if (!CHAT) { box.innerHTML = vacio('✉', 'Elegí una conversación', ''); return; }
+  if (!CHAT) { box.innerHTML = vacio('mensaje', 'Elegí una conversación', ''); return; }
   const chat = { ...CHAT }, clave = `${chat.tipo}:${chat.id}`;
   const actualizar = suave && box.dataset.chatKey === clave && $('#ci-body');
   if (!actualizar) box.innerHTML = `<div style="margin:auto"><span class="spin lg"></span></div>`;
@@ -158,10 +159,10 @@ function eventosDelDia(iso) {
   if (fx('cumpleanos')) {
     (datosCal.cumples || []).filter(c => c.md === iso.slice(5)).forEach(c => {
       const ed = CAL.a - Number(c.anio_nac);
-      out.push({ tipo: 'cumple', titulo: `🎂 ${c.nombre}${ed > 0 ? ` (${ed})` : ''}` });
+      out.push({ tipo: 'cumple', titulo: `Cumple ${c.nombre}${ed > 0 ? ` (${ed})` : ''}` });
     });
   }
-  (datosCal.feriados || []).filter(f => f.fecha === iso).forEach(f => out.push({ tipo: 'feriado', titulo: '🏖 ' + f.titulo }));
+  (datosCal.feriados || []).filter(f => f.fecha === iso).forEach(f => out.push({ tipo: 'feriado', titulo: 'Feriado: ' + f.titulo }));
   (datosCal.eventos || []).filter(e => String(e.fecha).slice(0, 10) === iso).forEach(e =>
     out.push({ ...e, titulo: (e.hora ? e.hora + ' ' : '') + e.titulo }));
   return out;
@@ -193,7 +194,7 @@ function pintarCalendario() {
      <div></div>
      <div style="flex:none"><button class="btn" id="cal-nuevo">+ Nuevo evento</button></div></div>
    ${datosCal.sinNacimiento?.length && esMando() ? `<div class="card-box" style="border-color:var(--warn)">
-     <b style="font-size:var(--fs-sm)">⚠ ${datosCal.sinNacimiento.length} persona(s) sin fecha de nacimiento</b>
+     <b style="font-size:var(--fs-sm)">${ic('alerta')} ${datosCal.sinNacimiento.length} persona(s) sin fecha de nacimiento</b>
      <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:5px">${datosCal.sinNacimiento.map(esc).join(', ')}</div></div>` : ''}
    <div class="grid" style="grid-template-columns:1fr 310px">
      <div class="card-box"><div class="cal">
@@ -207,13 +208,13 @@ function pintarCalendario() {
            <small style="color:var(--muted);font-size:10px">${['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'][+p.iso.slice(5,7)-1]}</small></div>
          <div style="flex:1;min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(p.ev.titulo)}</b>
            <small style="color:var(--muted)">${p.dias === 0 ? 'Hoy' : p.dias === 1 ? 'Mañana' : 'En ' + p.dias + ' días'}</small></div></div>`).join('')
-         || vacio('📅', 'Sin eventos próximos', '')}</div>
-       <div class="card-box"><h3>🎂 Cumpleaños del equipo</h3>
+         || vacio('calendario', 'Sin eventos próximos', '')}</div>
+       <div class="card-box"><h3>${ic('pastel')} Cumpleaños del equipo</h3>
         ${(datosCal.cumples || []).map(c => `<div style="display:flex;gap:9px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)">
           <div class="avatar" style="width:28px;height:28px;font-size:12px">${c.foto ? `<img src="${esc(c.foto)}" alt="">` : iniciales(c.nombre)}</div>
           <div style="flex:1"><b style="font-size:var(--fs-sm)">${esc(c.nombre)}</b></div>
           <small style="color:var(--muted)">${c.md.slice(3)}/${c.md.slice(0,2)}</small></div>`).join('')
-          || vacio('🎂', 'Sin fechas cargadas', 'Se completan desde el perfil')}</div></div></div></div>`;
+          || vacio('pastel', 'Sin fechas cargadas', 'Se completan desde el perfil')}</div></div></div></div>`;
 
   $('#cal-prev').onclick = () => { CAL.m--; if (CAL.m < 0) { CAL.m = 11; CAL.a--; } vistaCalendario(); };
   $('#cal-next').onclick = () => { CAL.m++; if (CAL.m > 11) { CAL.m = 0; CAL.a++; } vistaCalendario(); };
@@ -240,9 +241,9 @@ function modalDia(iso) {
        <b style="flex:1;font-size:var(--fs-sm)">${esc(e.titulo)}</b>
        ${e.id && esMando() ? `<button class="btn danger sm" data-delev="${e.id}">✕</button>` : ''}</div>
      ${e.descripcion ? `<div style="color:var(--muted);font-size:var(--fs-sm);margin-top:6px">${esc(e.descripcion)}</div>` : ''}
-     ${e.sucursal ? `<div style="color:var(--muted);font-size:var(--fs-xs);margin-top:4px">📍 ${esc(e.sucursal)}</div>` : ''}
+     ${e.sucursal ? `<div style="color:var(--muted);font-size:var(--fs-xs);margin-top:4px">${ic('pin')} ${esc(e.sucursal)}</div>` : ''}
      ${e.creado_por ? `<div style="color:var(--muted);font-size:var(--fs-xs);margin-top:4px">Creado por ${esc(e.creado_por)}</div>` : ''}
-    </div>`).join('') : vacio('📅', 'Sin eventos este día', '')}</div>
+    </div>`).join('') : vacio('calendario', 'Sin eventos este día', '')}</div>
   <div class="modal-f"><button class="btn ghost" data-cerrar>Cerrar</button>
     <button class="btn" id="d-nuevo">+ Agregar evento</button></div>`);
   $$('[data-cerrar]').forEach(b => b.onclick = cerrar);
@@ -298,7 +299,7 @@ export async function vistaConfig() {
         <div class="field"><label>Usuario</label><input value="${esc(p.usuario)}" disabled></div></div>
       <div class="row"><div class="field"><label>Email</label><input id="p-mail" value="${esc(p.email || '')}"></div>
         <div class="field"><label>Teléfono</label><input id="p-tel" value="${esc(p.tel || '')}"></div>
-        <div class="field"><label>🎂 Nacimiento ${fx('natalicioObligatorio') ? '*' : ''}</label>
+        <div class="field"><label>Nacimiento ${fx('natalicioObligatorio') ? '*' : ''}</label>
           <input id="p-nac" type="date" value="${p.nacimiento ? String(p.nacimiento).slice(0,10) : ''}" max="${fechaISO(new Date())}"></div></div>
       <div class="row"><div class="field"><label>Sucursal</label><input value="${esc(p.sucursal || '')}" disabled></div>
         <div class="field"><label>Línea</label><input value="${esc(p.linea || '')}" disabled></div>
@@ -319,15 +320,15 @@ export async function vistaConfig() {
       <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
       <div style="margin-bottom:10px"><span class="dot" style="background:${d.c}"></span> Estado: <b>${esc(d.t || '—')}</b></div>
       <button class="btn ghost sm" id="p-disp">Marcar disponibilidad</button>
-      ${fx('respuestasRapidas') ? `<button class="btn ghost sm" id="p-rapidas">⚡ Mis respuestas rápidas</button>` : ''}
+      ${fx('respuestasRapidas') ? `<button class="btn ghost sm" id="p-rapidas">${ic('rayo')} Mis respuestas rápidas</button>` : ''}
       <h3 style="margin-top:16px">Últimas marcaciones</h3>
       <div class="mono" style="color:var(--muted);max-height:130px;overflow:auto">
         ${(p.marcaciones || []).map(m => `${fdate(m.ts)} → ${(DISPONIBILIDAD.find(x => x.id === m.estado)||{}).t || m.estado}`).join('<br>') || 'Sin marcaciones'}</div></div></div>
-   ${suc ? `<div class="card-box"><h3>📍 Mi sucursal · ${esc(suc.nombre)}</h3>
+   ${suc ? `<div class="card-box"><h3>${ic('pin')} Mi sucursal · ${esc(suc.nombre)}</h3>
      <div style="color:var(--muted);font-size:var(--fs-sm);line-height:1.8">
-       ${suc.direccion ? '🏠 ' + esc(suc.direccion) + '<br>' : ''}🌆 ${esc(suc.ciudad || '—')}<br>
-       ${suc.tel ? '📞 ' + esc(suc.tel) + '<br>' : ''}${suc.email ? '✉ ' + esc(suc.email) + '<br>' : ''}
-       🕐 ${esc(suc.horario || '—')}</div></div>` : ''}
+       ${suc.direccion ? ic('casa') + ' ' + esc(suc.direccion) + '<br>' : ''}${ic('edificio')} ${esc(suc.ciudad || '—')}<br>
+       ${suc.tel ? ic('telefono') + ' ' + esc(suc.tel) + '<br>' : ''}${suc.email ? ic('correo') + ' ' + esc(suc.email) + '<br>' : ''}
+       ${ic('reloj')} ${esc(suc.horario || '—')}</div></div>` : ''}
    ${fx('stock') && S.empresa.stock?.link ? `<div class="card-box"><h3>Catálogo / Stock</h3>
      <p style="color:var(--muted);font-size:var(--fs-sm);margin-top:0">${esc(S.empresa.stock.nota || 'Catálogo publicado por el administrador.')}</p>
      <a class="btn sm" href="${esc(S.empresa.stock.link)}" target="_blank" rel="noopener">Abrir catálogo</a></div>` : ''}</div>`;

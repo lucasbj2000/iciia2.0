@@ -34,9 +34,9 @@ function pintarFicha(id) {
   const o = otros(id);
   let tira = $('#f-equipo', ficha);
   if (!tira) {
-    const h3 = $('.modal-h h3', ficha); if (!h3) return;
+    const acciones = $('.ficha-acciones', ficha), h3 = $('.modal-h h3', ficha); if (!acciones && !h3) return;
     tira = document.createElement('div'); tira.id = 'f-equipo'; tira.className = 'f-equipo'; tira.setAttribute('aria-live', 'polite');
-    h3.after(tira);
+    if (acciones) acciones.prepend(tira); else h3.after(tira);
   }
   tira.innerHTML = o.length ? `${o.slice(0, 4).map(p => avatar(p)).join('')}<span class="f-equipo-txt">${
     o.length === 1 ? `${primerNombre(o[0])} también está acá` : `${o.length} personas más están acá`}</span>` : '';

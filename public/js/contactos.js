@@ -7,6 +7,7 @@ import { fichaNeg } from './ficha.js';
 import { chequearDuplicado } from './negociaciones.js';
 import { activarVisor } from './adjuntos.js';
 import { conectarEmojis } from './emojis.js';
+import { ic } from './iconos.js';
 
 let QC = '';
 let QF = ''; // '' = mis contactos (agente) / todos (mandos) · 'libres' = sin responsable
@@ -74,9 +75,9 @@ export async function vistaContactos() {
        <input id="c-file" type="file" accept=".csv" class="hidden">` : ''}</div></div>
    <div class="card-box"><table class="tabla-contactos"><thead><tr><th>Cliente</th><th class="hide-m">Teléfono</th>
      <th class="hide-m">Dirección</th><th>Responsable</th><th>Estado</th><th class="hide-m">Alta</th><th></th></tr></thead>
-   <tbody>${cs.map(c => `<tr><td><b>${esc(c.nombre)}</b> ${c.frecuente && fx('marcadorFrecuente') ? '<span class="tag t-frec">★</span>' : ''}</td>
+   <tbody>${cs.map(c => `<tr><td><b>${esc(c.nombre)}</b> ${c.frecuente && fx('marcadorFrecuente') ? `<span class="tag t-frec" title="Frecuente">${ic('estrella', 'Frecuente')}</span>` : ''}</td>
      <td class="hide-m">${esc(c.tel || '—')}</td>
-     <td class="hide-m">${c.direccion ? `<span title="${esc(c.direccion)}">📍 ${esc(c.direccion.slice(0, 32))}${c.direccion.length > 32 ? '…' : ''}</span>` : '—'}</td>
+     <td class="hide-m">${c.direccion ? `<span title="${esc(c.direccion)}">${ic('pin')} ${esc(c.direccion.slice(0, 32))}${c.direccion.length > 32 ? '…' : ''}</span>` : '—'}</td>
      <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
        <span>${c.responsable ? esc(c.responsable) : '<b style="color:var(--warn)">Libre</b>'}</span>
        ${!c.responsable_id && puedeTomar() ?
@@ -138,7 +139,7 @@ export async function vistaContactos() {
   };
   if ($('#c-import')) {
     if (esAdmin()) {
-      $('#c-import').textContent = '🛡 Importar sin duplicados';
+      $('#c-import').innerHTML = `${ic('escudo')} Importar sin duplicados`;
       $('#c-import').onclick = () => import('./admin.js').then(m => m.irABitrix());
     } else {
       $('#c-import').onclick = () => $('#c-file').click();
@@ -280,7 +281,7 @@ async function abrirConversacion(id) {
       <p>Se utilizará únicamente la línea WhatsApp «principal» de Central. Al enviar el primer mensaje se creará una negociación en Contactado, a tu cargo.</p>
       <div class="field"><label>Línea WhatsApp de IMPAR</label>
         ${c.canales.length ? `<div class="pill" style="display:flex;align-items:center;gap:8px">
-          📱 <b>Central · principal</b><span style="color:var(--ok)">Compartida para todos los empleados</span>
+          ${ic('celular')} <b>Central · principal</b><span style="color:var(--ok)">Compartida para todos los empleados</span>
           </div><input type="hidden" id="c-chat-canal" value="${esc(c.canales[0].id)}">`
           : '<p role="alert">La línea principal de Central no está disponible. Consultá a Administración → Canales.</p>'}
       </div>
@@ -383,10 +384,10 @@ export async function ficha360(id) {
   const abierta = c.negociaciones.find(n => activas.includes(n.etapa));
 
   modal(`<div class="modal-h"><h3>Ficha 360° · ${esc(c.nombre)}
-    ${c.frecuente ? '<span class="tag t-frec">★ Frecuente</span>' : ''}</h3><button class="x" data-cerrar>✕</button></div>
+    ${c.frecuente ? `<span class="tag t-frec">${ic('estrella')} Frecuente</span>` : ''}</h3><button class="x" data-cerrar>✕</button></div>
   <div class="modal-b">
    ${abierta ? `<div class="card-box fx-pop" style="border-color:#2b5a7a">
-     <b style="font-size:var(--fs-sm)">🔵 Negociación abierta actualmente</b>
+     <b style="font-size:var(--fs-sm)">${ic('mensaje')} Negociación abierta actualmente</b>
      <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:5px">
        ${esc(etapa(abierta.etapa).nombre)} · ${esc(abierta.agente_nombre || 'sin asignar')} · desde ${fd(abierta.creado)}</div>
      <button class="btn ghost sm" style="margin-top:8px" data-abrir="${abierta.id}">Abrir</button></div>` : ''}
@@ -419,7 +420,7 @@ export async function ficha360(id) {
       ${c.editable?'<button class="btn sm" id="f-guardar">Guardar cambios</button>'
         :'<p class="sub">Esta ficha es de solo lectura. Solicitá su asignación para editarla.</p>'}
       ${c.lat != null ? `<a class="btn ghost sm" href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lon}"
-        target="_blank" rel="noopener">🗺 Ver en el mapa</a>` : ''}</div>
+        target="_blank" rel="noopener">${ic('mapa')} Ver en el mapa</a>` : ''}</div>
      <div class="card-box"><h3>Canales de ingreso</h3>
       ${Object.entries(porOrigen).map(([o, v]) => `<div style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;font-size:var(--fs-sm)"><span>${o}</span><b>${v}</b></div>
@@ -444,7 +445,7 @@ export async function ficha360(id) {
       <h3 style="margin-top:14px">Identidades vinculadas</h3>
       <div class="mono" style="color:var(--muted);line-height:1.8">
         ${Object.entries(c.externos || {}).map(([k, v]) => `${k}: ${esc(v)}`).join('<br>') || '—'}</div>
-      ${(c.ubicaciones || []).length ? `<h3 style="margin-top:14px">📍 Direcciones recibidas</h3>
+      ${(c.ubicaciones || []).length ? `<h3 style="margin-top:14px">${ic('pin')} Direcciones recibidas</h3>
         ${c.ubicaciones.slice(0, 5).map(u => `<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:var(--fs-xs)">
           <b>${esc(u.direccion || u.texto)}</b><br>
           <span style="color:var(--muted)">${u.fuente} · ${fd(u.ts)}</span>

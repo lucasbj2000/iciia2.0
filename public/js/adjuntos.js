@@ -1,7 +1,8 @@
 /* ============ Adjuntos: subir, pegar, arrastrar, cámara y visor ============ */
 import { $, $$, esc, S, toast, esMovil, vibrar, fx } from './core.js';
+import { ic } from './iconos.js';
 
-export const ICONOS = { imagen: '🖼', video: '🎬', audio: '🎵', documento: '📎' };
+export const ICONOS = { imagen: ic('imagen'), video: ic('video'), audio: ic('audio'), documento: ic('documento') };
 export const ACEPTA = 'image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar';
 
 export function pesoLegible(b) {
@@ -72,7 +73,7 @@ export function conectarAdjuntos({ inputSel, barraSel, botonSel, zonaSel, onCamb
     const a = estado.archivo;
     barra.hidden = false;
     barra.innerHTML = `<div class="adj-barra">
-      ${a.tipo === 'imagen' && a.url ? `<img src="${esc(a.url)}" alt="">` : `<div class="ic">${ICONOS[a.tipo] || '📎'}</div>`}
+      ${a.tipo === 'imagen' && a.url ? `<img src="${esc(a.url)}" alt="">` : `<div class="ic-adj">${ICONOS[a.tipo] || ic('clip')}</div>`}
       <div style="flex:1;min-width:0"><b>${esc(a.nombre)}</b>
         <small>${a.tipo} · ${pesoLegible(a.bytes)}${a.subiendo !== undefined ? ` · subiendo ${a.subiendo}%` : ''}</small>
         ${a.subiendo !== undefined ? `<div class="adj-prog"><i style="width:${a.subiendo}%"></i></div>` : ''}</div>
@@ -109,19 +110,19 @@ export function conectarAdjuntos({ inputSel, barraSel, botonSel, zonaSel, onCamb
       menu.className = 'menu-adj';
       const movil = esMovil();
       const opciones = movil
-        ? [['camara', '📷', 'Tomar foto', 'Usa la cámara'],
-           ['video', '🎥', 'Grabar video', 'Usa la cámara'],
-           ['galeria', '🖼', 'Galería', 'Fotos y videos del teléfono'],
-           ['documento', '📄', 'Documento', 'PDF, Word, Excel, ZIP'],
-           ['todo', '📁', 'Otro archivo', 'Explorar todo']]
-        : [['galeria', '🖼', 'Imagen o video', 'Desde tu computadora'],
-           ['documento', '📄', 'Documento', 'PDF, Word, Excel, ZIP'],
-           ['todo', '📁', 'Cualquier archivo', 'Explorar todo']];
+        ? [['camara', 'camara', 'Tomar foto', 'Usa la cámara'],
+           ['video', 'video', 'Grabar video', 'Usa la cámara'],
+           ['galeria', 'imagen', 'Galería', 'Fotos y videos del teléfono'],
+           ['documento', 'documento', 'Documento', 'PDF, Word, Excel, ZIP'],
+           ['todo', 'carpeta', 'Otro archivo', 'Explorar todo']]
+        : [['galeria', 'imagen', 'Imagen o video', 'Desde tu computadora'],
+           ['documento', 'documento', 'Documento', 'PDF, Word, Excel, ZIP'],
+           ['todo', 'carpeta', 'Cualquier archivo', 'Explorar todo']];
       menu.innerHTML = opciones.map(([m, em, t, sub]) =>
-        `<button data-modo="${m}"><span class="em">${em}</span>
+        `<button data-modo="${m}"><span class="em">${ic(em)}</span>
           <span><b style="font-weight:600">${t}</b><small>${sub}</small></span></button>`).join('')
         + `<button data-modo="pegar" style="border-top:1px solid var(--line)">
-             <span class="em">📋</span><span><b style="font-weight:600">Pegar del portapapeles</b>
+             <span class="em">${ic('portapapeles')}</span><span><b style="font-weight:600">Pegar del portapapeles</b>
              <small>También podés usar Ctrl+V en el mensaje</small></span></button>`;
       const cont = boton.closest('.row') || boton.parentElement;
       cont.style.position = cont.style.position || 'relative';
@@ -162,7 +163,7 @@ export function conectarAdjuntos({ inputSel, barraSel, botonSel, zonaSel, onCamb
       if (!capa) {
         capa = document.createElement('div');
         capa.className = 'zona-drop';
-        capa.innerHTML = '<b>📎 Soltá el archivo para adjuntarlo</b>';
+        capa.innerHTML = `<b>${ic('clip')} Soltá el archivo para adjuntarlo</b>`;
         zona.style.position = zona.style.position || 'relative';
         zona.appendChild(capa);
       }
@@ -233,7 +234,7 @@ export function mediaHTML(m) {
   if (tipo === 'audio')
     return `<audio src="${esc(url)}" controls preload="metadata"></audio>`;
   return `<a class="doc" href="${esc(url)}" target="_blank" rel="noopener" download="${esc(nombre)}">
-    <span class="di">📎</span><div style="min-width:0"><b>${esc(nombre)}</b>
+    <span class="di">${ic('documento')}</span><div style="min-width:0"><b>${esc(nombre)}</b>
     <small>${(m.archivo_bytes || m.media_bytes) ? pesoLegible(m.archivo_bytes || m.media_bytes) : 'Descargar'}</small></div></a>`;
 }
 

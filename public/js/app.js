@@ -3,6 +3,7 @@ import './tooltips.js';
 import { iconoClima, saludoHora } from './clima-animado.js';
 import { mostrarEscribiendo, estadoWhatsApp, bienvenida, correr, pasarHoja } from './animaciones.js';
 import { recibirPresencia, cargarPresencias } from './presencia-equipo.js';
+import { icTono } from './iconos.js';
 import {
   $, $$, esc, S, api, get, post, patch, toast, modal, cerrar, ago, iniciales,
   fechaISO, saludo, fx, esAdmin, aplicarTema, aplicarFX, salir, DISPONIBILIDAD,
@@ -204,7 +205,7 @@ async function render() {
   try { await (VISTAS[S.vista])(); }
   catch (e) {
     $('#view').innerHTML = `<div class="section"><div class="card-box">
-      ${vacio('⚠', 'No se pudo cargar la vista', e.message)}</div></div>`;
+      ${vacio('alerta', 'No se pudo cargar la vista', e.message)}</div></div>`;
   }
 }
 
@@ -302,10 +303,10 @@ $('#noti-btn').onclick = e => {
      <button class="btn ghost sm" id="n-todas">Marcar leídas</button></div>
    ${S.notificaciones.slice(0, 40).map(n => `<div class="nitem ${n.leida ? '' : 'unread'}" data-noti="${n.id}"
      data-ref="${n.ref || ''}" data-tipo="${n.tipo}">
-     <span>${{ ok: '✅', warn: '⚠️', bad: '⛔' }[n.tono] || '🔔'}</span>
+     <span class="nitem-ic ${esc(n.tono || '')}">${icTono(n.tono)}</span>
      <div style="flex:1"><b>${esc(n.titulo)}</b><small>${esc(n.msg)}</small>
        <small style="opacity:.7">${ago(n.ts)} atrás</small></div></div>`).join('')
-     || `<div style="padding:26px">${vacio('🔔', 'Sin notificaciones', '')}</div>`}`;
+     || `<div style="padding:26px">${vacio('campana', 'Sin notificaciones', '')}</div>`}`;
   document.body.appendChild(p);
   $('#n-todas').onclick = async () => { await post('/notificaciones/leer', {}); p.remove(); cargarNotificaciones(); };
   $$('[data-noti]', p).forEach(el => el.onclick = async () => {
@@ -369,7 +370,7 @@ async function resumenJornada() {
 }
 
 function modalNacimiento() {
-  modal(`<div class="modal-h"><h3>🎂 Completá tu fecha de nacimiento</h3></div>
+  modal(`<div class="modal-h"><h3>Completá tu fecha de nacimiento</h3></div>
   <div class="modal-b"><p class="sub" style="margin-top:0">La usamos para el calendario de cumpleaños del equipo.</p>
    <div class="field"><label>Fecha de nacimiento</label>
      <input id="nac" type="date" max="${fechaISO(new Date())}"></div>

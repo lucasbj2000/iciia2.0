@@ -1,4 +1,5 @@
 /* ============ Núcleo: API, estado, utilidades, animaciones ============ */
+import { ic as icLinea, icTono } from './iconos.js';
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = v => String(v ?? '').replace(/[&<>"']/g,
@@ -102,7 +103,7 @@ export const etapaActiva = id => !!etapa(id).activa;
 
 /* ---------- Toasts ---------- */
 export function toast(msg, tono = 'ok', titulo) {
-  const ic = { ok: '✅', warn: '⚠️', bad: '⛔' }[tono] || '🔔';
+  const ic = icTono(tono);
   const el = document.createElement('div');
   el.className = 'toast ' + tono;
   el.innerHTML = `<span class="ti">${ic}</span><div><b>${esc(titulo || 'iciia2.0')}</b><small>${esc(msg)}</small></div><i class="toast-tiempo" aria-hidden="true"></i>`;
@@ -200,14 +201,16 @@ export function skeleton(n = 5) {
     `<div class="skel" style="width:${anchos[i % anchos.length]}%"></div>`).join('')}</div>`;
 }
 export function vacio(ico, titulo, sub, accion) {
-  return `<div class="empty"><span class="ico">${ico}</span><b style="display:block;margin-bottom:4px">${esc(titulo)}</b>
+  // Acepta el nombre de un ícono de línea («calendario») o, por compatibilidad, un símbolo.
+  const icono = /^[a-z_]+$/.test(ico || '') ? icLinea(ico) : ico;
+  return `<div class="empty"><span class="ico">${icono}</span><b style="display:block;margin-bottom:4px">${esc(titulo)}</b>
     ${sub ? `<div style="font-size:var(--fs-xs)">${esc(sub)}</div>` : ''}
     ${accion ? `<div style="margin-top:12px">${accion}</div>` : ''}</div>`;
 }
 export function aplicarTema() {
   document.documentElement.dataset.tema = S.tema;
   document.documentElement.dataset.densidad = S.densidad;
-  const b = $('#btn-tema'); if (b) b.textContent = S.tema === 'oscuro' ? '🌙' : '☀️';
+  const b = $('#btn-tema'); if (b) b.setAttribute('aria-label', S.tema === 'oscuro' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro');
   const m = document.querySelector('meta[name=theme-color]');
   if (m) m.content = S.tema === 'oscuro' ? '#0f1115' : '#f4f6fa';
 }

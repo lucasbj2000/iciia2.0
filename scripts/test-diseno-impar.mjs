@@ -109,4 +109,21 @@ assert.ok(leer('src/routes/negociaciones.mjs').indexOf("r.get('/presencia-equipo
 assert.ok(pres.includes('keepalive: true') && pres.includes("window.addEventListener('pagehide'"), 'Se retira aunque se cierre la pestaña');
 assert.ok(pres.includes('Coordinen antes de responder'), 'Aviso de coordinación al escribir');
 assert.ok(appJs.includes("es.addEventListener('equipo:viendo'"));
+// Limpieza: conversación primero, un solo juego de íconos, tarjetas limpias, encabezado liviano.
+const fichaJs = leer('public/js/ficha.js'), negJs = leer('public/js/negociaciones.js'), iconos = leer('public/js/iconos.js');
+assert.ok(fichaJs.includes('id="f-menu"') && fichaJs.includes('role="menu"') && fichaJs.includes("data-menu=\"historico\""), 'Menú «⋯» en la ficha');
+assert.ok(fichaJs.includes('<div id="f-info" class="ficha-info" hidden>'), 'Datos de la negociación fuera del camino');
+assert.ok(!fichaJs.includes('Conversación continua del cliente'), 'Sin barra informativa sobre el chat');
+assert.ok(/id="f-borrar"/.test(fichaJs) && !fichaJs.includes('btn danger sm" id="f-borrar"'), 'Eliminar vive en el menú, no como botón rojo');
+assert.ok(css.includes('.msg [data-hist-tras]{opacity:0') && css.includes('.modo-historico .msg [data-hist-tras]'), '«+ aquí» solo al pasar el mouse');
+assert.ok(css.includes('.ficha-etapa{') && !fichaJs.includes('id="f-etapa" style="color:'), 'Etapa con contraste suficiente');
+for (const n of ['calendario', 'pin', 'bot', 'clip', 'rayo', 'papelera', 'mas', 'alerta']) assert.ok(iconos.includes(`  ${n}: '`), 'Ícono ' + n);
+const pictos = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2B50}\u{23F0}-\u{23FA}]/u;
+for (const f of ['public/js/negociaciones.js', 'public/js/core.js', 'public/js/adjuntos.js', 'public/js/modulos.js', 'public/js/contactos.js'])
+  assert.ok(!pictos.test(leer(f).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')), 'Sin emojis de interfaz en ' + f);
+assert.ok(!negJs.includes('>activa</span>') && negJs.includes('card-canal canal-') && negJs.includes('class="card-pie"'), 'Tarjetas limpias');
+assert.ok(!/<header class="top">[\s\S]*id="btn-tema"[\s\S]*<\/header>/.test(index) && /class="me-herramientas"[\s\S]*id="btn-tema"/.test(index), 'Tema y aplicación en el área de usuario');
+assert.ok(css.includes('body:has(#kanban){background-image:var(--fondo-grano)'), 'Fondo tranquilo detrás del tablero');
+assert.ok(css.includes('header.top .wxa,header.top .wxa *{animation-iteration-count:3!important}') && css.includes('.sla.r i{animation:none!important}'), 'Solo lo urgente queda en bucle');
+assert.ok(css.includes('--warn:#975A00') && css.includes('.rep-rango button.on{color:var(--sobre-verde)}'), 'Contraste AA en modo claro');
 console.log('✔ IMPAR: diseño propio, fondo de pliegos, clima animado, logo adaptable y respuestas rápidas sin pérdidas.');

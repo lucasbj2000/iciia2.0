@@ -1,4 +1,5 @@
 /* Selector compartido: inserta texto, nunca envía el mensaje. */
+import { ic } from './iconos.js';
 const grupos = [
   ['Caritas', ['😀','😃','😄','😁','😊','🙂','😉','😍','🥰','😎','🤔','😅','😂','🤣','😔','😢','😭','😮','😴','🤗']],
   ['Gestos', ['👍','👎','👌','✌️','🤞','👏','🙌','🙏','🤝','👋','💪','🫶']],
@@ -21,7 +22,7 @@ export function conectarEmojis(selector) {
   if (!input || input.parentElement.querySelector(`[data-emoji-input="${input.id}"]`)) return;
   const picker = document.createElement('details');
   picker.className = 'emoji-picker'; picker.dataset.emojiInput = input.id;
-  picker.innerHTML = `<summary aria-label="Agregar emojis" title="Agregar emojis">😊</summary>
+  picker.innerHTML = `<summary aria-label="Agregar emojis" title="Agregar emojis">${ic('sonrisa')}</summary>
     <div class="emoji-panel" role="group" aria-label="Selector de emojis">
       ${grupos.map(([titulo, emojis]) => `<div class="emoji-group"><b>${titulo}</b><div class="emoji-grid">
         ${emojis.map(emoji => `<button type="button" class="emoji-option" aria-label="Insertar ${emoji}">${emoji}</button>`).join('')}

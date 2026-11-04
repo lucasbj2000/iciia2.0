@@ -25,7 +25,7 @@
   --bg:#F5F6F2; --surface:#FFFFFF; --surface2:#F3F5EF; --line:#E2E6DC; --line-suave:#ECEFE7;
   --txt:#1D211B; --muted:#5C6356; --gris-logo:#939497;
   --brand:#73BC45; --brand2:#3D7A1F;
-  --ok:#23864A; --warn:#B26B00; --bad:#C8352F;
+  --ok:#23864A; --warn:#975A00; --bad:#C8352F;
   --sombra:0 1px 2px rgba(29,33,27,.05),0 6px 20px -10px rgba(29,33,27,.07);
   --borde-luz:none;
 }
@@ -240,7 +240,7 @@ small,.tag,.ev,.badge-rol,.card .mas,.ficha-acordeon-ayuda,.historial-tramo,.cha
   .ico-btn,.burger{width:44px}
   #disp-pill{width:44px;padding:0!important;justify-content:center}
   #disp-pill #disp-txt{display:none}
-  #btn-tema,#btn-densidad,#clock{display:none!important}
+  #clock{display:none!important}
   .section{padding:12px}
   .card-box{padding:14px}
   aside{width:min(86vw,300px)}
@@ -265,9 +265,7 @@ small,.tag,.ev,.badge-rol,.card .mas,.ficha-acordeon-ayuda,.historial-tramo,.cha
   .msg-responder{min-width:36px;min-height:36px}
   .tab{min-height:44px}
 }
-@media(max-width:420px){
-  #btn-install-app{display:none!important}
-}
+
 @media(prefers-reduced-motion:reduce){
   .card:hover{transform:none}
   .btn:active{transform:none}
@@ -561,3 +559,96 @@ header.top:has(#wa-estado.on) #clock{display:none!important}
   ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}
   .card-equipo.llega,.eq-av.redacta::after,.f-coordina{animation:none!important}
 }
+
+/* ============ Limpieza de diseño ============ */
+/* ---------- Íconos de línea (reemplazan a los emojis) ---------- */
+.ic{width:1.1em;height:1.1em;flex:none;display:inline-block;vertical-align:-.18em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ic .lleno{fill:currentColor;stroke:none}
+.btn .ic,.tag .ic,.pill .ic{margin-right:2px}
+.empty .ico .ic{width:34px;height:34px;stroke-width:1.5;color:var(--muted)}
+.toast .ti .ic{width:20px;height:20px}
+.toast.ok .ti{color:var(--ok)}.toast.warn .ti{color:var(--warn)}.toast.bad .ti{color:var(--bad)}
+.nitem-ic{color:var(--muted);display:inline-flex}
+.nitem-ic.ok{color:var(--ok)}.nitem-ic.warn{color:var(--warn)}.nitem-ic.bad{color:var(--bad)}
+.nitem-ic .ic{width:18px;height:18px}
+.emoji-picker summary .ic,.btn-adj .ic{width:20px;height:20px}
+.menu-adj .em .ic{width:20px;height:20px;color:var(--verde-texto)}
+.ic-adj .ic,.sin-img .ic,.doc .di .ic{width:24px;height:24px;color:var(--muted)}
+.ubi-ic .ic{width:20px;height:20px;color:var(--muted)}
+
+/* ---------- Ficha: la conversación primero ---------- */
+.ficha-h{align-items:flex-start!important;gap:12px}
+.ficha-titulo{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.ficha-titulo h3{margin:0;flex:none!important}
+.ficha-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;color:var(--muted);font-size:var(--fs-xs)}
+.meta-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;min-height:28px}
+.meta-item .ic{width:15px;height:15px}
+.meta-tel select{border:1px solid var(--line);background:var(--surface2);color:var(--txt);border-radius:8px;padding:2px 8px;font-size:var(--fs-xs);min-height:30px;max-width:240px}
+.meta-bot .sw{margin-left:2px}
+.meta-btn{border:0;background:none;color:var(--verde-texto);cursor:pointer;padding:0;font:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.meta-ok{color:var(--ok);font-weight:600}
+.meta-error{color:var(--bad);flex-basis:100%}
+.meta-error:empty{display:none}
+.ficha-acciones{display:flex;align-items:center;gap:6px;position:relative;flex:none}
+.ficha-menu-btn{width:40px;min-height:40px;padding:0!important;justify-content:center}
+.ficha-menu-btn .ic{width:20px;height:20px;margin:0}
+.ficha-menu{position:absolute;top:calc(100% + 6px);right:0;z-index:40;min-width:270px;background:var(--surface);border:1px solid var(--line);
+  border-radius:12px;box-shadow:0 18px 40px -16px rgba(0,0,0,.45);padding:6px;display:flex;flex-direction:column}
+.ficha-menu[hidden]{display:none}
+.ficha-menu button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 12px;border:0;background:none;border-radius:8px;
+  font:400 var(--fs-sm) var(--f-texto);color:var(--txt);cursor:pointer;min-height:42px}
+.ficha-menu button .ic{width:18px;height:18px;color:var(--muted)}
+.ficha-menu button:hover,.ficha-menu button:focus-visible{background:var(--surface2)}
+.ficha-menu .peligro,.ficha-menu .peligro .ic{color:var(--bad)}
+.ficha-menu hr{border:0;border-top:1px solid var(--line-suave);margin:4px 0}
+.ficha-info,.ficha-avanzado{margin-bottom:10px}
+.ficha-info[hidden],.ficha-avanzado[hidden]{display:none!important}
+.ficha-contacto{color:var(--muted);font-size:var(--fs-sm);margin-top:6px;line-height:1.9}
+.historial-barra:has(#f-mas-mensajes[hidden]){display:none}
+.historial-barra{justify-content:center}
+/* «+ aquí» (carga histórica): solo al pasar el mouse o con el modo histórico abierto */
+.msg [data-hist-tras]{opacity:0;pointer-events:none;transition:opacity var(--t-rapido)}
+.msg:hover [data-hist-tras],.msg:focus-within [data-hist-tras],.modo-historico .msg [data-hist-tras]{opacity:1;pointer-events:auto}
+@media (hover:none){.msg [data-hist-tras]{display:none}.modo-historico .msg [data-hist-tras]{display:inline-flex;opacity:1;pointer-events:auto}}
+@media (max-width:600px){.meta-suave{display:none}.ficha-meta{gap:4px 12px}.meta-tel{flex-basis:100%}.meta-tel select{max-width:none;flex:1;min-height:40px}}
+
+/* ---------- Tarjetas del tablero ---------- */
+.card-canal{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;flex:none}
+.card-canal .ic{width:13px;height:13px}
+.canal-wa{background:color-mix(in srgb,#25A55F 18%,transparent);color:#2E9E5B}
+.canal-fb{background:color-mix(in srgb,#3B6FD8 18%,transparent);color:#4C7FE0}
+.canal-ig{background:color-mix(in srgb,#C2408A 18%,transparent);color:#C74B91}
+.canal-tel{background:color-mix(in srgb,#C79A1A 18%,transparent);color:#B88B12}
+.canal-otro{background:var(--surface2);color:var(--muted)}
+[data-tema="oscuro"] .canal-wa{color:#5FD195}[data-tema="oscuro"] .canal-fb{color:#8FB2F5}
+[data-tema="oscuro"] .canal-ig{color:#EE8FC4}[data-tema="oscuro"] .canal-tel{color:#E7C25B}
+.card-pie{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:var(--fs-xs);color:var(--muted);margin-top:6px}
+.card-pie .ic{width:13px;height:13px}
+.card-fecha{font-variant-numeric:tabular-nums;color:var(--muted);flex:none}
+.card .chips:empty{display:none}
+.card .tag .ic{width:12px;height:12px}
+
+/* ---------- Usuario: preferencias y sesión en una fila propia ---------- */
+.me{flex-wrap:wrap}
+.me-herramientas{flex-basis:100%;display:flex;gap:4px;justify-content:space-between}
+.me-herramientas .x{width:40px;height:40px;min-height:40px;border-radius:10px;display:grid;place-items:center;padding:0}
+.me-herramientas .ico-btn::before{width:19px;height:19px;-webkit-mask-size:19px;mask-size:19px}
+.me-btn{border:1px solid transparent;background:none;color:var(--muted)}
+.me-btn:hover,.me-herramientas .x:hover{background:var(--surface2);color:var(--txt)}
+
+/* ---------- Fondo tranquilo detrás del tablero ---------- */
+body:has(#kanban){background-image:var(--fondo-grano);background-size:220px 220px}
+body:has(#kanban)::before,body:has(#kanban)::after{opacity:.28}
+
+/* ---------- Movimiento: en bucle solo lo que avisa algo urgente ---------- */
+/* Clima del encabezado: se anima al cargar y luego queda quieto (en la sala de control sigue vivo). */
+header.top .wxa,header.top .wxa *{animation-iteration-count:3!important}
+#disp-dot.live::after,.dot.live{animation-iteration-count:3!important}
+.sla.r i{animation:none!important}
+.msg .ubi .pin,.wx .ico,.zona-drop b,.canal.conectado .ico{animation:none!important}
+
+/* Etapa de la ficha: el color va en el punto; el texto siempre con contraste suficiente. */
+.ficha-etapa{display:inline-flex;align-items:center;gap:7px;margin-left:8px;padding:2px 10px 2px 8px;border-radius:999px;vertical-align:.12em;
+  font:600 var(--fs-sm) var(--f-texto);color:var(--txt);background:color-mix(in srgb,var(--etapa) 16%,transparent);border:1px solid color-mix(in srgb,var(--etapa) 45%,transparent)}
+.ficha-etapa::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--etapa);flex:none}
+.rep-rango button.on{color:var(--sobre-verde)}

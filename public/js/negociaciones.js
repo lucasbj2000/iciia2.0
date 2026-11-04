@@ -1,6 +1,7 @@
 /* ============ Tablero de negociaciones ============ */
 import { volar, volarDesde, desplegarDesde } from './animaciones.js';
 import { avataresEquipo, cargarPresencias } from './presencia-equipo.js';
+import { ic } from './iconos.js';
 import {
   $, $$, esc, S, get, post, patch, gs, fd, ago, toast, modal, cerrar, confirmar,
   fx, esAdmin, etapa, etapaActiva, ORIGENES, vacio, skeleton, confeti, vibrar,
@@ -73,20 +74,20 @@ function pintarShell() {
       ${ORIGENES.map(o => `<option ${F.origen === o ? 'selected' : ''}>${o}</option>`).join('')}</select>
     <select id="f-marcador" style="flex:1;min-width:140px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:10px">
       <option value="">Todos los marcadores</option>
-      ${[['frecuente', '★ Frecuente'], ['regestionado', '↻ Re gestionado'], ['transferido', '⇄ Transferido'], ['manual', '✎ Carga manual']]
+      ${[['frecuente', 'Frecuente'], ['regestionado', 'Re gestionado'], ['transferido', 'Transferido'], ['manual', 'Carga manual']]
         .map(([k, t]) => `<option value="${k}" ${F.marcador === k ? 'selected' : ''}>${t}</option>`).join('')}</select>
     ${S.usuario.rol !== 'agente' ? `<select id="f-agente" style="flex:1;min-width:140px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:10px">
       <option value="">Todos los agentes</option>
       ${usuarios.filter(u => u.rol === 'agente').map(u => `<option value="${u.id}" ${F.agente === u.id ? 'selected' : ''}>${esc(u.nombre)}</option>`).join('')}</select>` : ''}
-    ${esAdmin() && fx('cargaManual') ? `<button class="btn sm" id="b-manual">✎ Carga manual</button>` : ''}
-    ${puedeBorrar ? `<button class="btn ${MODO_SEL ? 'danger' : 'ghost'} sm" id="b-sel">${MODO_SEL ? '✕ Salir de selección' : '☑ Seleccionar'}</button>` : ''}
+    ${esAdmin() && fx('cargaManual') ? `<button class="btn sm" id="b-manual">${ic('lapiz')} Carga manual</button>` : ''}
+    ${puedeBorrar ? `<button class="btn ${MODO_SEL ? 'danger' : 'ghost'} sm" id="b-sel">${MODO_SEL ? '✕ Salir de selección' : `${ic('seleccionar')} Seleccionar`}</button>` : ''}
   </div>
   ${MODO_SEL ? `<div style="padding:10px 18px 0"><div class="card-box fx-pop" style="margin:0;border-color:var(--bad);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
      <b style="flex:1;font-size:var(--fs-sm)">Seleccionadas: <span id="sel-n">${SEL.size}</span></b>
      <button class="btn ghost sm" id="b-seltodo">Seleccionar todo lo visible</button>
      <button class="btn ghost sm" id="b-sellimpiar">Limpiar</button>
-     <button class="btn danger sm" id="b-selborrar">🗑 Eliminar seleccionadas</button>
-     <button class="btn danger sm" id="b-masivo">⚠ Eliminación masiva</button></div></div>` : ''}
+     <button class="btn danger sm" id="b-selborrar">${ic('papelera')} Eliminar seleccionadas</button>
+     <button class="btn danger sm" id="b-masivo">${ic('alerta')} Eliminación masiva</button></div></div>` : ''}
   <div class="etapa-tabs">${etapas.map(e =>
     `<button class="etapa-tab ${S.etapaMovil === e.id ? 'active' : ''}" data-etapa="${e.id}">
       ${esc(e.nombre)} <span style="opacity:.7" data-cnt="${e.id}">0</span></button>`).join('')}</div>
@@ -131,7 +132,6 @@ function pintarColumnas() {
     const restantes=lista.length-visibles.length;
     return `<div class="col ${S.etapaMovil === e.id ? 'movil-visible' : ''}" data-col="${e.id}" style="animation-delay:${i * .05}s">
       <div class="col-h"><span class="dot" style="background:${e.color}"></span><b>${esc(e.nombre)}</b>
-        ${e.activa ? '<span class="tag t-fecha" title="Etapa activa: sin duplicados">activa</span>' : ''}
         <span class="count">${lista.length}</span></div>
       ${e.id === 'nuevo' && esAdmin() && fx('cargaManual') ? '<div class="col-quick"><button type="button" class="btn ghost sm" id="b-rapida">+ Crear negociación rápida</button></div>' : ''}
       <div class="col-b" data-body="${e.id}">
@@ -219,17 +219,18 @@ function actualizarContadores() {
 }
 
 /* ---------- Tarjeta ---------- */
+const CANAL_IC = { wa: 'mensaje', fb: 'mensaje', ig: 'camara', tel: 'telefono', otro: 'mensaje' };
 function tarjeta(n) {
   const cls = { whatsapp: 'wa', facebook: 'fb', instagram: 'ig', telefonia: 'tel' }[n.origen] || 'otro';
   const marc = n.marcadores || [];
   const chips = [];
-  if (marc.includes('frecuente') && fx('marcadorFrecuente')) chips.push('<span class="tag t-frec">★ Frecuente</span>');
-  if (marc.includes('regestionado') && fx('marcadorRegestion')) chips.push('<span class="tag t-re">↻ Re gestionado</span>');
-  if (marc.includes('transferido') && fx('marcadorTransferido')) chips.push('<span class="tag t-tr">⇄ Transferido</span>');
-  if (marc.includes('manual')) chips.push('<span class="tag t-man">✎ Manual</span>');
-  if (Number(n.n_ubicaciones) > 0) chips.push('<span class="tag t-ubi">📍 Dirección</span>');
-  if (n.bot_activo === false) chips.push('<span class="tag t-bot">🤖 off</span>');
-  if (fx('fechaCreacion')) chips.push(`<span class="tag t-fecha">📅 ${fd(n.creado)}</span>`);
+  if (marc.includes('frecuente') && fx('marcadorFrecuente')) chips.push(`<span class="tag t-frec">${ic('estrella')} Frecuente</span>`);
+  if (marc.includes('regestionado') && fx('marcadorRegestion')) chips.push(`<span class="tag t-re">${ic('regestion')} Re gestionado</span>`);
+  if (marc.includes('transferido') && fx('marcadorTransferido')) chips.push(`<span class="tag t-tr">${ic('transferir')} Transferido</span>`);
+  if (marc.includes('manual')) chips.push(`<span class="tag t-man">${ic('lapiz')} Manual</span>`);
+  if (Number(n.n_ubicaciones) > 0) chips.push(`<span class="tag t-ubi">${ic('pin')} Dirección</span>`);
+  if (n.bot_activo === false) chips.push(`<span class="tag t-bot">${ic('bot')} Bot apagado</span>`);
+  const fecha = fx('fechaCreacion') ? fd(n.creado) : '';
 
   const visibles = chips.slice(0, 2), ocultos = chips.slice(2);
   const monto = n.etapa === 'ganado' && n.monto_cierre
@@ -246,14 +247,14 @@ function tarjeta(n) {
     // El cliente espera respuesta: respira en ámbar cerca del plazo; borde rojo si lo superó.
     if (n.etapa === 'espera') plazo = pct >= 100 ? ' plazo-vencido' : pct >= 75 ? ' plazo-cerca' : '';
     sla = `<div class="sla ${nivel}"><i style="width:${pct}%"></i></div>
-      <div class="sla-txt" style="color:${color}">⏱ ${n.etapa === 'espera' ? 'Esperando' : 'En seguimiento'} hace ${ago(n.entrada_etapa)}</div>`;
-  }
+      <div class="sla-txt card-pie"><span style="color:${color}">${ic('reloj')} ${n.etapa === 'espera' ? 'Esperando' : 'En seguimiento'} hace ${ago(n.entrada_etapa)}</span>${fecha ? `<span class="card-fecha" title="Creada">${fecha}</span>` : ''}</div>`;
+  } else if (fecha) sla = `<div class="card-pie"><span>${ic('calendario')} Creada</span><span class="card-fecha">${fecha}</span></div>`;
 
   return `<div class="card ${SEL.has(n.id) ? 'sel' : ''}${plazo}" data-id="${n.id}"
       style="--acc:${etapa(n.etapa).color}" draggable="${MODO_SEL ? 'false' : 'true'}">
     ${MODO_SEL ? `<input type="checkbox" class="chk" ${SEL.has(n.id) ? 'checked' : ''} data-chk="${n.id}">` : ''}
     ${avataresEquipo(n.id)}<span class="nom">${esc(n.cliente || '—')}</span>
-    <div class="linea"><span class="tag t-${cls}">${n.origen}</span>
+    <div class="linea"><span class="card-canal canal-${cls}" role="img" aria-label="Canal ${esc(n.origen || 'otro')}" title="${esc(n.origen || 'otro')}">${ic(CANAL_IC[cls] || 'mensaje')}</span>
       ${n.agente_nombre ? esc(n.agente_nombre) : '<span style="color:var(--warn)">Sin asignar</span>'}
       ${monto ? '· ' + monto : ''}</div>
     <div class="chips">${visibles.join('')}
@@ -328,7 +329,7 @@ export async function mover(id, destino, extra = {}) {
     n.entrada_etapa = new Date().toISOString();
     bloqueadas.delete(id);
     setTimeout(() => patchTarjeta(id), 80);
-    if (destino === 'ganado') { confeti(); vibrar([18, 50, 18]); toast(`Cerrado ganado por ${gs(extra.monto)}`, 'ok', '🎉 ¡Venta cerrada!'); }
+    if (destino === 'ganado') { confeti(); vibrar([18, 50, 18]); toast(`Cerrado ganado por ${gs(extra.monto)}`, 'ok', '¡Venta cerrada!'); }
     else toast(`Movido a ${etapa(destino).nombre}`, 'ok', 'Negociación');
   } catch (e) {
     bloqueadas.delete(id);
@@ -345,7 +346,7 @@ export async function mover(id, destino, extra = {}) {
 
 function modalGanado(id) {
   const n = S.negociaciones.find(x => x.id === id) || {};
-  modal(`<div class="modal-h"><h3>💰 Cerrar ganado · ${esc(n.cliente || '')}</h3><button class="x" data-cerrar>✕</button></div>
+  modal(`<div class="modal-h"><h3>${ic('dinero')} Cerrar ganado · ${esc(n.cliente || '')}</h3><button class="x" data-cerrar>✕</button></div>
    <div class="modal-b"><p class="sub" style="margin-top:0">El monto de cierre es obligatorio para registrar la venta.</p>
    <div class="field"><label for="gm">Monto por el cual se cerró (Gs) *</label>
      <input id="gm" type="number" inputmode="numeric" min="1" value="${n.valor || ''}" placeholder="Ej: 3500000"></div>
@@ -422,10 +423,10 @@ function modalNegociacionRapida() {
 export function modalCargaManual(pre = {}) {
   const sucs = S.sucursales.map(s => s.nombre);
   const ahora = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  modal(`<div class="modal-h"><h3>✎ Cargar negociación que no ingresó</h3><button class="x" data-cerrar>✕</button></div>
+  modal(`<div class="modal-h"><h3>${ic('lapiz')} Cargar negociación que no ingresó</h3><button class="x" data-cerrar>✕</button></div>
   <div class="modal-b">
    <p class="sub" style="margin-top:0">Para conversaciones que no entraron al sistema. Queda con marcador
-     <span class="tag t-man">✎ Manual</span> y auditada.</p>
+     <span class="tag t-man">${ic('lapiz')} Manual</span> y auditada.</p>
    <div class="card-box"><h3>Datos del cliente</h3>
     <div class="row"><div class="field"><label>Nombre *</label><input id="m-nom" value="${esc(pre.nombre || '')}"></div>
      <div class="field"><label>Teléfono *</label><input id="m-tel" inputmode="tel" value="${esc(pre.tel || '')}"></div>
@@ -451,7 +452,7 @@ export function modalCargaManual(pre = {}) {
      <textarea id="m-msg" rows="3" placeholder="Pegá o transcribí el mensaje original">${esc(pre.mensaje || '')}</textarea></div>
     <div class="field"><label>Adjunto que envió el cliente (opcional)</label>
       <div id="m-adj" hidden></div>
-      <div class="row" style="position:relative"><button class="btn ghost sm" id="m-adjbtn" type="button">📎 Adjuntar archivo</button></div></div>
+      <div class="row" style="position:relative"><button class="btn ghost sm" id="m-adjbtn" type="button">${ic('clip')} Adjuntar archivo</button></div></div>
     <div class="field"><label>Respuesta del agente (opcional)</label><textarea id="m-res" rows="2"></textarea></div>
     <div class="field"><label>Motivo de la carga manual</label><select id="m-why">
       ${['Falla de conexión de WhatsApp', 'Mensaje perdido por el bot', 'Contacto presencial', 'Contacto por llamada', 'Derivación externa', 'Otro']
@@ -495,7 +496,7 @@ export async function chequearDuplicado(tel, sel) {
     const d = await get(`/contactos/chequeo?tel=${encodeURIComponent(tel)}`);
     if (!d.duplicado) { box.innerHTML = ''; return; }
     box.innerHTML = `<div class="card-box fx-pop" style="margin:0 0 10px;border-color:var(--warn);padding:11px">
-      <b style="font-size:var(--fs-sm)">⚠ Ese número ya tiene una negociación abierta</b>
+      <b style="font-size:var(--fs-sm)">${ic('alerta')} Ese número ya tiene una negociación abierta</b>
       <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:5px">
         ${esc(d.nombre)} · ${esc(d.etapaNombre)} · ${esc(d.agente || 'sin asignar')}</div>
       <button class="btn ghost sm" style="margin-top:8px" data-abrir="${d.id}">Abrir la existente</button></div>`;
@@ -507,7 +508,7 @@ export async function chequearDuplicado(tel, sel) {
 async function borrarSeleccion() {
   if (!SEL.size) return toast('No hay negociaciones seleccionadas', 'warn');
   const ids = [...SEL];
-  modal(`<div class="modal-h"><h3>🗑 Eliminar ${ids.length} negociación(es)</h3><button class="x" data-cerrar>✕</button></div>
+  modal(`<div class="modal-h"><h3>${ic('papelera')} Eliminar ${ids.length} negociación(es)</h3><button class="x" data-cerrar>✕</button></div>
    <div class="modal-b"><p class="sub" style="margin-top:0">Esta acción no se puede deshacer. Los contactos y su ficha 360° se conservan.</p>
     <div style="max-height:190px;overflow:auto;margin-bottom:12px">${ids.map(i => {
       const n = S.negociaciones.find(x => x.id === i) || {};
@@ -530,7 +531,7 @@ async function borrarSeleccion() {
 }
 
 function modalMasivo() {
-  modal(`<div class="modal-h"><h3>⚠ Eliminación masiva por filtro</h3><button class="x" data-cerrar>✕</button></div>
+  modal(`<div class="modal-h"><h3>${ic('alerta')} Eliminación masiva por filtro</h3><button class="x" data-cerrar>✕</button></div>
   <div class="modal-b"><p class="sub" style="margin-top:0">Solo afecta a <b>${esc(S.empresa.nombre)}</b>.</p>
    <div class="row"><div class="field"><label>Etapa</label><select id="bm-et"><option value="">Todas</option>
      ${(S.empresa.etapas || []).map(e => `<option value="${e.id}">${esc(e.nombre)}</option>`).join('')}</select></div>

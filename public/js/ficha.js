@@ -1,6 +1,7 @@
 /* ============ Ficha de negociación · adjuntos · botones · ubicaciones ============ */
 import { tildesHTML } from './animaciones.js';
 import { seguirConversacion } from './presencia-equipo.js';
+import { ic } from './iconos.js';
 import {
   $, $$, esc, S, get, post, patch, put, del, gs, fdate, fd, ago, toast, modal, cerrar,
   confirmar, fx, esAdmin, esMando, etapa, ORIGENES, vacio, vibrar, esMovil
@@ -44,35 +45,53 @@ function pintar() {
   const cerrada = ['ganado', 'cerrado'].includes(n.etapa);
   const marc = n.marcadores || [];
   const chips = [];
-  if (marc.includes('frecuente') && fx('marcadorFrecuente')) chips.push('<span class="tag t-frec">★ Frecuente</span>');
-  if (marc.includes('regestionado') && fx('marcadorRegestion')) chips.push('<span class="tag t-re">↻ Re gestionado</span>');
-  if (marc.includes('transferido') && fx('marcadorTransferido')) chips.push('<span class="tag t-tr">⇄ Transferido</span>');
-  if (marc.includes('manual')) chips.push('<span class="tag t-man">✎ Carga manual</span>');
+  if (marc.includes('frecuente') && fx('marcadorFrecuente')) chips.push(`<span class="tag t-frec">${ic('estrella')} Frecuente</span>`);
+  if (marc.includes('regestionado') && fx('marcadorRegestion')) chips.push(`<span class="tag t-re">${ic('regestion')} Re gestionado</span>`);
+  if (marc.includes('transferido') && fx('marcadorTransferido')) chips.push(`<span class="tag t-tr">${ic('transferir')} Transferido</span>`);
+  if (marc.includes('manual')) chips.push(`<span class="tag t-man">${ic('lapiz')} Carga manual</span>`);
   const ubis = n.ubicaciones || [];
 
-  modal(`<div class="modal-h"><h3>${esc(n.cliente)} · <span id="f-etapa" style="color:${etapa(n.etapa).color}">${esc(etapa(n.etapa).nombre)}</span></h3>
-   ${esAdmin() && fx('eliminarNegociaciones') ? `<button class="btn danger sm" id="f-borrar">🗑</button>` : ''}
-   <button class="x" data-cerrar>✕</button></div>
+  const puedeBorrar = esAdmin() && fx('eliminarNegociaciones');
+  modal(`<div class="modal-h ficha-h">
+   <div class="ficha-titulo"><h3>${esc(n.cliente)} <span id="f-etapa" class="ficha-etapa" style="--etapa:${etapa(n.etapa).color}">${esc(etapa(n.etapa).nombre)}</span></h3>
+    <div class="ficha-meta">
+     ${!cerrada ? `<label class="meta-item meta-tel" title="Número del cliente al que responderá esta negociación">${ic('celular')}<span class="sr">Número del cliente al que responderá esta negociación</span>
+       <select id="f-telefono-chat" aria-label="Número de destino del chat" disabled><option>Consultando números…</option></select></label>` : ''}
+     ${n.canal_nombre ? `<span class="meta-item" title="Canal">${ic('canal')}${esc(n.canal_nombre)}</span>` : ''}
+     <label class="meta-item meta-bot" title="Respuestas automáticas en esta conversación">${ic('bot')}Bot
+       <span class="sw"><input type="checkbox" id="f-bot" ${n.bot_activo !== false ? 'checked' : ''} aria-label="Bot activo en esta conversación"><i></i></span></label>
+     ${ubis.length && fx('detectarUbicacion') ? `<button type="button" class="meta-item meta-btn" data-abrir-info>${ic('pin')}${ubis.length} ${ubis.length === 1 ? 'dirección' : 'direcciones'}</button>` : ''}
+     ${n.etapa === 'ganado' ? `<span class="meta-item meta-ok">${ic('dinero')}${gs(n.monto_cierre)}</span>` : ''}
+     <span class="meta-item meta-suave" title="Última actividad">${ic('actualizado')}hace ${ago(n.actualizado)}</span>
+     <small id="f-telefono-chat-error" class="meta-error" role="alert"></small>
+    </div></div>
+   <div class="ficha-acciones">
+    <button type="button" class="btn ghost sm ficha-menu-btn" id="f-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="f-menu-lista" title="Más acciones">${ic('mas')}<span class="sr">Más acciones</span></button>
+    <div class="ficha-menu" id="f-menu-lista" role="menu" hidden>
+     <button type="button" role="menuitem" data-menu="info">${ic('info')}Datos de la negociación</button>
+     ${esAdmin() && !cerrada ? `<button type="button" role="menuitem" data-menu="ruta">${ic('canal')}Ruta de envío de WhatsApp</button>` : ''}
+     ${esAdmin() ? `<button type="button" role="menuitem" data-menu="historico">${ic('mas_simple')}Registrar mensaje histórico</button>` : ''}
+     <button type="button" role="menuitem" data-menu="360">${ic('usuarios')}Ver ficha 360° del cliente</button>
+     ${puedeBorrar ? `<hr><button type="button" role="menuitem" class="peligro" id="f-borrar">${ic('papelera')}Eliminar negociación</button>` : ''}
+    </div>
+    <button class="x" data-cerrar aria-label="Cerrar conversación">✕</button></div></div>
   <div class="modal-b">
-   <details class="ficha-contexto ficha-acordeon"><summary>ⓘ Datos de la negociación <span class="ficha-acordeon-ayuda">Mostrar información</span></summary>
-   <div class="row" style="margin-bottom:12px">
-     ${fx('fechaCreacion') ? `<span class="pill" style="flex:none">📅 Creada ${fdate(n.creado)}</span>` : ''}
-     <span class="pill" style="flex:none">🔄 ${ago(n.actualizado)} atrás</span>
-     ${n.canal_nombre ? `<span class="pill" style="flex:none">📡 ${esc(n.canal_nombre)}</span>` : ''}
-     ${n.etapa === 'ganado' ? `<span class="pill" style="flex:none;border-color:var(--ok)">💰 <b style="color:var(--ok)">${gs(n.monto_cierre)}</b></span>` : ''}
-     <span class="pill" style="flex:none">🤖 Bot
-       <label class="sw" style="margin-left:6px"><input type="checkbox" id="f-bot" ${n.bot_activo !== false ? 'checked' : ''}><i></i></label></span>
+   <div id="f-info" class="ficha-info" hidden>
+   <details class="ficha-contexto ficha-acordeon"><summary>${ic('info')} Datos de la negociación <span class="ficha-acordeon-ayuda">Mostrar información</span></summary>
+   <div class="row ficha-datos" style="margin-bottom:12px">
+     ${fx('fechaCreacion') ? `<span class="pill" style="flex:none">${ic('calendario')} Creada ${fdate(n.creado)}</span>` : ''}
+     ${n.agente_nombre ? `<span class="pill" style="flex:none">${ic('usuarios')} ${esc(n.agente_nombre)}</span>` : ''}
      <span style="flex:none">${chips.join('')}</span></div>
 
    ${ubis.length && fx('detectarUbicacion') ? `<div class="card-box fx-pop" style="border-color:#2b6a7a">
-     <h3>📍 Direcciones detectadas (${ubis.length})</h3>
+     <h3>${ic('pin')} Direcciones detectadas (${ubis.length})</h3>
      ${ubis.slice(0, 4).map(u => `<div class="msg-ubi" style="display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)">
-       <span style="font-size:19px">${u.fuente === 'gps' ? '🛰' : u.fuente === 'link' ? '🔗' : '✍️'}</span>
+       <span class="ubi-ic">${ic(u.fuente === 'gps' ? 'gps' : u.fuente === 'link' ? 'enlace' : 'lapiz')}</span>
        <div style="flex:1;min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.direccion || u.texto)}</b>
          <small style="color:var(--muted)">${u.fuente} · confianza ${u.confianza} · ${fdate(u.ts)}
            ${u.confirmada ? ' · <span style="color:var(--ok)">confirmada</span>' : ''}</small></div>
        <div style="flex:none;display:flex;gap:6px">
-         ${u.lat != null ? `<a class="btn ghost sm" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener">🗺 Ver</a>` : ''}
+         ${u.lat != null ? `<a class="btn ghost sm" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener">${ic('mapa')} Ver</a>` : ''}
          ${!u.confirmada ? `<button class="btn ghost sm" data-confubi="${u.id}">✓ Confirmar</button>` : ''}</div></div>`).join('')}
      </div>` : ''}
 
@@ -80,12 +99,13 @@ function pintar() {
 
    ${(n.transferencias || []).length && fx('marcadorTransferido') ?
      `<details class="ficha-transferencias ficha-acordeon">
-       <summary>⇄ Historial de transferencias <span class="ficha-transferencias-cantidad">${n.transferencias.length}</span></summary>
+       <summary>${ic('transferir')} Historial de transferencias <span class="ficha-transferencias-cantidad">${n.transferencias.length}</span></summary>
        <div class="ficha-transferencias-contenido">
          <ul class="tl">${n.transferencias.map(t => `<li>${esc(t.de_nombre || 'Sin asignar')} → <b>${esc(t.a_nombre)}</b>${t.nota ? ' · ' + esc(t.nota) : ''}
            <small>${fdate(t.ts)} · por ${esc(t.por || '')}</small></li>`).join('')}</ul>
        </div>
      </details>` : ''}
+   </div>
    <div class="tabs"><button class="tab active" data-tab="t-chat">Conversación</button>
      <button class="tab" data-tab="t-notas">Notas internas</button>
      <button class="tab" data-tab="t-det">Detalle</button>
@@ -93,18 +113,12 @@ function pintar() {
 
    <div id="t-chat">
      <div class="historial-barra" aria-label="Historial completo del cliente">
-       <small>Conversación continua del cliente · incluye negociaciones anteriores</small>
-       <button class="btn ghost sm" id="f-mas-mensajes" type="button" ${historialVista?.hayAnteriores?'':'hidden'}>↑ Cargar mensajes anteriores</button>
+       <button class="btn ghost sm" id="f-mas-mensajes" type="button" ${historialVista?.hayAnteriores?'':'hidden'}>${ic('flecha_arriba')} Cargar mensajes anteriores</button>
      </div>
-     ${!cerrada?`<div class="historial-barra" style="margin-top:8px">
-       <small>📞 Número del cliente al que responderá esta negociación</small>
-       <select id="f-telefono-chat" aria-label="Número de destino del chat" disabled>
-         <option>Consultando números…</option>
-       </select>
-       <small id="f-telefono-chat-error" role="alert"></small>
-       ${esAdmin()?'<div id="f-ruta-wa" style="margin-top:6px"></div>':''}
-     </div>`:''}
-     ${esAdmin()?formularioHistorico():''}
+     ${esAdmin() ? `<div id="f-avanzado" class="ficha-avanzado" hidden>
+       ${!cerrada ? '<div id="f-ruta-wa"></div>' : ''}
+       ${formularioHistorico()}
+     </div>` : ''}
      <div class="chat" id="chatbox"></div>
 
      ${cerrada ? `<div class="card-box chat-compose" style="margin:12px 0 0;border-color:var(--warn)">
@@ -114,14 +128,14 @@ function pintar() {
        ${herramientasHTML('remsg')}
        <div id="adj-re" hidden></div>
        <div class="row chat-input-row" style="align-items:center;position:relative">
-         ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj-re" type="button" title="Adjuntar">📎</button>` : ''}
+         ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj-re" type="button" title="Adjuntar" aria-label="Adjuntar">${ic('clip')}</button>` : ''}
          <textarea id="remsg" rows="3" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje al cliente…"></textarea>
          <button class="btn" style="flex:none" id="f-rege">Enviar y re gestionar</button></div></div>`
      : `<div class="chat-compose">${herramientasHTML('msg')}
         <div id="adj-barra" hidden></div>
         <div id="f-cita" class="cita-barra" hidden></div>
         <div class="row chat-input-row" style="margin-top:8px;align-items:center;position:relative">
-        ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj" type="button" title="Adjuntar archivo (o pegá con Ctrl+V)">📎</button>` : ''}
+        ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj" type="button" title="Adjuntar archivo (o pegá con Ctrl+V)" aria-label="Adjuntar archivo">${ic('clip')}</button>` : ''}
         <textarea id="msg" rows="3" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje, pegar o arrastrar un archivo…"></textarea>
         <button class="btn" style="flex:none" id="f-enviar">Enviar</button></div></div>`}
    </div>
@@ -129,11 +143,11 @@ function pintar() {
    <div id="t-det" class="hidden">
     <div class="grid g2">
       <div class="card-box"><h3>Cliente</h3>
-       <div><b>${esc(n.cliente)}</b> ${n.frecuente ? '<span class="tag t-frec">★ Frecuente</span>' : ''}</div>
-       <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:6px">📞 ${esc(n.tel || '—')}<br>
-         ✉ ${esc(n.cliente_email || '—')}<br>
-         ${n.cliente_direccion ? `📍 ${esc(n.cliente_direccion)}<br>` : ''}
-         🏢 ${esc(n.sucursal || '—')} · ${esc(n.linea || '—')}</div>
+       <div><b>${esc(n.cliente)}</b> ${n.frecuente ? `<span class="tag t-frec">${ic('estrella')} Frecuente</span>` : ''}</div>
+       <div class="ficha-contacto">${ic('telefono')} ${esc(n.tel || '—')}<br>
+         ${ic('correo')} ${esc(n.cliente_email || '—')}<br>
+         ${n.cliente_direccion ? `${ic('pin')} ${esc(n.cliente_direccion)}<br>` : ''}
+         ${ic('edificio')} ${esc(n.sucursal || '—')} · ${esc(n.linea || '—')}</div>
        <button class="btn ghost sm" style="margin-top:10px" id="f-360">Ver ficha 360°</button></div>
       <div class="card-box"><h3>Negociación</h3>
        <div class="field"><label>Título</label><input id="n-tit" value="${esc(n.titulo || '')}"></div>
@@ -149,7 +163,7 @@ function pintar() {
        <div class="field"><label>Transferir a</label><select id="n-ag"><option value="">— seleccionar —</option>
          ${usuarios.map(u => `<option value="${u.id}">${esc(u.nombre)} (${u.rol} · ${esc(u.sucursal || '')})</option>`).join('')}</select></div>
        <div class="field"><label>Nota de transferencia</label><input id="n-nota" placeholder="Motivo (opcional)"></div>
-       <button class="btn sm" id="f-transferir">⇄ Transferir</button></div>
+       <button class="btn sm" id="f-transferir">${ic('transferir')} Transferir</button></div>
       <div class="card-box"><h3>Mover de etapa</h3>
        <div style="display:flex;flex-wrap:wrap;gap:7px">
         ${(S.empresa.etapas || []).filter(e => e.id !== n.etapa).map(e =>
@@ -174,7 +188,7 @@ function pintar() {
   conectar(n);
 }
 
-const ETIQUETA_MEDIA = { imagen: '📷 Imagen', video: '🎥 Video', audio: '🎤 Audio', documento: '📄 Documento' };
+const ETIQUETA_MEDIA = { imagen: 'Imagen', video: 'Video', audio: 'Audio', documento: 'Documento' };
 const vistaCita = m => (String(m.txt || '').replace(/\s+/g, ' ').trim() || ETIQUETA_MEDIA[m.media_tipo] || 'Mensaje').slice(0, 300);
 const quienCita = dir => dir === 'out' ? 'Nosotros' : 'Cliente';
 function citaHTML(c) {
@@ -194,14 +208,14 @@ function mensajeHTML(m) {
        const u = m.ubicacion;
        const mapaUbi = u?.lat != null
          ? `<a class="ubi" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener">
-              <span class="pin">📍</span><div style="min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.nombre || 'Ubicación compartida')}</b>
+              <span class="pin">${ic('pin')}</span><div style="min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.nombre || 'Ubicación compartida')}</b>
               <small style="color:var(--muted)">${esc(u.direccion || `${u.lat}, ${u.lon}`)}</small></div></a>` : '';
-       const estadoWA=m.wa_estado_meta==='failed' ? ' · ⚠ Meta no entregó' : m.wa_ack == null ? '' : ' · ' + tildesHTML(m.wa_ack);
+       const estadoWA=m.wa_estado_meta==='failed' ? ` · ${ic('alerta')} Meta no entregó` : m.wa_ack == null ? '' : ' · ' + tildesHTML(m.wa_ack);
        // WhatsApp avisó que el teléfono del cliente no pudo descifrarlo: probablemente ve «Esperando mensaje».
        // El CRM lo resuelve solo: reenvía por la otra ruta. El botón queda como respaldo si no hay otra ruta.
        const textoNoVisto = m.wa_rescate==='reenviado' ? '↻ El cliente no pudo leerlo; se reenvió automáticamente por la otra ruta.'
-         : m.wa_rescate==='agotado' ? '⚠ El cliente no pudo leerlo por ninguna ruta. Administración fue avisada.'
-         : m.wa_rescate==='sin_alternativa' ? '⚠ El cliente no pudo leerlo. Se reenviará solo cuando WhatsApp informe otra ruta.'
+         : m.wa_rescate==='agotado' ? ic('alerta') + ' El cliente no pudo leerlo por ninguna ruta. Administración fue avisada.'
+         : m.wa_rescate==='sin_alternativa' ? ic('alerta') + ' El cliente no pudo leerlo. Se reenviará solo cuando WhatsApp informe otra ruta.'
          : '↻ El cliente no pudo leerlo; el CRM lo está reintentando.';
        const noDescifrado = m.dir==='out' && Number(m.wa_reintentos)>0
          ? `<div class="msg-no-visto ${m.wa_rescate==='reenviado'?'resuelto':''}" role="note"><span>${textoNoVisto}</span>
@@ -214,8 +228,8 @@ function mensajeHTML(m) {
          ? `<button type="button" class="msg-responder" data-responder="${m.id}" title="Responder citando este mensaje" aria-label="Responder citando este mensaje">↩</button>` : '';
        return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}">
           ${tramo}${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
-          <small>${m.carga_historica ? '✎ Carga histórica (admin) · ' : ''}${m.bot ? '🤖 Bot · ' : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ' · 📱 '+esc(m.remitente_numero) : ''}
-          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ' · ⚠ no enviado' : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small>${noDescifrado}</div>`;
+          <small>${m.carga_historica ? `${ic('lapiz')} Carga histórica (admin) · ` : ''}${m.bot ? `${ic('bot')} Bot · ` : ''}${fdate(m.ts)}${m.dir==='in' && m.remitente_numero ? ` · ${ic('celular')} `+esc(m.remitente_numero) : ''}
+          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ` · ${ic('alerta')} no enviado` : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small>${noDescifrado}</div>`;
 }
 
 export async function refrescarFicha(id, seguir = false) {
@@ -235,7 +249,7 @@ export async function refrescarFicha(id, seguir = false) {
   actualizarBotonHistorial();
   activarVisor(caja);
   const titulo = $('#f-etapa');
-  if (titulo) { titulo.textContent = etapa(n.etapa).nombre; titulo.style.color = etapa(n.etapa).color; }
+  if (titulo) { titulo.textContent = etapa(n.etapa).nombre; titulo.style.setProperty('--etapa', etapa(n.etapa).color); }
   if ($('#f-bot')) $('#f-bot').checked = n.bot_activo !== false;
   const historial = $('#t-his .tl');
   if (historial) historial.innerHTML = (n.historial || []).map(h => `<li>${esc(h.txt)}<small>${fdate(h.ts)} · ${esc(h.por)}</small></li>`).join('');
@@ -270,7 +284,7 @@ async function cargarMensajesAnteriores(id){
     caja.scrollTop=anteriorTop+(caja.scrollHeight-anteriorAlto);
     actualizarBotonHistorial();
   }catch(e){toast('No se pudieron cargar mensajes anteriores: '+e.message,'bad','Historial');}
-  finally{if(boton.isConnected){boton.disabled=false;boton.textContent='↑ Cargar mensajes anteriores';}}
+  finally{if(boton.isConnected){boton.disabled=false;boton.innerHTML=`${ic('flecha_arriba')} Cargar mensajes anteriores`;}}
 }
 
 async function cargarTelefonosChat(id){
@@ -354,9 +368,53 @@ async function cargarRutaWA(id){
   }
 }
 
+/* Menú «⋯» de la ficha: lo que no se usa en cada mensaje vive acá, no encima del chat. */
+function mostrarPanel(id, detalles) {
+  const panel = $('#' + id); if (!panel) return;
+  const abrir = panel.hidden;
+  panel.hidden = !abrir;
+  panel.querySelectorAll(detalles || 'details').forEach(d => { d.open = abrir; });
+  $('.conversation-modal')?.classList.toggle('modo-historico', id === 'f-avanzado' && abrir && detalles === '#f-historico-manual');
+  if (abrir) panel.scrollIntoView({ block: 'nearest' });
+}
+function conectarMenuFicha() {
+  const boton = $('#f-menu'), lista = $('#f-menu-lista');
+  if (!boton || !lista) return;
+  const items = () => [...lista.querySelectorAll('[role="menuitem"]')];
+  const cerrarMenu = (devolverFoco = false) => {
+    lista.hidden = true; boton.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('pointerdown', fuera, true);
+    if (devolverFoco) boton.focus();
+  };
+  const fuera = e => { if (!lista.contains(e.target) && e.target !== boton && !boton.contains(e.target)) cerrarMenu(); };
+  boton.onclick = () => {
+    if (!lista.hidden) return cerrarMenu();
+    lista.hidden = false; boton.setAttribute('aria-expanded', 'true');
+    items()[0]?.focus();
+    document.addEventListener('pointerdown', fuera, true);
+  };
+  lista.onkeydown = e => {
+    const l = items(), i = l.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); l[(i + 1) % l.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); l[(i - 1 + l.length) % l.length].focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cerrarMenu(true); }
+    else if (e.key === 'Tab') cerrarMenu();
+  };
+  lista.addEventListener('click', e => {
+    const b = e.target.closest('[data-menu]'); if (!b) return;
+    cerrarMenu();
+    const accion = b.dataset.menu;
+    if (accion === 'info') mostrarPanel('f-info', 'details.ficha-contexto, details.ficha-transferencias');
+    else if (accion === 'ruta') mostrarPanel('f-avanzado', 'none');
+    else if (accion === 'historico') mostrarPanel('f-avanzado', '#f-historico-manual');
+    else if (accion === '360') $('#f-360')?.click();
+  });
+  $$('[data-abrir-info]').forEach(b => b.onclick = () => mostrarPanel('f-info', 'details.ficha-contexto'));
+}
+
 function herramientasHTML(campo) {
   const html = botonesHTML(campo) + rapidasHTML(campo);
-  return html ? `<details class="chat-tools"><summary>⚡ Respuestas y acciones <span class="ficha-acordeon-ayuda">Desplegar</span></summary><div class="chat-tools-contenido">${html}</div></details>` : '';
+  return html ? `<details class="chat-tools"><summary>${ic('rayo')} Respuestas y acciones <span class="ficha-acordeon-ayuda">Desplegar</span></summary><div class="chat-tools-contenido">${html}</div></details>` : '';
 }
 
 /* ---------- Botones personalizados ---------- */
@@ -367,7 +425,7 @@ function botonesHTML(campo) {
   return `<div class="acciones">${bs.map((b, i) =>
     `<button class="bpers" data-bpers="${i}" data-campo="${campo}" style="--bc:${esc(b.color || 'var(--brand)')}">
       <span class="em">${esc(b.icono || '⚡')}</span><span>${esc(b.texto)}</span></button>`).join('')}
-    ${esAdmin() ? `<button class="bpers" data-config-btn style="--bc:var(--muted)"><span class="em">⚙</span><span>Configurar</span></button>` : ''}</div>`;
+    ${esAdmin() ? `<button class="bpers" data-config-btn style="--bc:var(--muted)"><span class="em">${ic('ajustes')}</span><span>Configurar</span></button>` : ''}</div>`;
 }
 
 function rapidasHTML(campo) {
@@ -375,7 +433,7 @@ function rapidasHTML(campo) {
   const qs = misRapidas();
   return `<div style="margin-top:10px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
     <b style="font-size:var(--fs-xs);color:var(--muted);letter-spacing:.4px">RESPUESTAS RÁPIDAS</b>
-    <button class="btn ghost sm" data-gestionar>⚙ Gestionar</button></div>
+    <button class="btn ghost sm" data-gestionar>${ic('ajustes')} Gestionar</button></div>
    <div class="qr-chips">${qs.map(q => {
      const conImg = q.media_url && (q.media_tipo === 'imagen' || q.archivo_tipo === 'imagen');
      const etiqueta = q.txt || q.media_nombre || q.archivo_nombre || 'Archivo';
@@ -383,7 +441,7 @@ function rapidasHTML(campo) {
        data-arch="${esc(q.archivo_id || '')}" data-murl="${esc(q.media_url || '')}"
        data-mtipo="${esc(q.archivo_tipo || q.media_tipo || '')}" data-mnombre="${esc(q.archivo_nombre || q.media_nombre || '')}"
        data-mbytes="${q.archivo_bytes || 0}" data-campo="${campo}" title="${esc(etiqueta)}">
-       ${conImg ? `<img src="${esc(q.media_url)}" alt="">` : (q.media_url ? (ICONOS[q.archivo_tipo || q.media_tipo] || '📎') + ' ' : '')}
+       ${conImg ? `<img src="${esc(q.media_url)}" alt="">` : (q.media_url ? (ICONOS[q.archivo_tipo || q.media_tipo] || ic('clip')) + ' ' : '')}
        ${esc(etiqueta.slice(0, 38))}${etiqueta.length > 38 ? '…' : ''}</button>`;
    }).join('') || '<span style="color:var(--muted);font-size:var(--fs-xs)">Sin plantillas. Creá la primera desde «Gestionar».</span>'}</div></div>`;
 }
@@ -422,7 +480,7 @@ function conectar(n) {
   $$('[data-mover]').forEach(b => b.onclick = () => { cerrar(); mover(n.id, b.dataset.mover); });
   $$('[data-confubi]').forEach(b => b.onclick = async () => {
     await post(`/negociaciones/${n.id}/ubicaciones/confirmar`, { ubicacionId: Number(b.dataset.confubi) });
-    toast('Dirección confirmada en la ficha del cliente', 'ok', '📍 Ubicación');
+    toast('Dirección confirmada en la ficha del cliente', 'ok', 'Ubicación');
     fichaNeg(n.id);
   });
 
@@ -441,6 +499,7 @@ function conectar(n) {
     const { ficha360 } = await import('./contactos.js');
     cerrar(); ficha360(n.contacto_id);
   };
+  conectarMenuFicha();
   $('#f-guardar').onclick = async () => {
     try {
       await patch(`/negociaciones/${n.id}`, { titulo: $('#n-tit').value,
@@ -581,8 +640,8 @@ async function ejecutarBoton(i, campo, btn, n) {
       const texto = el?.value?.trim() || (n.mensajes || []).filter(m => m.dir === 'in').slice(-1)[0]?.txt || '';
       if (!texto) return toast('No hay texto para analizar.', 'warn', 'Ubicación');
       const r = await post(`/negociaciones/${n.id}/detectar-ubicacion`, { texto });
-      if (!r.encontrada) return toast('No se detectó ninguna dirección en el texto.', 'warn', '📍 Ubicación');
-      toast(`Dirección detectada: ${r.ubicacion.direccion || r.ubicacion.texto}`, 'ok', '📍 Ubicación');
+      if (!r.encontrada) return toast('No se detectó ninguna dirección en el texto.', 'warn', 'Ubicación');
+      toast(`Dirección detectada: ${r.ubicacion.direccion || r.ubicacion.texto}`, 'ok', 'Ubicación');
       return fichaNeg(n.id);
     } else if (b.accion === 'adjunto') {
       const f = await elegirArchivo('todo');
@@ -601,7 +660,7 @@ export async function modalRapidas() {
     if (!url) return '<div class="sin-img">—</div>';
     return tipo === 'imagen'
       ? `<img class="miniatura" src="${esc(url)}" alt="" data-ver="${esc(url)}" data-nombre="${esc(q.archivo_nombre || q.media_nombre || '')}">`
-      : `<div class="sin-img">${ICONOS[tipo] || '📎'}</div>`;
+      : `<div class="sin-img">${ICONOS[tipo] || ic('clip')}</div>`;
   };
 
   modal(`<div class="modal-h"><h3>⚡ Respuestas rápidas</h3><button class="x" data-cerrar>✕</button></div>
@@ -611,19 +670,19 @@ export async function modalRapidas() {
     ${rapidas.personales.map((q, i) => `<div class="rapida-fila">
       ${q.media_url ? (q.media_tipo === 'imagen'
         ? `<img class="miniatura" src="${esc(q.media_url)}" alt="" data-ver="${esc(q.media_url)}" data-nombre="${esc(q.media_nombre || '')}">`
-        : `<div class="sin-img">${ICONOS[q.media_tipo] || '📎'}</div>`) : '<div class="sin-img">—</div>'}
+        : `<div class="sin-img">${ICONOS[q.media_tipo] || ic('clip')}</div>`) : '<div class="sin-img">—</div>'}
       <div style="flex:1;min-width:0">
         <input value="${esc(q.txt || '')}" data-mia="${i}" placeholder="Texto (opcional si hay imagen)"
           style="width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:8px">
         ${q.media_nombre ? `<small style="color:var(--muted);font-size:var(--fs-xs)">${esc(q.media_nombre)}</small>` : ''}</div>
       <div style="flex:none;display:flex;gap:5px">
-        <button class="btn ghost sm" data-imgmia="${i}" title="Adjuntar">📎</button>
-        ${q.media_url ? `<button class="btn ghost sm" data-quitmia="${i}" title="Quitar adjunto">🚫</button>` : ''}
+        <button class="btn ghost sm" data-imgmia="${i}" title="Adjuntar" aria-label="Adjuntar">${ic('clip')}</button>
+        ${q.media_url ? `<button class="btn ghost sm" data-quitmia="${i}" title="Quitar adjunto" aria-label="Quitar adjunto">${ic('quitar')}</button>` : ''}
         <button class="btn danger sm" data-delmia="${i}">✕</button></div></div>`).join('')
       || '<div class="empty">Sin plantillas propias</div>'}
     <div id="rp-nueva-adj" hidden></div>
     <div class="row" style="margin-top:9px;align-items:center;position:relative">
-      <button class="btn-adj" id="qr-adjmia" type="button" title="Adjuntar">📎</button>
+      <button class="btn-adj" id="qr-adjmia" type="button" title="Adjuntar" aria-label="Adjuntar">${ic('clip')}</button>
       <input id="qr-mia" placeholder="Nueva respuesta rápida personal…">
       <button class="btn sm" style="flex:none" id="qr-addmia">Agregar</button></div></div>
 
@@ -639,13 +698,13 @@ export async function modalRapidas() {
             ${sucs.map(x => `<option value="suc:${esc(x)}" ${q.ambito === 'sucursal' && q.sucursal === x ? 'selected' : ''}>Sucursal ${esc(x)}</option>`).join('')}</select>
           ${q.archivo_nombre || q.media_nombre ? `<small style="color:var(--muted);font-size:var(--fs-xs)">${esc(q.archivo_nombre || q.media_nombre)}</small>` : ''}</div></div>
       <div style="flex:none;display:flex;gap:5px">
-        <button class="btn ghost sm" data-imgeq="${q.id}" title="Adjuntar">📎</button>
-        ${q.media_url ? `<button class="btn ghost sm" data-quiteq="${q.id}" title="Quitar adjunto">🚫</button>` : ''}
+        <button class="btn ghost sm" data-imgeq="${q.id}" title="Adjuntar" aria-label="Adjuntar">${ic('clip')}</button>
+        ${q.media_url ? `<button class="btn ghost sm" data-quiteq="${q.id}" title="Quitar adjunto" aria-label="Quitar adjunto">${ic('quitar')}</button>` : ''}
         <button class="btn danger sm" data-deleq="${q.id}">✕</button></div></div>`).join('')
       || '<div class="empty">Sin plantillas del equipo</div>'}
     <div id="rp-eq-adj" hidden></div>
     <div class="row" style="margin-top:9px;align-items:center;position:relative">
-      <button class="btn-adj" id="qr-adjemp" type="button" title="Adjuntar">📎</button>
+      <button class="btn-adj" id="qr-adjemp" type="button" title="Adjuntar" aria-label="Adjuntar">${ic('clip')}</button>
       <input id="qr-emp" placeholder="Nueva plantilla del equipo…">
       <select id="qr-amb" style="max-width:190px;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:10px">
         <option value="empresa">Toda la empresa</option>

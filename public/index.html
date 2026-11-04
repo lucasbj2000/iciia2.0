@@ -26,7 +26,7 @@
 <link rel="preload" href="/assets/fuentes/figtree-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fuentes/nunito-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/sala.css?v=20261103-4">
-<link rel="stylesheet" href="/impar-diseno.css?v=20261103-9">
+<link rel="stylesheet" href="/impar-diseno.css?v=20261103-10">
 </head>
 <body>
 <div id="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -58,8 +58,13 @@
     <div class="me">
       <div class="avatar" id="me-av"></div>
       <div style="flex:1;min-width:0"><b id="me-name">—</b><span id="me-rol"></span></div>
-      <button class="x" title="Ver mi enlace de WhatsApp para clientes" aria-label="Ver mi enlace de WhatsApp para clientes" id="btn-enlace">🔗</button>
-      <button class="x" title="Cerrar sesión" aria-label="Cerrar sesión" id="btn-salir">⏻</button>
+      <div class="me-herramientas" role="toolbar" aria-label="Preferencias y sesión">
+        <button class="x ico-btn me-btn" id="btn-tema" aria-label="Cambiar tema claro u oscuro" title="Cambiar tema claro u oscuro">Tema</button>
+        <button class="x ico-btn me-btn" id="btn-densidad" aria-label="Cambiar densidad" title="Cambiar densidad">Densidad</button>
+        <button class="x ico-btn me-btn" id="btn-install-app" aria-label="Instalar aplicación y activar avisos" title="Instalar aplicación y activar avisos">Aplicación</button>
+        <button class="x" title="Ver mi enlace de WhatsApp para clientes" aria-label="Ver mi enlace de WhatsApp para clientes" id="btn-enlace">🔗</button>
+        <button class="x" title="Cerrar sesión" aria-label="Cerrar sesión" id="btn-salir">⏻</button>
+      </div>
     </div>
   </aside>
   <button id="nav-backdrop" type="button" aria-label="Cerrar menú" tabindex="-1"></button>
@@ -70,10 +75,7 @@
       <span class="pill wx" id="wx" hidden></span>
       <button class="pill" id="disp-pill" aria-label="Cambiar disponibilidad" title="Cambiar disponibilidad"><span class="dot live" id="disp-dot"></span><span id="disp-txt">—</span></button>
       <button class="pill ico-btn" id="guia-abrir" type="button" aria-label="Abrir guía de uso" title="Abrir guía de uso" hidden><span class="guia-logo">?</span><span class="guia-texto">Ayuda</span></button>
-      <button class="pill ico-btn" id="btn-install-app" aria-label="Instalar aplicación y activar avisos" title="Instalar aplicación y activar avisos">▣ <span class="hide-m">Aplicación</span></button>
       <button class="pill ico-btn" id="noti-btn" aria-label="Ver notificaciones" title="Ver notificaciones">🔔 <span id="noti-n"></span></button>
-      <button class="pill ico-btn" id="btn-tema" aria-label="Cambiar tema claro u oscuro" title="Cambiar tema claro u oscuro">🌙</button>
-      <button class="pill ico-btn hide-m" id="btn-densidad" aria-label="Cambiar densidad" title="Cambiar densidad">▤</button>
       <span class="pill hide-m" id="clock">—</span>
     </header>
     <div id="view" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
@@ -84,7 +86,7 @@
 <div id="modals"></div>
 <div id="confeti" class="hidden"></div>
 
-<script src="/js/app.js?v=impar-busqueda-principal-20261019-3-enlaces-20261019-ruta-pn-lid-20261026-cloud-api-20261027-soporte-20261103-sala2" type="module"></script>
+<script src="/js/app.js?v=impar-busqueda-principal-20261019-3-enlaces-20261019-ruta-pn-lid-20261026-cloud-api-20261027-soporte-20261103-limpieza" type="module"></script>
 </body>
 </html>
 
