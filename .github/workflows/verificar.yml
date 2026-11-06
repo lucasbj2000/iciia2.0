@@ -49,6 +49,8 @@ jobs:
         run: node scripts/test-eliminar-usuario.mjs
       - name: Historial continuo de clientes y reingresos
         run: node scripts/test-historial-chat.mjs
+      - name: Tiempo real sin tablero congelado
+        run: node scripts/test-tiempo-real-impar.mjs
       - name: Verificar recuperación Signal de mensajes WhatsApp
         run: node scripts/test-wa-reintentos.mjs
       - name: Comprobar ACK de entrega sin duplicar ni falsear enviados

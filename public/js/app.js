@@ -211,11 +211,46 @@ async function render() {
 }
 
 /* ================= REALTIME ================= */
+// El navegador reconecta solo tras un corte de red, pero:
+//  - si al reconectar recibe un error (por ejemplo, el servidor reiniciando tras una actualización),
+//    deja de intentar para siempre;
+//  - los cambios ocurridos durante el corte no se reenvían.
+// Por eso vigilamos la señal de vida del servidor, reconectamos y resincronizamos el tablero.
+const SSE_SILENCIO_MAX = 70000; // el servidor manda una señal cada 25 s
+let sseUltimaSenal = 0, sseReintento = null, sseVigia = null, sseYaConectado = false, sseEspera = 3000;
+function resincronizarTablero() {
+  cargarNotificaciones();
+  if (S.vista === 'neg' && !document.querySelector('.volando, .drag')) vistaNegociaciones();
+  const abierta = $('.conversation-modal')?.dataset.negociacionId;
+  if (abierta) refrescarFicha(abierta).catch(() => {});
+}
+function reconectarRealtime() {
+  clearTimeout(sseReintento);
+  sseReintento = setTimeout(() => { if (S.token && S.empresa) conectarRealtime(); }, sseEspera);
+  sseEspera = Math.min(sseEspera * 2, 30000);
+}
+function vigilarRealtime() {
+  if (sseVigia) return;
+  sseVigia = setInterval(() => {
+    if (!S.token || !S.empresa || !window._sse) return;
+    if (Date.now() - sseUltimaSenal > SSE_SILENCIO_MAX) conectarRealtime();
+  }, 15000);
+  document.addEventListener('visibilitychange', () => {
+    // Al volver a la pestaña (Chrome congela las de fondo), comprobar que siga viva.
+    if (document.visibilityState === 'visible' && S.token && S.empresa && window._sse
+        && Date.now() - sseUltimaSenal > 40000) conectarRealtime();
+  });
+  window.addEventListener('online', () => { if (S.token && S.empresa) conectarRealtime(); });
+}
 function conectarRealtime() {
+  clearTimeout(sseReintento);
   if (window._sse) window._sse.close();
   if (!S.empresa) return;
   const es = new EventSource(`/api/stream?token=${encodeURIComponent(S.token)}&empresa=${S.empresa.id}`);
   window._sse = es;
+  sseUltimaSenal = Date.now();
+  vigilarRealtime();
+  es.addEventListener('ping', () => { sseUltimaSenal = Date.now(); });
 
   es.addEventListener('neg:patch', e => {
     const datos = JSON.parse(e.data), { id } = datos;
@@ -271,7 +306,13 @@ function conectarRealtime() {
   es.addEventListener('sala:pulso', e => {
     try { const d = JSON.parse(e.data); import('./sala-control.js').then(m => m.salaAbierta() && m.pulsoSala(d)).catch(() => {}); } catch {}
   });
-  es.addEventListener('open', () => { if (S.vista === 'neg') cargarPresencias().catch(() => {}); });
+  es.addEventListener('open', () => {
+    sseUltimaSenal = Date.now(); sseEspera = 3000;
+    // Cada reconexión (no la primera) trae lo que cambió mientras estuvo cortado.
+    if (sseYaConectado) resincronizarTablero();
+    sseYaConectado = true;
+    if (S.vista === 'neg') cargarPresencias().catch(() => {});
+  });
   es.addEventListener('escribiendo', e => {
     const d = JSON.parse(e.data);
     if ($('.conversation-modal')?.dataset.negociacionId === d.id) mostrarEscribiendo($('#chatbox'), d.escribiendo, d.grabando);
@@ -281,7 +322,10 @@ function conectarRealtime() {
       import('./sala-control.js').then(m => m.salaAbierta() && get('/canales/estado-whatsapp').then(r => m.estadoWASala(r.estado))).catch(() => {}); }
     catch (err) { console.warn('[IMPAR] Evento de canal incorrecto:',err.message); }
   });
-  es.onerror = () => { /* EventSource reconecta solo */ };
+  es.onerror = () => {
+    // Corte de red: el navegador reintenta solo. Error del servidor: lo cierra y reintentamos nosotros.
+    if (es.readyState === EventSource.CLOSED && window._sse === es) reconectarRealtime();
+  };
 }
 
 /* ================= NOTIFICACIONES ================= */

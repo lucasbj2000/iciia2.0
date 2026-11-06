@@ -11,7 +11,9 @@ export function sseHandler(req, res) {
   if (!clientes.has(eid)) clientes.set(eid, new Set());
   clientes.get(eid).add(res);
   res._uid = req.user.id;
-  const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch (e) {} }, 25000);
+  // Señal de vida visible para el navegador: si deja de llegar, el tablero se reconecta
+  // y se resincroniza solo (antes un corte dejaba el tablero congelado hasta refrescar).
+  const ping = setInterval(() => { try { res.write('event: ping\ndata: {}\n\n'); } catch (e) {} }, 25000);
   req.on('close', () => {
     clearInterval(ping);
     const s = clientes.get(eid);
