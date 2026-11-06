@@ -226,6 +226,11 @@ app.use(express.static(join(__dirname, '..', 'public'), {
     res.setHeader('X-ICIIA-Build', BUILD_SHA);
   }
 }));
+// Política de privacidad pública (requerida por Meta para publicar la app de WhatsApp Cloud API).
+app.get(['/privacidad', '/privacidad/'], (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  res.sendFile(join(__dirname, '..', 'public', 'privacidad.html'));
+});
 app.get(/^(?!\/api|\/webhook|\/media).*/, (_req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.setHeader('X-ICIIA-Build', BUILD_SHA);
