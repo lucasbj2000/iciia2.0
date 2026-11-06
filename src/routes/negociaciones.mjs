@@ -8,7 +8,9 @@ import {
 import { emitir } from '../realtime.mjs';
 import { obtener as obtenerArchivo } from '../archivos.mjs';
 import * as ubi from '../ubicaciones.mjs';
-import { obtenerHistorialContacto } from '../historial-contacto-impar.mjs';
+import { obtenerHistorialContacto, NOTA_REENVIO_SQL } from '../historial-contacto-impar.mjs';
+// Solo administración ve los reenvíos automáticos de WhatsApp (los agentes se asustaban al ver mensajes dobles).
+const esAdmin = req => req.user?.rol === 'admin';
 import { telefonosContacto, normalizarNumero } from '../telefonos-impar.mjs';
 import { estadoRutaWA, elegirRutaWA } from '../wa-identidades-impar.mjs';
 import { citaParaEnvio } from '../citas-impar.mjs';
@@ -103,8 +105,8 @@ r.get('/:id', requiere(), async (req, res) => {
   const n = await obtenerNegociacionVisible(req, req.params.id);
   if (!n) return res.status(404).json({ error: 'no encontrada' });
   const [conversacion, hist, trans, ubis] = await Promise.all([
-    obtenerHistorialContacto(q,req.empresaId,n.contacto_id,n.id),
-    q('SELECT * FROM historial WHERE negociacion_id=$1 ORDER BY ts DESC', [n.id]),
+    obtenerHistorialContacto(q,req.empresaId,n.contacto_id,n.id,null,{verReenvios:esAdmin(req)}),
+    q(`SELECT * FROM historial WHERE negociacion_id=$1 AND ($2::boolean OR NOT ${NOTA_REENVIO_SQL}) ORDER BY ts DESC`, [n.id, esAdmin(req)]),
     q('SELECT * FROM transferencias WHERE negociacion_id=$1 ORDER BY ts DESC', [n.id]),
     q('SELECT * FROM ubicaciones WHERE negociacion_id=$1 ORDER BY ts DESC', [n.id])
   ]);
@@ -118,7 +120,7 @@ r.get('/:id/mensajes/anteriores', requiere(), async(req,res)=>{
   if(typeof req.query.antes!=='string' || !req.query.antes)
     return res.status(422).json({error:'Falta el cursor de mensajes anteriores.'});
   try{
-    res.json(await obtenerHistorialContacto(q,req.empresaId,n.contacto_id,n.id,req.query.antes));
+    res.json(await obtenerHistorialContacto(q,req.empresaId,n.contacto_id,n.id,req.query.antes,{verReenvios:esAdmin(req)}));
   }catch(e){
     res.status(e.status||500).json({error:e.status?e.message:'No se pudo consultar el historial.'});
   }

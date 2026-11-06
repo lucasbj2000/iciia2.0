@@ -15,7 +15,9 @@ export function leerCursorMensaje(texto) {
   return {fecha:partes[0],id:partes[1]};
 }
 
-export async function obtenerHistorialContacto(q, empresaId, contactoId, negociacionId, cursorTexto=null) {
+/** Los reenvíos automáticos del rescate de WhatsApp solo los ve administración: al agente
+ *  le mostramos la conversación como la ve el cliente cuando todo salió bien, sin la copia. */
+export async function obtenerHistorialContacto(q, empresaId, contactoId, negociacionId, cursorTexto=null, {verReenvios=false}={}) {
   const antes=leerCursorMensaje(cursorTexto);
   const {rows}=await q(
     'SELECT m.*, to_char(m.ts AT TIME ZONE \'UTC\',\'YYYY-MM-DD"T"HH24:MI:SS.US"Z"\') AS cursor_preciso, '+
@@ -31,8 +33,9 @@ export async function obtenerHistorialContacto(q, empresaId, contactoId, negocia
     'LEFT JOIN wa_entregas_impar we ON we.outbox_id=ob.id AND we.empresa_id=m.empresa_id '+
     'WHERE m.empresa_id=$1 AND nx.contacto_id=$2 '+
     'AND ($4::timestamptz IS NULL OR (m.ts,m.id) < ($4::timestamptz,$5::bigint)) '+
+    'AND ($7::boolean OR ob.reenvio_de IS NULL) '+
     'ORDER BY m.ts DESC,m.id DESC LIMIT $6',
-    [empresaId,contactoId,negociacionId,antes?.fecha||null,antes?.id||null,TAM_PAGINA+1]
+    [empresaId,contactoId,negociacionId,antes?.fecha||null,antes?.id||null,TAM_PAGINA+1,verReenvios===true]
   );
   const hayAnteriores=rows.length>TAM_PAGINA;
   const mensajes=rows.slice(0,TAM_PAGINA).reverse();
@@ -43,3 +46,6 @@ export async function obtenerHistorialContacto(q, empresaId, contactoId, negocia
     mensajesCursorAnterior:hayAnteriores && primero ? (primero.cursor_preciso || new Date(primero.ts).toISOString())+'|'+primero.id : null
   };
 }
+
+/** Notas automáticas del rescate que solo ve administración (mismo criterio que los mensajes). */
+export const NOTA_REENVIO_SQL = "(txt LIKE 'Mensaje reenviado automáticamente:%' OR txt LIKE 'Mensaje reenviado: el cliente no pudo verlo%')";

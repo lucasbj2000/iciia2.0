@@ -35,6 +35,20 @@ const q=async(sql,params)=>{
   return {rows:filtrados.sort((a,b)=>b.ts.localeCompare(a.ts)||b.id-a.id).slice(0,params[5])};
 };
 const primera=await obtenerHistorialContacto(q,'empresa-impar','contacto-original','neg-actual');
+// Reenvíos automáticos de WhatsApp: ocultos salvo para administración.
+{
+  let visto;
+  const espia=async(sql,params)=>{visto={sql,params};return {rows:[]};};
+  await obtenerHistorialContacto(espia,'e','c','n');
+  assert.ok(visto.sql.includes('AND ($7::boolean OR ob.reenvio_de IS NULL)'),'Filtra las copias reenviadas');
+  assert.equal(visto.params[6],false,'Por defecto (agentes) no se ven');
+  await obtenerHistorialContacto(espia,'e','c','n',null,{verReenvios:true});
+  assert.equal(visto.params[6],true,'Administración sí las ve');
+  const api=readFileSync(new URL('../src/routes/negociaciones.mjs',import.meta.url),'utf8');
+  assert.ok(api.includes("const esAdmin = req => req.user?.rol === 'admin';"));
+  assert.equal((api.match(/verReenvios:esAdmin\(req\)/g)||[]).length,2,'Ficha y páginas anteriores aplican el mismo criterio');
+  assert.ok(api.includes('NOT ${NOTA_REENVIO_SQL}'),'El Historial oculta la nota del reenvío a los agentes');
+}
 assert.equal(primera.mensajes.length,120);
 assert.equal(primera.mensajesHayAnteriores,true);
 assert.ok(primera.mensajes.some(m=>m.anterior===true));
