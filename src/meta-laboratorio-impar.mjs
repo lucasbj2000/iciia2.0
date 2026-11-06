@@ -1,6 +1,7 @@
 // Diagnóstico aislado: únicamente GET a rutas fijas; nunca escribe en Meta o el CRM.
 export const PHONE_ID = '661580813700225';
-export const WABA_ID = '703035692081905';
+// Cuenta de mensajes «IMPAR CRM» (modelo de Meta de oct. 2026); la anterior era de la herramienta previa.
+export const WABA_ID = '2028353504450349';
 export function autorizadoLaboratorio(user, empresa) {
   return user?.rol === 'admin' && String(user.usuario).toLowerCase() === 'admin' && empresa?.codigo === 'impar';
 }

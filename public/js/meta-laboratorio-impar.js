@@ -7,7 +7,7 @@ export async function vistaLaboratorioMeta() {
   box.innerHTML=`<div class="card-box"><h3>Laboratorio API · solo administrador</h3>
     <p>Impar Papeles · +595 976 992668</p>
     <p>Consultas de solo lectura. La herramienta actual continúa atendiendo las conversaciones. Esta prueba no envía mensajes, no activa bots y no modifica webhooks ni suscripciones.</p>
-    <p>Phone Number ID: 661580813700225 · WABA ID: 703035692081905</p>
+    <p>Phone Number ID: 661580813700225 · Cuenta de mensajes (WABA ID): 2028353504450349</p>
     <form id="meta-lab-form"><div class="field"><label for="meta-lab-token">Token de acceso (solo para esta consulta)</label>
     <input id="meta-lab-token" type="password" autocomplete="off" required maxlength="4096"></div>
     <button class="btn" id="meta-lab-probar">Verificar conexión sin enviar mensajes</button></form>

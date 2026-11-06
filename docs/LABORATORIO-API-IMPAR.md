@@ -1,7 +1,7 @@
 # Pruebas API IMPAR sin alterar la herramienta actual
 
 Protocolo 002. Número +595976992668, Phone Number ID 661580813700225,
-WABA ID 703035692081905.
+Cuenta de mensajes IMPAR CRM (WABA ID) 2028353504450349. La anterior (703035692081905) era de la herramienta previa.
 
 Administración → Pruebas API, disponible únicamente para el usuario `admin`
 con rol administrador en IMPAR. La misma restricción se valida en el servidor.
