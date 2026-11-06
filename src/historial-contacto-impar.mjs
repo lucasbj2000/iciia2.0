@@ -25,12 +25,15 @@ export async function obtenerHistorialContacto(q, empresaId, contactoId, negocia
     "a.bytes AS archivo_bytes,a.ancho,a.alto, CASE WHEN a.id IS NOT NULL THEN '/media/' || "+
     'a.empresa_id || \'/\' || a.archivo ELSE m.media_url END AS media_url, '+
     'nx.creado AS creado_negociacion,nx.titulo AS titulo_negociacion, '+
-    'nx.id AS conversacion_id, (nx.id <> $3::uuid) AS anterior, we.ack AS wa_ack, we.estado_meta AS wa_estado_meta, we.reintentos AS wa_reintentos, we.reenviado_ts AS wa_reenviado, we.rescate AS wa_rescate, (ob.reenvio_de IS NOT NULL) AS es_reenvio '+
+    'nx.id AS conversacion_id, (nx.id <> $3::uuid) AS anterior, we.ack AS wa_ack, we.estado_meta AS wa_estado_meta, we.reintentos AS wa_reintentos, we.reenviado_ts AS wa_reenviado, we.rescate AS wa_rescate, (ob.reenvio_de IS NOT NULL) AS es_reenvio, '+
+    // Línea por la que entró (guardada en el mensaje) o salió (registrada en la cola de envío).
+    'cl.id AS linea_id, cl.nombre AS linea_nombre, cl.tipo AS linea_tipo '+
     'FROM mensajes m '+
     'JOIN negociaciones nx ON nx.id=m.negociacion_id AND nx.empresa_id=m.empresa_id '+
     'LEFT JOIN archivos a ON a.id=m.archivo_id AND a.empresa_id=m.empresa_id '+
     'LEFT JOIN outbox ob ON ob.mensaje_id=m.id AND ob.empresa_id=m.empresa_id '+
     'LEFT JOIN wa_entregas_impar we ON we.outbox_id=ob.id AND we.empresa_id=m.empresa_id '+
+    'LEFT JOIN canales cl ON cl.id=COALESCE(m.canal_id,ob.canal_id) AND cl.empresa_id=m.empresa_id '+
     'WHERE m.empresa_id=$1 AND nx.contacto_id=$2 '+
     'AND ($4::timestamptz IS NULL OR (m.ts,m.id) < ($4::timestamptz,$5::bigint)) '+
     'AND ($7::boolean OR ob.reenvio_de IS NULL) '+

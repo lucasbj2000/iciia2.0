@@ -139,7 +139,7 @@ const edicion = (id, texto, ts, extra = {}) => ({
   assert.ok(ba.includes('[wa:no_admitidos]') && ba.includes('[wa:ediciones] por_update='), 'Diagnósticos sin contenido');
   assert.ok(leer('src/worker.mjs').includes('editado: m.payload?.editado || null'), 'Worker pasa la edición');
   const core = leer('src/core.mjs');
-  assert.equal((core.match(/remitente_numero,cita,editado\)/g) || []).length, 2, 'Ambas inserciones guardan la edición');
+  assert.equal((core.match(/remitente_numero,cita,editado(,canal_id)?\)/g) || []).length, 2, 'Ambas inserciones guardan la edición');
   const sql = leer('src/migrations/027_mensajes_editados_impar.sql');
   assert.ok(sql.includes('ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS editado JSONB'));
   assert.ok(!/\b(DROP|DELETE|TRUNCATE|UPDATE)\b/i.test(sql), 'Migración solo aditiva');

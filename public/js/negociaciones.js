@@ -5,7 +5,7 @@ import { ic } from './iconos.js';
 import {
   $, $$, esc, nombreLegible, S, get, post, patch, gs, fd, ago, toast, modal, cerrar, confirmar,
   fx, esAdmin, etapa, etapaActiva, ORIGENES, vacio, skeleton, confeti, vibrar,
-  destacar, animarContador, esMovil
+  destacar, animarContador, esMovil, etiquetaLinea
 } from './core.js';
 import { fichaNeg } from './ficha.js';
 import { conectarAdjuntos } from './adjuntos.js';
@@ -267,6 +267,13 @@ function actualizarContadores() {
 
 /* ---------- Tarjeta ---------- */
 const CANAL_IC = { wa: 'mensaje', fb: 'mensaje', ig: 'camara', tel: 'telefono', otro: 'mensaje' };
+/** En la tarjeta: con qué línea está hoy la negociación (verificado = Cloud API, normal = QR). */
+function insigniaLinea(n) {
+  const l = String(n.canal_tipo || '').startsWith('whatsapp') ? etiquetaLinea(n.canal_tipo, n.canal_nombre) : null;
+  if (!l) return '';
+  const breve = n.canal_tipo === 'whatsapp_api' ? 'Verificado' : 'Normal';
+  return `<span class="card-linea ${l.clase}" title="${esc(l.texto)}${n.canal_nombre ? ' · ' + esc(n.canal_nombre) : ''}">${ic(l.icono)}${breve}</span>`;
+}
 function tarjeta(n) {
   const cls = { whatsapp: 'wa', facebook: 'fb', instagram: 'ig', telefonia: 'tel' }[n.origen] || 'otro';
   const marc = n.marcadores || [];
@@ -301,7 +308,7 @@ function tarjeta(n) {
       style="--acc:${etapa(n.etapa).color}" draggable="${MODO_SEL ? 'false' : 'true'}">
     ${MODO_SEL ? `<input type="checkbox" class="chk" ${SEL.has(n.id) ? 'checked' : ''} data-chk="${n.id}">` : ''}
     ${avataresEquipo(n.id)}<span class="nom">${esc(nombreLegible(n.cliente) || '—')}</span>
-    <div class="linea"><span class="card-canal canal-${cls}" role="img" aria-label="Canal ${esc(n.origen || 'otro')}" title="${esc(n.origen || 'otro')}">${ic(CANAL_IC[cls] || 'mensaje')}</span>
+    <div class="linea"><span class="card-canal canal-${cls}" role="img" aria-label="Canal ${esc(n.origen || 'otro')}" title="${esc(n.origen || 'otro')}">${ic(CANAL_IC[cls] || 'mensaje')}</span>${insigniaLinea(n)}
       ${n.agente_nombre ? esc(n.agente_nombre) : '<span style="color:var(--warn)">Sin asignar</span>'}
       ${monto ? '· ' + monto : ''}</div>
     <div class="chips">${visibles.join('')}

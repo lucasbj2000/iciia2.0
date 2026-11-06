@@ -23,3 +23,21 @@ console.log('✔ Tiempo real: reconexión, señal de vida y resincronización de
     && core.includes('las respuestas salen por esa línea'), 'La negociación reutilizada pasa al canal por el que escribió el cliente');
   console.log('✔ Anti-duplicados: la respuesta sale por la línea a la que escribió el cliente.');
 }
+
+// Línea de cada mensaje y de la negociación: «WhatsApp verificado» (Cloud API) o «WhatsApp normal» (QR).
+{
+  const leer = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+  const core = leer('src/core.mjs'), hist = leer('src/historial-contacto-impar.mjs'), mig = leer('src/migrations/032_linea_mensajes_impar.sql');
+  const coreJs = leer('public/js/core.js'), ficha = leer('public/js/ficha.js'), neg = leer('public/js/negociaciones.js'), chat = leer('public/js/chat-mensajes.js');
+  assert.ok(mig.includes('ADD COLUMN IF NOT EXISTS canal_id') && !/DELETE\s+FROM|DROP\s/i.test(mig), 'Migración agrega la línea sin borrar nada');
+  assert.equal((core.match(/editadoJSON, canalId \|\| null\]/g) || []).length, 2, 'Los mensajes entrantes guardan su línea');
+  assert.ok(hist.includes('LEFT JOIN canales cl ON cl.id=COALESCE(m.canal_id,ob.canal_id)'), 'El chat muestra la línea de entrada o de salida');
+  const m = await import('../public/js/core.js').catch(() => null);
+  const etiquetaLinea = m?.etiquetaLinea || new Function(coreJs.slice(coreJs.indexOf('export function etiquetaLinea')).replace('export ', '') + '; return etiquetaLinea;')();
+  assert.equal(etiquetaLinea('whatsapp_api', 'WhatsApp API Impar Papeles').texto, 'WhatsApp verificado');
+  assert.equal(etiquetaLinea('whatsapp_api', 'WhatsApp API Impar Papeles').corto, 'Impar Papeles');
+  assert.equal(etiquetaLinea('whatsapp_qr', 'principal').texto, 'WhatsApp normal');
+  assert.ok(ficha.includes('lineaMensaje(m)') && ficha.includes('${lineaFicha(n)}') && neg.includes('${insigniaLinea(n)}'), 'Burbujas, ficha y tarjeta muestran la línea');
+  assert.ok(chat.includes("(previo.dataset.linea || '') === (el.dataset.linea || '')"), 'Un cambio de línea corta el grupo de mensajes');
+  console.log('✔ Línea visible: cada mensaje, la ficha y la tarjeta distinguen WhatsApp verificado y normal.');
+}

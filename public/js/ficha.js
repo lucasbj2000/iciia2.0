@@ -4,7 +4,7 @@ import { seguirConversacion } from './presencia-equipo.js';
 import { ic } from './iconos.js';
 import {
   $, $$, esc, nombreLegible, S, get, post, patch, put, del, gs, fdate, fd, ago, toast, modal, cerrar,
-  confirmar, fx, esAdmin, esMando, etapa, ORIGENES, vacio, vibrar, esMovil
+  confirmar, fx, esAdmin, esMando, etapa, ORIGENES, vacio, vibrar, esMovil, etiquetaLinea
 } from './core.js';
 import { mover, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { conectarAdjuntos, mediaHTML, activarVisor, subir, elegirArchivo, ICONOS } from './adjuntos.js';
@@ -48,6 +48,19 @@ function etiquetaCanal(n) {
   if (!nombre || nombre.toLowerCase().includes(tipo.toLowerCase())) return nombre || tipo;
   return `${tipo} · ${nombre}`;
 }
+/** Línea actual de la negociación: «WhatsApp verificado» (Cloud API) o «WhatsApp normal» (QR). */
+function lineaFicha(n) {
+  if (!n.canal_nombre && !n.canal_tipo) return '';
+  const l = etiquetaLinea(n.canal_tipo, n.canal_nombre);
+  if (!l) return `<span class="meta-item" title="Canal por el que escribe el cliente">${ic('canal')}${esc(etiquetaCanal(n))}</span>`;
+  return `<span class="meta-item meta-linea ${l.clase}" title="Línea actual: ${esc(n.canal_nombre || l.texto)}. Las respuestas salen por esta línea.">${ic(l.icono)}${esc(l.texto)}${l.corto ? ` · ${esc(l.corto)}` : ''}</span>`;
+}
+/** Línea por la que entró o salió cada mensaje. */
+function lineaMensaje(m) {
+  const l = m.linea_tipo ? etiquetaLinea(m.linea_tipo, m.linea_nombre) : null;
+  if (!l) return '';
+  return `<span class="msg-linea ${l.clase}" title="${m.dir === 'in' ? 'Entró por' : 'Salió por'}: ${esc(m.linea_nombre || l.texto)}">${ic(l.icono)}${esc(l.texto)}${l.corto ? ` · ${esc(l.corto)}` : ''}</span>`;
+}
 const ultimos8 = v => String(v || '').replace(/\D/g, '').slice(-8);
 
 function pintar() {
@@ -67,7 +80,7 @@ function pintar() {
     <div class="ficha-meta">
      ${!cerrada ? `<label class="meta-item meta-tel" title="Número del cliente al que responderá esta negociación">${ic('celular')}<span class="sr">Número del cliente al que responderá esta negociación</span>
        <select id="f-telefono-chat" aria-label="Número de destino del chat" disabled><option>Consultando números…</option></select></label>` : ''}
-     ${n.canal_nombre || n.canal_tipo ? `<span class="meta-item" title="Canal por el que escribe el cliente">${ic('canal')}${esc(etiquetaCanal(n))}</span>` : ''}
+     ${lineaFicha(n)}
      <label class="meta-item meta-bot" title="Respuestas automáticas en esta conversación">${ic('bot')}Bot
        <span class="sw"><input type="checkbox" id="f-bot" ${n.bot_activo !== false ? 'checked' : ''} aria-label="Bot activo en esta conversación"><i></i></span></label>
      ${ubis.length && fx('detectarUbicacion') ? `<button type="button" class="meta-item meta-btn" data-abrir-info>${ic('pin')}${ubis.length} ${ubis.length === 1 ? 'dirección' : 'direcciones'}</button>` : ''}
@@ -239,9 +252,9 @@ function mensajeHTML(m) {
        const otroNumero = m.dir === 'in' && m.remitente_numero && ultimos8(m.remitente_numero) !== ultimos8(actual?.tel);
        const responder = /^\d+$/.test(String(m.id || ''))
          ? `<button type="button" class="msg-responder" data-responder="${m.id}" title="Responder citando este mensaje" aria-label="Responder citando este mensaje">↩</button>` : '';
-       return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}"${tramo}>
+       return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}"${tramo} data-linea="${esc(m.linea_id || '')}">
           ${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
-          <small>${m.carga_historica ? `${ic('lapiz')} Carga histórica (admin) · ` : ''}${m.bot ? `${ic('bot')} Bot · ` : ''}<time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time>${otroNumero ? ` · <span class="msg-otro-num" title="Escribió desde otro número">${ic('celular')} ${esc(m.remitente_numero)}</span>` : ''}
+          <small>${lineaMensaje(m)}${m.carga_historica ? `${ic('lapiz')} Carga histórica (admin) · ` : ''}${m.bot ? `${ic('bot')} Bot · ` : ''}<time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time>${otroNumero ? ` · <span class="msg-otro-num" title="Escribió desde otro número">${ic('celular')} ${esc(m.remitente_numero)}</span>` : ''}
           ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ` · ${ic('alerta')} no enviado` : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small></div>`;
 }
 

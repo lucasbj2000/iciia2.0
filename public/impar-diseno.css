@@ -904,3 +904,15 @@ th,.kpi span,.badge-rol,.cal-h,.org-rol,.pr-eyebrow{text-transform:none!importan
 .rep-cifra b{white-space:nowrap}
 .rep-cifra b.largo{font-size:clamp(17px,1.5vw,22px);padding-top:4px}
 .org-sucursales{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))!important}
+
+/* ============ Línea de WhatsApp: verificado (Cloud API) o normal (QR) ============ */
+.msg-linea{display:flex;align-items:center;gap:4px;margin-bottom:1px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-linea svg,.card-linea svg,.meta-linea svg{width:12px;height:12px;flex:none}
+.msg-linea.linea-verificada,.meta-linea.linea-verificada,.card-linea.linea-verificada{color:var(--ok)}
+.msg-linea.linea-normal{color:var(--muted)}
+.card-linea{display:inline-flex;align-items:center;gap:3px;margin:0 6px 0 2px;padding:1px 7px;border-radius:999px;
+  font-size:var(--fs-xs);font-weight:600;line-height:1.5;border:1px solid currentColor;color:var(--muted);white-space:nowrap}
+.card-linea.linea-verificada{background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.meta-linea.linea-verificada{font-weight:600}
+/* Tema claro: verde más oscuro para leerse bien también sobre la burbuja verde de los enviados (≥ 4,5:1). */
+[data-tema="claro"] .msg-linea.linea-verificada,[data-tema="claro"] .meta-linea.linea-verificada,[data-tema="claro"] .card-linea.linea-verificada{color:#17663A}

@@ -19,7 +19,9 @@ function agruparMensajes(caja) {
   let previo = null;
   for (const el of caja.children) {
     if (!el.classList.contains('msg') || !el.dataset.dir) { previo = null; continue; }
+    // Un cambio de línea (verificado ↔ normal) corta el grupo para que se vea por cuál entró.
     const junto = previo && previo.dataset.dir === el.dataset.dir
+      && (previo.dataset.linea || '') === (el.dataset.linea || '')
       && Math.abs(new Date(el.dataset.ts) - new Date(previo.dataset.ts)) <= VENTANA_GRUPO;
     el.classList.toggle('g-cont', !!junto);
     if (previo) previo.classList.toggle('g-sigue', !!junto);

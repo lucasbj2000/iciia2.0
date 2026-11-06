@@ -264,3 +264,13 @@ document.addEventListener('click', e => {
   b.appendChild(s); setTimeout(() => s.remove(), 620);
 });
 
+
+/** Línea de WhatsApp para que el agente distinga el número verificado (Cloud API) del normal (QR). */
+export function etiquetaLinea(tipo, nombre) {
+  const corto = String(nombre || '').replace(/^whatsapp(\s+cloud)?(\s+api)?\s*[·:-]?\s*/i, '').trim();
+  if (tipo === 'whatsapp_api') return { texto: 'WhatsApp verificado', corto, clase: 'linea-verificada', icono: 'ok' };
+  if (tipo === 'whatsapp_qr') return { texto: 'WhatsApp normal', corto, clase: 'linea-normal', icono: 'celular' };
+  if (tipo === 'messenger') return { texto: 'Messenger', corto, clase: '', icono: 'mensaje' };
+  if (tipo === 'instagram') return { texto: 'Instagram', corto, clase: '', icono: 'mensaje' };
+  return null;
+}

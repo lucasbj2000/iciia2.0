@@ -303,11 +303,11 @@ export async function ingresarMensaje(empresa, {
       contacto.responsable_id = enlace.id;
     }
     await q(
-      `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita,editado)
-       VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT DO NOTHING`,
+      `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita,editado,canal_id)
+       VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT DO NOTHING`,
       [empresa.id, abierta.id, texto || '', mediaUrl || null, mediaTipo || null, mediaNombre || null,
        archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando,
-      telefonoWhatsApp || null, citaJSON, editadoJSON]);
+      telefonoWhatsApp || null, citaJSON, editadoJSON, canalId || null]);
     // Si el cliente escribió por otra línea (otro número de WhatsApp, Cloud API, Messenger…),
     // la negociación pasa a ese canal: el agente responde desde el mismo número al que le escribieron.
     if (canalId && abierta.canal_id !== canalId) {
@@ -374,11 +374,11 @@ export async function ingresarMensaje(empresa, {
   const neg = rows[0];
 
   await q(
-    `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita,editado)
-     VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT DO NOTHING`,
+    `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita,editado,canal_id)
+     VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT DO NOTHING`,
     [empresa.id, neg.id, texto || '', mediaUrl || null, mediaTipo || null, mediaNombre || null,
      archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando,
-      telefonoWhatsApp || null, citaJSON, editadoJSON]);
+      telefonoWhatsApp || null, citaJSON, editadoJSON, canalId || null]);
 
   if (empresa.flags?.bot && empresa.bot?.activo) programarBot(empresa,neg.id);
   await historial(empresa.id, neg.id,
