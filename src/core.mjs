@@ -308,6 +308,16 @@ export async function ingresarMensaje(empresa, {
       [empresa.id, abierta.id, texto || '', mediaUrl || null, mediaTipo || null, mediaNombre || null,
        archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando,
       telefonoWhatsApp || null, citaJSON, editadoJSON]);
+    // Si el cliente escribió por otra línea (otro número de WhatsApp, Cloud API, Messenger…),
+    // la negociación pasa a ese canal: el agente responde desde el mismo número al que le escribieron.
+    if (canalId && abierta.canal_id !== canalId) {
+      const { rows: [nuevo] } = await q('SELECT nombre FROM canales WHERE id=$1 AND empresa_id=$2', [canalId, empresa.id]);
+      if (nuevo) {
+        await q('UPDATE negociaciones SET canal_id=$3 WHERE id=$1 AND empresa_id=$2', [abierta.id, empresa.id, canalId]);
+        await historial(empresa.id, abierta.id, `El cliente escribió por «${nuevo.nombre}»: las respuestas salen por esa línea`, 'Sistema');
+        abierta.canal_id = canalId;
+      }
+    }
     // El número al que se responde es el último número que escribió en esta
     // negociación; no sobrescribir el teléfono principal del cliente.
     if(origen==='whatsapp' && telefonoWhatsApp){
