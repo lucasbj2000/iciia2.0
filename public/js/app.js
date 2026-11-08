@@ -33,6 +33,7 @@ const NAV = [
   { id: 'con', t: 'Contactos', ic: '◎', mod: 'contactos', g: 'Trabajo' },
   { id: 'com', t: 'Comunicación', ic: '✉', mod: 'comunicacion', flag: 'comunicacion', g: 'Trabajo' },
   { id: 'cal', t: 'Calendario', ic: '▦', mod: 'calendario', flag: 'calendario', g: 'Trabajo' },
+  { id: 'camp', t: 'Campañas', ic: '➚', campanas: true, g: 'Trabajo' },
   { id: 'rep', t: 'Reportes', ic: '▤', mod: 'reportes', g: 'Seguimiento' },
   { id: 'sala', t: 'Sala de control', ic: '◉', sala: true, g: 'Seguimiento' },
   { id: 'sop', t: 'Soporte', ic: '⚑', siempre: true, g: 'Seguimiento' },
@@ -43,9 +44,9 @@ const NAV = [
 ];
 const VISTAS = { neg: vistaNegociaciones, con: vistaContactos, com: vistaComunicacion,
   cal: vistaCalendario, rep: vistaReportes, proy: vistaProyecto,
-  sop: () => import('./soporte.js').then(m => m.vistaSoporte()), cfg: vistaConfig, org: vistaOrganigrama, adm: vistaAdmin };
+  sop: () => import('./soporte.js').then(m => m.vistaSoporte()), camp: () => import('./campanas.js').then(m => m.vistaCampanas()), cfg: vistaConfig, org: vistaOrganigrama, adm: vistaAdmin };
 const TITULOS = { neg: 'Negociaciones', con: 'Contactos', com: 'Comunicación interna',
-  cal: 'Calendario', rep: 'Reportes', proy: 'Avances del proyecto CRM', sop: 'Soporte', cfg: 'Configuración', org: 'Organigrama', adm: 'Administración' };
+  cal: 'Calendario', rep: 'Reportes', proy: 'Avances del proyecto CRM', camp: 'Campañas', sop: 'Soporte', cfg: 'Configuración', org: 'Organigrama', adm: 'Administración' };
 
 /* ================= LOGIN ================= */
 $('#form-login').onsubmit = async e => {
@@ -114,6 +115,12 @@ async function arrancar(fresco, respuestaLogin=null) {
     if(S.token!==tokenProyecto || !S.usuario)return;
     S.proyectoAcceso=acceso;pintarNav();
   }).catch(()=>{});
+  // Campañas: admin siempre; gerentes por defecto; el resto según Administración → Campañas.
+  S.campanasAcceso={acceso:esAdmin()};
+  get('/campanas/acceso').then(acceso=>{
+    if(S.token!==tokenProyecto || !S.usuario)return;
+    S.campanasAcceso=acceso;pintarNav();
+  }).catch(()=>{});
   
   cargarNotificaciones().catch(() => {});
   try { conectarRealtime(); } catch (e) { console.warn('[impar] SSE no disponible:',e.message); }
@@ -163,7 +170,7 @@ function pintarDisponibilidad() {
 export function pintarNav() {
   const mods = S.empresa?.modulos || [];
   $('#nav').innerHTML = NAV
-    .filter(n => n.siempre ? true : n.sala ? ['admin','gerente','jefe'].includes(S.usuario.rol) : n.proyecto ? (esAdmin() || !!S.proyectoAcceso?.visible) : n.mando ? ['admin','gerente'].includes(S.usuario.rol) : n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
+    .filter(n => n.siempre ? true : n.campanas ? (esAdmin() || !!S.campanasAcceso?.acceso) : n.sala ? ['admin','gerente','jefe'].includes(S.usuario.rol) : n.proyecto ? (esAdmin() || !!S.proyectoAcceso?.visible) : n.mando ? ['admin','gerente'].includes(S.usuario.rol) : n.admin ? esAdmin() : ((esAdmin() || mods.includes(n.mod)) && (!n.flag || fx(n.flag))))
     .map((n, i, l) => `${i === 0 || l[i - 1].g !== n.g ? `<div class="nav-grupo" aria-hidden="true">${n.g}</div>` : ''}<button class="nav-i ${S.vista === n.id ? 'active' : ''}" data-nav="${n.id}">
       <span class="ic">${n.ic}</span>${n.t}${n.id === 'com' ? '<span class="bdg" style="display:none"></span>' : ''}</button>`).join('')
     ;
@@ -292,6 +299,16 @@ function conectarRealtime() {
       if (S.vista === 'proy' && !S.proyectoAcceso.visible && !esAdmin()) ir('neg');
       else pintarNav();
     } catch { /* El API comprueba permisos de acceso igualmente. */ }
+  });
+  es.addEventListener('campanas:permisos', async () => {
+    try {
+      S.campanasAcceso = await get('/campanas/acceso');
+      if (S.vista === 'camp' && !S.campanasAcceso.acceso) {
+        import('./campanas.js').then(m => m.reiniciarCampanas()).catch(() => {});
+        toast('Administración quitó tu acceso a Campañas.', 'warn', 'Campañas');
+        ir('neg');
+      } else pintarNav();
+    } catch { /* El API comprueba el permiso en cada pedido. */ }
   });
   es.addEventListener('proyecto', () => {
     if (S.vista === 'proy' && !$('#view input:focus') && !$('#view textarea:focus') && !$('#modals .mask')) vistaProyecto();

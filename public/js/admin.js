@@ -14,7 +14,7 @@ let TADM = 'canales', defs = null, timerQR = null, sucursalesCache = [], cargaCa
 const TABS = [
   ['canales', 'Canales'], ['diseno', 'Diseño'], ['sucursales', 'Sucursales'], ['horarios','Horarios laborales'],
   ['bitrix','Carga Bitrix'], ['botones', 'Botones'], ['flags', 'Funciones ON/OFF'], ['ayudas', 'Ayudas guiadas'], ['noti', 'Notificaciones'],
-  ['rapidas', 'Respuestas rápidas'], ['catalogos', 'Catálogos'], ['usuarios', 'Usuarios'], ['enlaces', 'Enlaces WhatsApp'], ['accesos','Accesos y exportación'], ['etapas', 'Etapas'], ['reglas', 'Reglas'],
+  ['rapidas', 'Respuestas rápidas'], ['catalogos', 'Catálogos'], ['usuarios', 'Usuarios'], ['enlaces', 'Enlaces WhatsApp'], ['accesos','Accesos y exportación'], ['campanas', 'Permisos de Campañas'], ['etapas', 'Etapas'], ['reglas', 'Reglas'],
   ['ubicaciones', 'Direcciones'], ['stock', 'Stock'], ['bot', 'Bot'],
   ['mensajeria', 'Salud de mensajería'], ['limpieza', 'Limpieza'], ['audit', 'Auditoría']
 ];
@@ -22,7 +22,7 @@ const TABS = [
 /* Las pestañas se muestran como menú lateral en cuatro grupos (los ids no cambian). */
 const GRUPOS_ADM = [
   ['WhatsApp y canales', ['canales', 'enlaces', 'bot', 'mensajeria', 'ubicaciones']],
-  ['Equipo', ['usuarios', 'horarios', 'accesos', 'noti', 'ayudas']],
+  ['Equipo', ['usuarios', 'horarios', 'accesos', 'campanas', 'noti', 'ayudas']],
   ['Ventas', ['etapas', 'reglas', 'rapidas', 'botones', 'catalogos', 'stock']],
   ['Sistema', ['diseno', 'sucursales', 'flags', 'bitrix', 'limpieza', 'audit', 'meta-lab']]
 ];
@@ -65,6 +65,7 @@ export async function vistaAdmin() {
     catalogos: () => import('./catalogos-impar.js').then(m=>m.vistaCatalogosImpar()), usuarios: aUsuarios,
     enlaces: () => import('./enlaces-impar.js').then(m=>m.vistaEnlacesAdmin(AB())),
     accesos: () => import('./accesos.js').then(m=>m.vistaAccesos()), etapas: aEtapas,
+    campanas: () => import('./campanas.js').then(m=>m.vistaPermisosCampanas(AB())),
     reglas: aReglas, ubicaciones: aUbicaciones, stock: aStock, bot: aBot, mensajeria: aMensajeria,
     limpieza: aLimpieza, audit: aAudit }[TADM];
   try { await fn(); } catch (e) { AB().innerHTML = `<div class="card-box">${vacio('alerta', 'No se pudo cargar', e.message)}</div>`; }

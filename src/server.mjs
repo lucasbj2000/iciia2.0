@@ -16,6 +16,7 @@ import { login, requiere, firmar } from './auth.mjs';
 import { sseHandler } from './realtime.mjs';
 import { motorSLA, avisarCumples, auditar } from './core.mjs';
 import { arrancarWorkers } from './worker.mjs';
+import rCampanas from './routes/campanas.mjs';
 import { MEDIA_DIR } from './archivos.mjs';
 import * as baileys from './channels/baileys.mjs';
 import * as meta from './channels/meta.mjs';
@@ -182,6 +183,7 @@ app.use('/api/horarios', rHorarios);
 app.use('/api/bitrix', rBitrix);
 app.use('/api/enlaces', rEnlaces);
 app.use('/api/soporte', rSoporte);
+app.use('/api/campanas', rCampanas);
 app.use('/api', rVarios);
 
 app.get('/api/health', async (_req, res) => {

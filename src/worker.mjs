@@ -9,6 +9,7 @@ import { registrarEnvioImpar } from './wa-entregas-impar.mjs';
 import { drenarWebhooksMeta } from './meta-webhooks-impar.mjs';
 import { resolverRemitenteWA } from './wa-identidades-impar.mjs';
 import { rescatarNoDescifrados } from './rescate-no-descifrados-impar.mjs';
+import { procesarCampanas, registrarRespuestaCampana } from './campanas-impar.mjs';
 
 // Recepción: un fallo transitorio (PostgreSQL reiniciando, bloqueo, pico de
 // carga) no debe mandar el mensaje del cliente a cuarentena en segundos.
@@ -51,7 +52,7 @@ export async function drenarInbox() {
           ? (await resolverRemitenteWA(
              {id:m.canal_id,empresa_id:m.empresa_id},{remoteJid:m.remitente}))||m.remitente
           : m.remitente;
-        await ingresarMensaje(empresa, {
+        const ingreso = await ingresarMensaje(empresa, {
           canalId: m.canal_id, canalSucursal: m.canal_compartido ? null : m.canal_sucursal,
           canalLinea: m.canal_compartido ? null : m.canal_linea,
           origen: ORIGEN[m.tipo] || 'otro', externoTipo: EXTERNO[m.tipo],
@@ -60,6 +61,8 @@ export async function drenarInbox() {
           archivoId: m.payload?.archivoId || null, ubicacion: m.ubicacion, cita: m.payload?.cita || null, editado: m.payload?.editado || null,
           ts: m.payload?.ts || m.ts
         });
+        // Respuestas a campañas del número verificado: «BAJA» y nota en el Historial.
+        if (m.tipo === 'whatsapp_api') await registrarRespuestaCampana(empresa, remitente, m.txt, ingreso?.negociacionId).catch(e => console.error('[campañas] respuesta', e.name));
         await q(`UPDATE inbox SET estado='procesado', procesado=now(), error=NULL, proximo_intento=NULL WHERE id=$1`, [m.id]);
       } catch (e) {
         // Un fallo al registrar el error no debe frenar al resto de la cola.
@@ -195,5 +198,7 @@ export function arrancarWorkers() {
   setInterval(() => drenarOutbox().catch(e => console.error('[outbox]', e.message)), 5000);
   // Mensajes que el cliente no pudo descifrar («Esperando mensaje»): reenvío automático por la otra ruta.
   setInterval(() => rescatarNoDescifrados().catch(e => console.error('[wa:rescate]', e.name)), 60000);
+  // Campañas masivas por Cloud API: envía por lotes respetando el límite diario.
+  setInterval(() => procesarCampanas().catch(e => console.error('[campañas]', e.name)), 4000);
   console.log('✔ Workers de mensajería activos');
 }

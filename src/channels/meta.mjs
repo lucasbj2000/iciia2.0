@@ -106,6 +106,9 @@ async function procesarWhatsAppAPI(body) {
 /** Meta entrega acuses asíncronos: HTTP 200 no significa recibido. */
 async function registrarEstadoCloud(canal,s){
   if(!s?.id || !['sent','delivered','read','failed'].includes(s.status))return;
+  // Mensajes de campañas: su avance se guarda en la campaña, no en la cola de conversación.
+  const {registrarEstadoCampana}=await import('../campanas-impar.mjs');
+  if(await registrarEstadoCampana(s.id,s.status,s.errors?.[0]?.code))return;
   const ack={sent:2,delivered:3,read:4,failed:0}[s.status];
   const {rows}=await q(
     "INSERT INTO wa_entregas_impar(canal_id,empresa_id,wa_id,ack,estado_meta,error_meta) "+
