@@ -314,19 +314,20 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
            permanente de usuario del sistema, no el temporal de 24 horas.
            <br><b>Seguridad:</b> el token se cifra en el servidor y no se muestra de vuelta.
            <br><b>Activación:</b> primero configurá el webhook en Meta y activá el canal para probar mensajes reales. No cambia conversaciones antiguas ni WhatsApp QR.</div></div>`
-    : `<div class="field"><label>Token de acceso de la página *</label>
-         <input id="c-token" type="password" autocomplete="off" placeholder="${c ? 'Dejá vacío para conservar el actual' : 'EAAG...'}"></div>
-       <div class="row"><div class="field"><label>Page ID ${tipo === 'messenger' ? '*' : ''}</label>
-         <input id="c-page" value="${esc(cfg.page_id || '')}"></div>
-        ${tipo === 'instagram' ? `<div class="field"><label>Instagram ID *</label>
-         <input id="c-ig" value="${esc(cfg.ig_id || '')}"></div>` : ''}</div>
+    : `${c ? `<div class="card-box" style="background:var(--surface2);margin-bottom:12px;font-size:var(--fs-sm)">
+           Conectado a <b>${esc(cfg.page_nombre || 'página ' + (cfg.page_id || ''))}</b>${tipo === 'instagram' && cfg.ig_usuario ? ` · Instagram <b>@${esc(cfg.ig_usuario)}</b>` : ''}</div>` : ''}
+       <div class="field"><label for="c-token">Token del usuario del sistema ${c ? '' : '*'}</label>
+         <input id="c-token" type="password" autocomplete="off" placeholder="${c ? 'Dejá vacío para conservar el actual' : 'EAAG...'}">
+         <small class="sub">Sirve el mismo token permanente del usuario del sistema, si tiene asignadas la página${tipo === 'instagram' ? ' y la cuenta de Instagram' : ''}. El CRM busca la página, obtiene su token y la suscribe sola.</small></div>
+       <div class="field" id="c-pag-caja" hidden><label for="c-page">Página a conectar</label><select id="c-page"></select></div>
        <div class="card-box" style="background:var(--surface2);margin-top:12px">
          <b style="font-size:var(--fs-sm)">${ic(tipo === 'messenger' ? 'mensaje' : 'camara')} Requisitos</b>
          <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:6px;line-height:1.7">
            ${tipo === 'messenger'
-             ? 'Página de Facebook y token con permisos <i>pages_messaging</i> y <i>pages_manage_metadata</i>.'
-             : 'Cuenta de Instagram <i>Profesional</i> vinculada a una página. Permisos: <i>instagram_manage_messages</i> y <i>pages_manage_metadata</i>.'}
-           <br>Además hay que suscribir el webhook (datos abajo en la pestaña Canales).</div></div>`;
+             ? 'Permisos del token: <i>pages_messaging</i>, <i>pages_manage_metadata</i>, <i>pages_show_list</i>, <i>pages_read_engagement</i> y <i>business_management</i>.'
+             : 'Cuenta de Instagram <i>profesional</i> vinculada a la página, con «Permitir acceso a los mensajes» activado en la app de Instagram. Permisos: <i>instagram_basic</i>, <i>instagram_manage_messages</i> y los de la página.'}
+           <br>En la app de Meta, el webhook tiene que estar suscrito a <b>${tipo === 'messenger' ? 'Page → messages, messaging_postbacks' : 'Instagram → messages'}</b>.
+           <br><b>Seguridad:</b> el token se guarda cifrado. El canal arranca con las respuestas automáticas apagadas.</div></div>`;
 
   modal(`<div class="modal-h"><h3>${c ? 'Editar' : 'Nuevo'} · ${NOMBRES[tipo]}</h3><button class="x" data-cerrar>✕</button></div>
    <div class="modal-b">
@@ -351,8 +352,7 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
     if ($('#c-token')) body.token = $('#c-token').value.trim();
     if ($('#c-phone')) body.phone_number_id = $('#c-phone').value.trim();
     if ($('#c-waba')) body.waba_id = $('#c-waba').value.trim();
-    if ($('#c-page')) body.page_id = $('#c-page').value.trim();
-    if ($('#c-ig')) body.ig_id = $('#c-ig').value.trim();
+    if ($('#c-page') && $('#c-page').value) body.page_id = $('#c-page').value;
     if ($('#c-pref')) body.prefijoPais = $('#c-pref').value.trim();
     if ($('#c-activo')) body.activo = $('#c-activo').checked;
     const btn = $('#c-ok'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Verificando…';
@@ -361,11 +361,17 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
       const r = await post('/canales', body);
       cerrar();
       if (r.prueba && !r.prueba.ok) toast(`Canal creado, pero las credenciales fallaron: ${r.prueba.error}`, 'warn', 'Verificar');
+      else if (r.suscripcion && !r.suscripcion.ok) toast(`Canal creado, pero la página no quedó suscrita: ${r.suscripcion.error}`, 'warn', 'Verificar');
       else if (tipo === 'whatsapp_api') toast('Token verificado. Canal guardado inactivo hasta probar webhook y activarlo.', 'ok');
       else toast('Canal creado y verificado ✓', 'ok');
       if (tipo === 'whatsapp_qr') return modalQR(r.canal.id);
       aCanales();
     } catch (e) {
+      // Token con varias páginas: se muestran para elegir y se vuelve a intentar.
+      if (e.data?.elegir && $('#c-page')) {
+        $('#c-page').innerHTML = e.data.elegir.map(p => `<option value="${esc(p.page_id)}">${esc(p.page_nombre)}${p.ig_usuario ? ' · @' + esc(p.ig_usuario) : ''}</option>`).join('');
+        $('#c-pag-caja').hidden = false; $('#c-page').focus();
+      }
       $('#c-err').textContent = e.data?.error || e.message;
       btn.disabled = false; btn.textContent = c ? 'Guardar' : 'Crear canal';
     }

@@ -4,7 +4,8 @@ import { requiere } from '../auth.mjs';
 import { auditar } from '../core.mjs';
 import * as baileys from '../channels/baileys.mjs';
 import * as meta from '../channels/meta.mjs';
-import { cifrarToken, tokenConfigurado } from '../meta-secretos-impar.mjs';
+import { cifrarToken, tokenConfigurado, resolverToken } from '../meta-secretos-impar.mjs';
+import { resolverCuentaSocial, suscribirPagina } from '../redes-sociales-impar.mjs';
 
 const r = Router();
 const TIPOS = ['whatsapp_qr', 'whatsapp_api', 'messenger', 'instagram'];
@@ -91,9 +92,14 @@ r.post('/', requiere('admin'), async (req, res) => {
         waba_id: String(b.waba_id||''), prefijoPais: b.prefijoPais || process.env.PREFIJO_PAIS || '595' });
     }catch(e){return res.status(503).json({error:e.message});}
   } else {
-    if (!b.token || !(b.page_id || b.ig_id))
-      return res.status(422).json({ error: 'Se requiere token de página y Page ID (o Instagram ID).' });
-    Object.assign(config, { token: b.token, page_id: b.page_id || '', ig_id: b.ig_id || '' });
+    // Messenger / Instagram: con el token alcanza; el CRM encuentra la página, su Instagram y el token de página.
+    const r = await resolverCuentaSocial({ tipo: b.tipo, token: b.token, page_id: b.page_id, ig_id: b.ig_id });
+    if (r.elegir) return res.status(422).json({ error: 'El token tiene varias páginas: elegí cuál conectar.', elegir: r.elegir });
+    if (!r.ok) return res.status(422).json({ error: r.error });
+    try {
+      Object.assign(config, { token: cifrarToken(r.cuenta.token_pagina), page_id: r.cuenta.page_id, ig_id: r.cuenta.ig_id,
+        page_nombre: r.cuenta.page_nombre, ig_usuario: r.cuenta.ig_usuario });
+    } catch (e) { return res.status(503).json({ error: e.message }); }
   }
 
   /* Un mismo phone_number_id / page_id no puede repetirse: Meta enruta el webhook
@@ -120,6 +126,11 @@ r.post('/', requiere('admin'), async (req, res) => {
     [req.empresaId, b.sucursalId || null, b.linea || '', b.tipo, b.nombre, JSON.stringify(config),
      b.tipo === 'whatsapp_qr' ? `${req.empresa.codigo}-${Date.now().toString(36)}` : null,
      b.tipo !== 'whatsapp_api']);
+  // Redes sociales: arrancan sin respuestas automáticas; se encienden desde el canal cuando se decida.
+  if (['messenger', 'instagram'].includes(b.tipo)) {
+    await q('UPDATE canales SET bot_activo=FALSE WHERE id=$1 AND empresa_id=$2', [rows[0].id, req.empresaId]);
+    rows[0].bot_activo = false;
+  }
 
   // Verificación inmediata para los canales de Meta
   let prueba = null;
@@ -131,8 +142,14 @@ r.post('/', requiere('admin'), async (req, res) => {
       [rows[0].id, req.empresaId, prueba.ok && b.tipo==='whatsapp_api' ? 'verificado' : prueba.ok ? 'conectado' : 'error', prueba.numero || '',
        prueba.ok ? null : prueba.error, prueba.ok]);
   }
+  let suscripcion = null;
+  if (['messenger', 'instagram'].includes(b.tipo)) {
+    suscripcion = await suscribirPagina(config.page_id, resolverToken(config.token));
+    if (!suscripcion.ok) await q('UPDATE canales SET estado=$3, ultimo_error=$4 WHERE id=$1 AND empresa_id=$2',
+      [rows[0].id, req.empresaId, 'error', 'No se pudo suscribir la página al webhook: ' + suscripcion.error]);
+  }
   await auditar(req.empresaId, req.user.nombre, 'Canal', `Alta ${ETIQUETAS[b.tipo]} · ${b.nombre}`, req.ip);
-  res.json({ ok: true, canal: sanear(rows[0]), prueba, pendienteActivacion: b.tipo==='whatsapp_api' });
+  res.json({ ok: true, canal: sanear(rows[0]), prueba, suscripcion, pendienteActivacion: b.tipo==='whatsapp_api' });
 });
 
 /* ---------- HACER PRINCIPAL Y COMPARTIDA ---------- */
@@ -165,7 +182,18 @@ r.patch('/:id', requiere('admin'), async (req, res) => {
   if (!c) return res.status(404).json({ error: 'no encontrado' });
 
   const config = { ...(c.config || {}) };
-  for (const k of ['token', 'phone_number_id', 'waba_id', 'page_id', 'ig_id', 'prefijoPais']) {
+  const social = ['messenger', 'instagram'].includes(c.tipo);
+  const tokenNuevo = b.token !== undefined && b.token !== '' && !String(b.token).startsWith('••••');
+  if (social && tokenNuevo) {
+    // Token nuevo de red social: se vuelve a resolver la misma página y se guarda el token de página cifrado.
+    const r = await resolverCuentaSocial({ tipo: c.tipo, token: b.token, page_id: config.page_id, ig_id: config.ig_id });
+    if (!r.ok) return res.status(422).json({ error: r.error || 'El token no tiene acceso a la página de este canal.' });
+    try { config.token = cifrarToken(r.cuenta.token_pagina); } catch (e) { return res.status(503).json({ error: e.message }); }
+    Object.assign(config, { page_nombre: r.cuenta.page_nombre, ig_usuario: r.cuenta.ig_usuario });
+    const sus = await suscribirPagina(config.page_id, r.cuenta.token_pagina);
+    if (!sus.ok) return res.status(409).json({ error: 'Token válido, pero no se pudo suscribir la página: ' + sus.error });
+  }
+  for (const k of social ? ['prefijoPais'] : ['token', 'phone_number_id', 'waba_id', 'page_id', 'ig_id', 'prefijoPais']) {
     if (b[k] !== undefined && b[k] !== '' && !String(b[k]).startsWith('••••')) {
       if(k==='token' && c.tipo==='whatsapp_api'){
         try{config[k]=cifrarToken(b[k]);}
@@ -233,6 +261,11 @@ r.post('/:id/probar', requiere('admin'), async (req, res) => {
       error: e.estado === 'conectado' ? null : 'La sesión no está vinculada. Escaneá el QR.' });
   }
   const p = await meta.probarCanal(c);
+  // Probar también renueva la suscripción de la página (por si alguien la quitó desde Meta).
+  if (p.ok && ['messenger', 'instagram'].includes(c.tipo) && c.config?.page_id) {
+    const sus = await suscribirPagina(c.config.page_id, resolverToken(c.config.token));
+    if (!sus.ok) Object.assign(p, { ok: false, error: 'Credenciales bien, pero la página no quedó suscrita al webhook: ' + sus.error });
+  }
   await q(`UPDATE canales SET estado=$3, numero=COALESCE(NULLIF($4,''),numero), ultimo_error=$5
             WHERE id=$1 AND empresa_id=$2`,
     [c.id, req.empresaId, p.ok && c.tipo==='whatsapp_api' ? 'verificado' : p.ok ? 'conectado' : 'error', p.numero || '', p.ok ? null : p.error]);

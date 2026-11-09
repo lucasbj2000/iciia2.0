@@ -271,6 +271,6 @@ export function etiquetaLinea(tipo, nombre) {
   if (tipo === 'whatsapp_api') return { texto: 'WhatsApp verificado', corto, clase: 'linea-verificada', icono: 'ok' };
   if (tipo === 'whatsapp_qr') return { texto: 'WhatsApp normal', corto, clase: 'linea-normal', icono: 'celular' };
   if (tipo === 'messenger') return { texto: 'Messenger', corto, clase: '', icono: 'mensaje' };
-  if (tipo === 'instagram') return { texto: 'Instagram', corto, clase: '', icono: 'mensaje' };
+  if (tipo === 'instagram') return { texto: 'Instagram', corto, clase: '', icono: 'camara' };
   return null;
 }

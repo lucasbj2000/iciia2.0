@@ -4,14 +4,13 @@
  */
 import crypto from 'node:crypto';
 import { contactosDeCloud, textoContactos } from '../contactos-compartidos-impar.mjs';
+import { API, traducirError } from '../redes-sociales-impar.mjs';
 import { q } from '../db.mjs';
 import { guardarDesdeUrl, urlPublica } from '../archivos.mjs';
 import { resolverToken } from '../meta-secretos-impar.mjs';
 import { encolarWebhookMeta, drenarWebhooksMeta } from '../meta-webhooks-impar.mjs';
 
-const GRAPH = process.env.GRAPH_VERSION || 'v21.0';
-const API = `https://graph.facebook.com/${GRAPH}`;
-// Versión fijada solo para WhatsApp Cloud; Messenger e Instagram conservan su configuración.
+// Messenger e Instagram: versión vigente (las anteriores a v24 se ignoran porque Meta las retira).
 const WA_API = `https://graph.facebook.com/${process.env.WA_GRAPH_VERSION || 'v26.0'}`;
 
 /* ---------- Verificación (GET) ---------- */
@@ -194,7 +193,7 @@ async function procesarMeta(body, tipo) {
       const media = ubicacion ? null : await bajarMediaMeta(adj, canal);
       if (!texto && !media && !ubicacion) continue;
 
-      const nombre = await nombrePerfil(sid, canal);
+      const nombre = await nombrePerfil(sid, canal, tipo);
       await guardarInbox(canal, tipo, ev.message.mid, sid, nombre,
         texto || (ubicacion ? '[ubicación compartida]' : (media ? '' : descripcionAdjunto(adj))), {
         mediaUrl: media?.url, mediaTipo: media?.tipo, mediaNombre: media?.nombre, ubicacion,
@@ -224,13 +223,16 @@ function descripcionAdjunto(adj) {
     location: '[ubicación compartida]' })[adj[0].type] || `[${adj[0].type} recibido]`;
 }
 
-async function nombrePerfil(id, canal) {
+// Messenger no tiene «username» (pedirlo hace fallar toda la consulta); Instagram sí.
+async function nombrePerfil(id, canal, tipo) {
   try {
     const token = resolverToken(canal.config?.token);
     if (!token) return '';
-    const r = await fetch(`${API}/${id}?fields=name,username&access_token=${encodeURIComponent(token)}`);
+    const campos = tipo === 'instagram' ? 'name,username' : 'first_name,last_name,name';
+    const r = await fetch(`${API}/${encodeURIComponent(id)}?fields=${campos}`,
+      { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
     const j = await r.json();
-    return j.name || j.username || '';
+    return j.name || [j.first_name, j.last_name].filter(Boolean).join(' ') || (j.username ? '@' + j.username : '');
   } catch (e) { return ''; }
 }
 
@@ -282,8 +284,8 @@ export async function enviarMeta(canal, destino, texto, adjunto) {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ recipient: { id: String(destino) }, message: mensaje, messaging_type: 'RESPONSE' })
     });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error?.message || 'error de Meta Send API');
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.error) throw new Error(traducirError(j.error));
     return j;
   };
   if (adjunto) {
@@ -304,7 +306,7 @@ export async function probarCanal(canal) {
   if (!token) return { ok: false, error: 'Falta el token de acceso.' };
   const destino = canal.tipo === 'whatsapp_api'
     ? `${WA_API}/${phone_number_id}?fields=display_phone_number,verified_name,quality_rating`
-    : `${API}/${ig_id || page_id}?fields=name,username`;
+    : `${API}/${canal.tipo === 'instagram' ? (ig_id || page_id) : (page_id || ig_id)}?fields=name,username`;
   try {
     const r = await fetch(destino, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10000) });
     const j = await r.json();
