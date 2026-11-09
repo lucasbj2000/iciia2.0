@@ -1,6 +1,7 @@
 /** IMPAR: lectura continua por contacto entre negociaciones, nunca fusiona registros.
  * La primera página trae los mensajes más recientes; el resto se carga hacia atrás.
  */
+import { motivoMeta } from './ventana-24h-impar.mjs';
 const TAM_PAGINA = 120;
 
 export function leerCursorMensaje(texto) {
@@ -25,7 +26,7 @@ export async function obtenerHistorialContacto(q, empresaId, contactoId, negocia
     "a.bytes AS archivo_bytes,a.ancho,a.alto, CASE WHEN a.id IS NOT NULL THEN '/media/' || "+
     'a.empresa_id || \'/\' || a.archivo ELSE m.media_url END AS media_url, '+
     'nx.creado AS creado_negociacion,nx.titulo AS titulo_negociacion, '+
-    'nx.id AS conversacion_id, (nx.id <> $3::uuid) AS anterior, we.ack AS wa_ack, we.estado_meta AS wa_estado_meta, we.reintentos AS wa_reintentos, we.reenviado_ts AS wa_reenviado, we.rescate AS wa_rescate, (ob.reenvio_de IS NOT NULL) AS es_reenvio, '+
+    'nx.id AS conversacion_id, (nx.id <> $3::uuid) AS anterior, we.ack AS wa_ack, we.estado_meta AS wa_estado_meta, we.error_meta AS wa_error_meta, we.reintentos AS wa_reintentos, we.reenviado_ts AS wa_reenviado, we.rescate AS wa_rescate, (ob.reenvio_de IS NOT NULL) AS es_reenvio, '+
     // Línea por la que entró (guardada en el mensaje) o salió (registrada en la cola de envío).
     'cl.id AS linea_id, cl.nombre AS linea_nombre, cl.tipo AS linea_tipo '+
     'FROM mensajes m '+
@@ -41,7 +42,8 @@ export async function obtenerHistorialContacto(q, empresaId, contactoId, negocia
     [empresaId,contactoId,negociacionId,antes?.fecha||null,antes?.id||null,TAM_PAGINA+1,verReenvios===true]
   );
   const hayAnteriores=rows.length>TAM_PAGINA;
-  const mensajes=rows.slice(0,TAM_PAGINA).reverse();
+  // Motivo legible cuando Meta no entregó un mensaje de la línea verificada.
+  const mensajes=rows.slice(0,TAM_PAGINA).reverse().map(m=>m.wa_estado_meta==='failed'?{...m,wa_motivo:motivoMeta(m.wa_error_meta)}:m);
   const primero=mensajes[0];
   return {
     mensajes,

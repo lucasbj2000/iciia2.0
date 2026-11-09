@@ -14,6 +14,7 @@ const esAdmin = req => req.user?.rol === 'admin';
 import { telefonosContacto, normalizarNumero } from '../telefonos-impar.mjs';
 import { estadoRutaWA, elegirRutaWA } from '../wa-identidades-impar.mjs';
 import { citaParaEnvio } from '../citas-impar.mjs';
+import { rutaDeEnvio } from '../ventana-24h-impar.mjs';
 import { pulsoSala } from '../sala-control-impar.mjs';
 import { marcarPresencia, presenciasEmpresa } from '../presencia-equipo-impar.mjs';
 import { colaboradores } from '../colaboracion.mjs';
@@ -325,6 +326,8 @@ r.post('/:id/mensajes', requiere(), async (req, res) => {
   try { cita = await citaParaEnvio(q, req.empresaId, n.contacto_id, req.body?.citaId); }
   catch (e) { return res.status(e.status || 500).json({ error: e.status ? e.message : 'No se pudo preparar la cita.' }); }
 
+  try { await aplicarRutaDeEnvio(req, n); }
+  catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); throw e; }
   if (emp.flags?.botAutoOff && n.bot_activo) {
     await q('UPDATE negociaciones SET bot_activo=FALSE WHERE id=$1 AND empresa_id=$2', [n.id, req.empresaId]);
     await historial(req.empresaId, n.id, '🤖 Bot desactivado automáticamente: respondió un agente', 'Sistema');
@@ -386,6 +389,8 @@ r.post('/:id/mensajes/:mid/reenviar', requiere(), async (req, res) => {
   if (!marca.rowCount) return res.status(409).json({ error: 'Este mensaje ya se reenvió.' });
   const adjunto = m.archivo_id ? await obtenerArchivo(m.archivo_id, req.empresaId) : null;
   if (!m.txt && !adjunto) return res.status(409).json({ error: 'El mensaje original ya no está disponible para reenviar.' });
+  try { await aplicarRutaDeEnvio(req, n); }
+  catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); throw e; }
   const mensaje = await encolarSalida(req, n, m.txt || '', adjunto, null);
   // Marcar como reenvío: el rescate automático nunca reenvía un reenvío.
   await q('UPDATE outbox SET reenvio_de=$1 WHERE mensaje_id=$2 AND empresa_id=$3', [m.outbox_id, mensaje.id, req.empresaId]);
@@ -411,6 +416,10 @@ r.post('/:id/regestionar', requiere(), async (req, res) => {
       mensaje: 'El cliente ya tiene otra negociación abierta.'
     });
   }
+  // La nueva conversación hereda la línea; si es la verificada y pasaron 24 h, arranca por la línea normal.
+  let rutaNueva;
+  try { rutaNueva = await rutaDeEnvio({ empresaId: req.empresaId, contactoId: o.contacto_id, canalId: o.canal_id }); }
+  catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); throw e; }
   const marcadores = [];
   if (emp.flags?.marcadorRegestion) marcadores.push('regestionado');
   if (emp.flags?.marcadorFrecuente) marcadores.push('frecuente');
@@ -418,7 +427,7 @@ r.post('/:id/regestionar', requiere(), async (req, res) => {
   const { rows: ns } = await q(
     `INSERT INTO negociaciones (empresa_id,contacto_id,titulo,etapa,origen,canal_id,agente_id,sucursal,linea,marcadores,bot_activo)
      VALUES ($1,$2,$3,'contactado',$4,$5,$6,$7,$8,$9,FALSE) RETURNING *`,
-    [req.empresaId, o.contacto_id, `Re gestión · ${o.titulo || ''}`, o.origen, o.canal_id,
+    [req.empresaId, o.contacto_id, `Re gestión · ${o.titulo || ''}`, o.origen, rutaNueva.canalId,
      req.user.rol === 'agente'
        ? req.user.id
        : ((await responsableUltimoCierre(emp, o.contacto_id))
@@ -428,10 +437,22 @@ r.post('/:id/regestionar', requiere(), async (req, res) => {
   await q('UPDATE contactos SET frecuente=TRUE WHERE id=$1 AND empresa_id=$2', [o.contacto_id, req.empresaId]);
   await historial(req.empresaId, n.id, `Nueva negociación por re contacto desde ${nombreEtapa(emp, o.etapa)} · bot desactivado`, req.user.nombre);
   await historial(req.empresaId, o.id, 'Cliente re contactado · se generó nueva negociación', req.user.nombre);
+  if (rutaNueva.cambio) await historial(req.empresaId, n.id,
+    `Pasaron más de 24 h desde el último mensaje del cliente por «${rutaNueva.cambio.de}»: la conversación sale por «${rutaNueva.cambio.a}»`, 'Sistema');
   await encolarSalida(req, n, texto, adjunto);
   emitir(req.empresaId, 'neg:nueva', { id: n.id });
   res.json({ ok: true, id: n.id });
 });
+
+/** Línea verificada fuera de las 24 h: el mensaje pasa a la línea normal principal (Meta lo rechazaría). */
+async function aplicarRutaDeEnvio(req, n) {
+  const ruta = await rutaDeEnvio({ empresaId: req.empresaId, contactoId: n.contacto_id, canalId: n.canal_id });
+  if (!ruta.cambio) return;
+  await q('UPDATE negociaciones SET canal_id=$3 WHERE id=$1 AND empresa_id=$2', [n.id, req.empresaId, ruta.canalId]);
+  n.canal_id = ruta.canalId;
+  await historial(req.empresaId, n.id,
+    `Pasaron más de 24 h desde el último mensaje del cliente por «${ruta.cambio.de}»: Meta no permite texto libre por la línea verificada, así que las respuestas salen por «${ruta.cambio.a}»`, 'Sistema');
+}
 
 async function encolarSalida(req, n, texto, adjunto, cita = null) {
   const { rows: cs } = await q('SELECT * FROM contactos WHERE id=$1 AND empresa_id=$2',

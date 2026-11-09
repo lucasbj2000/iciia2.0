@@ -241,7 +241,9 @@ function mensajeHTML(m) {
          ? `<a class="ubi" href="https://www.google.com/maps/search/?api=1&query=${u.lat},${u.lon}" target="_blank" rel="noopener">
               <span class="pin">${ic('pin')}</span><div style="min-width:0"><b style="font-size:var(--fs-sm);display:block">${esc(u.nombre || 'Ubicación compartida')}</b>
               <small style="color:var(--muted)">${esc(u.direccion || `${u.lat}, ${u.lon}`)}</small></div></a>` : '';
-       const estadoWA=m.wa_estado_meta==='failed' ? ` · ${ic('alerta')} Meta no entregó` : m.wa_ack == null ? '' : ' · ' + tildesHTML(m.wa_ack);
+       const estadoWA=m.wa_estado_meta==='failed'
+         ? ` · <span class="msg-fallo" title="${esc(m.wa_motivo ? 'Meta no entregó: ' + m.wa_motivo : 'Meta no entregó el mensaje')}">${ic('alerta')} Meta no entregó${m.wa_motivo ? ': ' + esc(m.wa_motivo) : ''}</span>`
+         : m.wa_ack == null ? '' : ' · ' + tildesHTML(m.wa_ack);
        // Si el teléfono del cliente no pudo descifrar un mensaje, el CRM lo reintenta y reenvía solo
        // (src/rescate-no-descifrados-impar.mjs). Al agente no se le muestra ningún aviso.
        const marcaReenvio = m.es_reenvio ? ' · ↻ Reenvío' : '';

@@ -917,3 +917,4 @@ th,.kpi span,.badge-rol,.cal-h,.org-rol,.pr-eyebrow{text-transform:none!importan
 .meta-linea.linea-verificada{font-weight:600}
 /* Tema claro: verde más oscuro para leerse bien también sobre la burbuja verde de los enviados (≥ 4,5:1). */
 [data-tema="claro"] .msg-linea.linea-verificada,[data-tema="claro"] .meta-linea.linea-verificada,[data-tema="claro"] .card-linea.linea-verificada{color:#17663A}
+.msg-fallo{color:var(--warn)}
