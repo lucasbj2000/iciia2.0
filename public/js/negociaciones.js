@@ -241,7 +241,11 @@ export async function patchTarjeta(id, opts = {}) {
     conectarTarjeta(nueva);
     if (opts.destacar) destacar(nueva);
     actualizarContadores();
-  } catch (e) { /* pudo haberse borrado */ }
+  } catch (e) {
+    // 404: se borró o dejó de ser visible para este usuario (por ejemplo, se transfirió a otra persona).
+    // La tarjeta no puede quedar en pantalla con datos que ya no le corresponden.
+    if (e.status === 404 || e.status === 403) quitarTarjetas([id]);
+  }
 }
 
 export function quitarTarjetas(ids) {

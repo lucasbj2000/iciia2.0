@@ -264,7 +264,17 @@ export async function refrescarFicha(id, seguir = false) {
   const caja = $('#chatbox'), ficha = $('.conversation-modal');
   if (!caja || ficha?.dataset.negociacionId !== id) return;
   const revision = caja._revision = (caja._revision || 0) + 1;
-  const n = await get(`/negociaciones/${id}`);
+  let n;
+  try { n = await get(`/negociaciones/${id}`); }
+  catch (e) {
+    // Ya no es visible para este usuario (transferida, reasignada o borrada): se cierra la ficha.
+    if ((e.status === 404 || e.status === 403) && $('.conversation-modal') === ficha) {
+      cerrar(); quitarTarjetas([id]);
+      toast('Esta negociación ya no está a tu cargo, por eso se cerró.', 'warn', 'Negociación');
+      return;
+    }
+    throw e;
+  }
   if ($('#chatbox') !== caja || $('.conversation-modal') !== ficha || caja._revision !== revision) return;
   actual = n;
   if (!historialVista || historialVista.id!==id) {

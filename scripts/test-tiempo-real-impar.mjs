@@ -39,5 +39,13 @@ console.log('✔ Tiempo real: reconexión, señal de vida y resincronización de
   assert.equal(etiquetaLinea('whatsapp_qr', 'principal').texto, 'WhatsApp normal');
   assert.ok(ficha.includes('lineaMensaje(m)') && ficha.includes('${lineaFicha(n)}') && neg.includes('${insigniaLinea(n)}'), 'Burbujas, ficha y tarjeta muestran la línea');
   assert.ok(chat.includes("(previo.dataset.linea || '') === (el.dataset.linea || '')"), 'Un cambio de línea corta el grupo de mensajes');
-  console.log('✔ Línea visible: cada mensaje, la ficha y la tarjeta distinguen WhatsApp verificado y normal.');
+  // Una negociación que deja de ser visible (transferida, reasignada, borrada) no queda en pantalla.
+{
+  const tablero = readFileSync(new URL('../public/js/negociaciones.js', import.meta.url), 'utf8');
+  const fichaJs = readFileSync(new URL('../public/js/ficha.js', import.meta.url), 'utf8');
+  assert.match(tablero, /if \(e\.status === 404 \|\| e\.status === 403\) quitarTarjetas\(\[id\]\)/, 'la tarjeta se quita al perder acceso');
+  assert.doesNotMatch(tablero, /catch \(e\) \{ \/\* pudo haberse borrado \*\/ \}/);
+  assert.match(fichaJs, /ya no está a tu cargo, por eso se cerró/, 'la ficha abierta se cierra al perder acceso');
+}
+console.log('✔ Línea visible: cada mensaje, la ficha y la tarjeta distinguen WhatsApp verificado y normal.');
 }
