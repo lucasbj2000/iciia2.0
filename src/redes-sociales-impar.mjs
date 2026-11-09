@@ -28,6 +28,13 @@ const paginaDe = p => ({
   ig_usuario: p.instagram_business_account?.username || ''
 });
 
+/** Páginas (con su Instagram y token de página) a las que tiene acceso un token de usuario. */
+export async function listarPaginas(tokenUsuario, fetchFn = fetch) {
+  const campos = 'id,name,access_token,instagram_business_account{id,username}';
+  const r = await llamar(fetchFn, `${API}/me/accounts?fields=${encodeURIComponent(campos)}&limit=100`, tokenUsuario);
+  return r.ok ? { ok: true, paginas: (r.j.data || []).map(paginaDe) } : { ok: false, error: traducirError(r.j.error) };
+}
+
 /**
  * Resuelve página, Instagram y token de página.
  * Devuelve { ok, cuenta } o { ok:false, error } o { ok:false, elegir:[páginas] } cuando hay varias.
@@ -35,11 +42,10 @@ const paginaDe = p => ({
 export async function resolverCuentaSocial({ tipo, token, page_id = '', ig_id = '' }, fetchFn = fetch) {
   token = String(token || '').trim();
   if (!token) return { ok: false, error: 'Falta el token.' };
-  const campos = 'id,name,access_token,instagram_business_account{id,username}';
   // 1) Token de usuario (del sistema o personal): lista las páginas a las que tiene acceso.
-  const cuentas = await llamar(fetchFn, `${API}/me/accounts?fields=${encodeURIComponent(campos)}&limit=100`, token);
+  const cuentas = await listarPaginas(token, fetchFn);
   let paginas;
-  if (cuentas.ok) paginas = (cuentas.j.data || []).map(paginaDe);
+  if (cuentas.ok) paginas = cuentas.paginas;
   else {
     // 2) Token de página: /me es la página misma.
     const yo = await llamar(fetchFn, `${API}/me?fields=${encodeURIComponent('id,name,instagram_business_account{id,username}')}`, token);

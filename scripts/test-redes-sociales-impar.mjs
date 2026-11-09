@@ -79,4 +79,16 @@ assert.doesNotMatch(meta, /process\.env\.GRAPH_VERSION \|\| 'v21\.0'/);
 assert.match(meta, /throw new Error\(traducirError\(j\.error\)\)/);
 assert.match(meta, /tipo === 'instagram' \? 'name,username' : 'first_name,last_name,name'/, 'Messenger no pide username');
 assert.doesNotMatch(meta, /access_token=\$\{/, 'tokens nunca en la URL');
+// «Conectar con Facebook»: retorno público antes del candado de admin, sin scripts en línea (CSP), tokens fuera del navegador.
+const rutasLogin = readFileSync(new URL('../src/routes/meta-login.mjs', import.meta.url), 'utf8');
+assert.ok(rutasLogin.indexOf("r.get('/retorno'") < rutasLogin.indexOf("r.use(requiere('admin'))"), 'el retorno no exige sesión del CRM');
+assert.match(rutasLogin, /<script src="\/js\/meta-login-retorno\.js"><\/script>/);
+assert.doesNotMatch(rutasLogin, /<script>(?!<)/, 'sin scripts en línea');
+assert.match(rutasLogin, /esc\(resultado\.mensaje\)/, 'mensajes escapados');
+assert.match(readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8'), /app\.use\('\/api\/meta-login', rMetaLogin\)/);
+const uiLogin = readFileSync(new URL('../public/js/meta-login.js', import.meta.url), 'utf8');
+assert.match(uiLogin, /window\.open\('about:blank'/, 'la ventana se abre en el mismo clic (sin bloqueo)');
+assert.match(uiLogin, /BroadcastChannel\('impar-meta-login'\)/);
+assert.doesNotMatch(uiLogin, /\.(token|access_token|token_pagina)\b/, 'la pantalla nunca maneja tokens');
+assert.match(readFileSync(new URL('../public/js/admin.js', import.meta.url), 'utf8'), /pintarMetaLogin\(\$\('#meta-login-caja'\)/);
 console.log('✔ Messenger e Instagram: página e Instagram desde el token, suscripción, token cifrado y errores claros');

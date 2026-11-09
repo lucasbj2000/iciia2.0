@@ -121,3 +121,21 @@
   .cmp-pie-asis>div{justify-content:flex-end}
 }
 @media (prefers-reduced-motion:reduce){.cmp-barra i,.cmp-pl,.cmp-tabla tbody tr{transition:none}}
+
+/* Administración → Canales · Conectar con Facebook */
+.ml-caja{border-color:#1877f2}
+.ml-cab{display:flex;gap:14px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.ml-cab h3{margin:0 0 4px}.ml-cab .sub{margin:0;max-width:70ch}
+.ml-alerta{color:var(--bad);font-size:var(--fs-sm)}
+.ml-ajustes{margin-top:12px;font-size:var(--fs-sm)}
+.ml-ajustes summary{cursor:pointer;font-weight:600}
+.ml-ajustes ol{padding-left:18px;line-height:1.7;max-width:80ch}
+.ml-ajustes li{margin-bottom:8px}
+.ml-copia{display:flex;gap:6px;margin-top:6px;max-width:560px}
+.ml-copia input{flex:1;min-width:0}
+.ml-paginas,.ml-redes{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:0 0 12px}
+.ml-paginas legend,.ml-redes legend{padding:0 6px;font-size:var(--fs-sm)}
+.ml-pagina{display:flex;gap:10px;align-items:center;padding:6px 0;cursor:pointer}
+.ml-pagina small{display:block;color:var(--muted)}
+.ml-redes label{display:flex;gap:8px;align-items:center;padding:4px 0}
+.ml-redes small{color:var(--muted)}

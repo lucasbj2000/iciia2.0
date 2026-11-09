@@ -162,6 +162,7 @@ async function aCanales() {
        Las conversaciones que ya están abiertas conservan su canal y su responsable.
        No es necesario cambiar la sucursal de los empleados.</div>
    </div>
+   <div id="meta-login-caja"></div>
 
    ${[...data.sucursales].sort((a, b) => (b.canales.length > 0) - (a.canales.length > 0)).map(s => `<div class="suc-bloque ${s.canales.length ? '' : 'suc-vacia'}">
      <div class="suc-head"><span class="suc-ic">${ic('edificio')}</span>
@@ -217,6 +218,7 @@ async function aCanales() {
        ${info.noDisponible ? '<br>Estado de Meta pendiente de verificación.' : info.tieneSecret ? '<br>✓ App Secret configurado: las firmas se validan.'
          : '<br>' + ic('alerta') + ' Sin META_APP_SECRET: las firmas no se validan. Configuralo en el .env.'}</div></div>`;
 
+  import('./meta-login.js').then(m => m.pintarMetaLogin($('#meta-login-caja'), { sucursales: data.sucursales, alTerminar: aCanales })).catch(() => {});
   $('#canales-actualizar').onclick = () => { $('#canales-actualizar').disabled = true; aCanales().catch(e => toast(e.message,'bad','Canales')); };
   $$('[data-nuevo]').forEach(b => b.onclick = () => modalCanal(null, b.dataset.nuevo));
   $$('[data-nuevo-suc]').forEach(b => b.onclick = () => modalElegirTipo(b.dataset.nuevoSuc));
