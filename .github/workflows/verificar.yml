@@ -97,6 +97,8 @@ jobs:
         run: node scripts/test-diseno-impar.mjs
       - name: Presencia del equipo en tiempo real
         run: node scripts/test-presencia-equipo-impar.mjs
+      - name: Contactos compartidos por WhatsApp con nombre y número
+        run: node scripts/test-contactos-compartidos-impar.mjs
       - name: Verificar formulario único y chequeo público
         run: |
           node scripts/test-publicacion-central.mjs

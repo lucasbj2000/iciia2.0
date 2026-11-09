@@ -3,6 +3,7 @@
  * Comparten webhook, verify token y firma HMAC.
  */
 import crypto from 'node:crypto';
+import { contactosDeCloud, textoContactos } from '../contactos-compartidos-impar.mjs';
 import { q } from '../db.mjs';
 import { guardarDesdeUrl, urlPublica } from '../archivos.mjs';
 import { resolverToken } from '../meta-secretos-impar.mjs';
@@ -151,6 +152,7 @@ async function extraerWhatsApp(m, canal) {
       }
       break;
     }
+    case 'contacts': texto = textoContactos(contactosDeCloud(m.contacts)); break;
     default: texto = `[${m.type} recibido]`;
   }
   return { texto, media, ubicacion };

@@ -3,6 +3,7 @@
  * Una sesión por canal, credenciales en disco, reconexión automática.
  */
 import QRCode from 'qrcode';
+import { contactosDeBaileys, textoContactos } from '../contactos-compartidos-impar.mjs';
 import { hkdfSync, createDecipheriv } from 'node:crypto';
 import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -527,7 +528,8 @@ function extraerCita(contenido,propios=[]){
     qm.videoMessage?.caption || qm.documentMessage?.caption ||
     (qm.imageMessage?'📷 Imagen':qm.videoMessage?'🎥 Video':qm.audioMessage?'🎤 Audio':
      qm.documentMessage?'📄 '+(qm.documentMessage.fileName||'Documento'):
-     qm.stickerMessage?'Sticker':qm.locationMessage?'📍 Ubicación':'');
+     qm.stickerMessage?'Sticker':qm.locationMessage?'📍 Ubicación':
+     (qm.contactMessage||qm.contactsArrayMessage)?textoContactos(contactosDeBaileys(qm)):'');
   const autor=String(ctx.participant||'').split('@')[0].split(':')[0];
   return {ext:String(ctx.stanzaId).slice(0,180),txt:String(txt).slice(0,300),
     dir:autor && propios.includes(autor)?'out':'in'};
@@ -666,7 +668,8 @@ function especial(m) {
   if (m.message?.audioMessage) return '[audio recibido · adjunto no disponible]';
   if (m.message?.documentMessage) return '[documento recibido · adjunto no disponible]';
   if (m.message?.stickerMessage) return '[sticker recibido]';
-  if (m.message?.contactMessage) return '[contacto compartido]';
+  const contactos = contactosDeBaileys(m.message);
+  if (contactos) return textoContactos(contactos);
   if (m.message?.pollCreationMessage) return '[encuesta recibida]';
   return '';
 }
