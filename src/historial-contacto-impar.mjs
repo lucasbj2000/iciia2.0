@@ -1,7 +1,7 @@
 /** IMPAR: lectura continua por contacto entre negociaciones, nunca fusiona registros.
  * La primera página trae los mensajes más recientes; el resto se carga hacia atrás.
  */
-import { motivoMeta } from './ventana-24h-impar.mjs';
+import { motivoMeta } from './motivos-meta-impar.mjs';
 const TAM_PAGINA = 120;
 
 export function leerCursorMensaje(texto) {
