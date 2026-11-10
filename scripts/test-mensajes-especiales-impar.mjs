@@ -79,15 +79,4 @@ assert.ok(mig.includes("ADD COLUMN IF NOT EXISTS especial TEXT") && mig.includes
 assert.ok(leer('src/tiempos-respuesta-impar.mjs').includes("COALESCE(m.especial,'') NOT IN ('reaccion','sistema','plantilla')"), 'Las reacciones no cuentan en los tiempos de respuesta');
 assert.ok(leer('public/js/ficha.js').includes("m.especial === 'reaccion' || m.especial === 'sistema'") && leer('public/js/ficha.js').includes('El cliente eliminó este mensaje'), 'Se ven en la conversación');
 
-// --- Plantillas de campañas en la conversación ---
-const { textoPlantilla } = await import('../src/campanas-impar.mjs');
-const tp = textoPlantilla({ nombrado: false, encabezado: { formato: 'IMAGE', texto: '', variables: [] }, cuerpo: { texto: 'Hola {{1}}, volvió el cartón dúplex', variables: ['1'] },
-  pie: 'IMPAR Papeles', botones: [{ tipo: 'QUICK_REPLY', texto: 'Quiero' }] }, { cuerpo: { 1: { fuente: 'nombre' } } }, { nombre: 'Sam' });
-assert.equal(tp, '🖼️ Imagen\n\nHola Sam, volvió el cartón dúplex\n\nIMPAR Papeles\n\n🔘 Quiero', 'La plantilla como la ve el cliente');
-const camp = leer('src/campanas-impar.mjs');
-assert.ok(camp.includes("VALUES ($1,$2,'out',$3,$4,$5,$6,'plantilla','ok') ON CONFLICT DO NOTHING") && camp.includes('ts: d.enviado, canalId: d.canal_id, negociacionId'), 'Se guarda en el chat al enviar y al responder el cliente');
-assert.ok(leer('src/citas-impar.mjs').includes('FROM campana_destinos d'), 'La respuesta citada muestra la plantilla');
-assert.ok(leer('public/js/ficha.js').includes('Plantilla de WhatsApp · campaña'));
-assert.ok(leer('src/migrations/038_plantillas_en_chat_impar.sql').includes("'plantilla'"));
-
 console.log('✔ IMPAR: reacciones, pedidos, formularios, encuestas, llamadas, eliminados y avisos de WhatsApp visibles sin mover la negociación.');

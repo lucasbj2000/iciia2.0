@@ -139,5 +139,16 @@ assert.match(leer('public/index.html'), /\/campanas\.css\?v=/);
 const ui = leer('public/js/campanas.js');
 assert.doesNotMatch(ui, /\$\{[a-zA-Z]+\.(nombre|tel|telefono|error|texto)\}/, 'nombres, teléfonos y textos de Meta siempre pasan por esc()');
 
+// --- Plantillas de campañas en la conversación ---
+const { textoPlantilla } = C;
+const tp = textoPlantilla({ nombrado: false, encabezado: { formato: 'IMAGE', texto: '', variables: [] }, cuerpo: { texto: 'Hola {{1}}, volvió el cartón dúplex', variables: ['1'] },
+  pie: 'IMPAR Papeles', botones: [{ tipo: 'QUICK_REPLY', texto: 'Quiero' }] }, { cuerpo: { 1: { fuente: 'nombre' } } }, { nombre: 'Sam' });
+assert.equal(tp, '🖼️ Imagen\n\nHola Sam, volvió el cartón dúplex\n\nIMPAR Papeles\n\n🔘 Quiero', 'La plantilla como la ve el cliente');
+const camp = leer('src/campanas-impar.mjs');
+assert.ok(camp.includes("VALUES ($1,$2,'out',$3,$4,$5,$6,'plantilla','ok') ON CONFLICT DO NOTHING") && camp.includes('ts: d.enviado, canalId: d.canal_id, negociacionId'), 'Se guarda en el chat al enviar y al responder el cliente');
+assert.ok(leer('src/citas-impar.mjs').includes('FROM campana_destinos d'), 'La respuesta citada muestra la plantilla');
+assert.ok(leer('public/js/ficha.js').includes('Plantilla de WhatsApp · campaña'));
+assert.ok(leer('src/migrations/038_plantillas_en_chat_impar.sql').includes("'plantilla'"));
+
 console.log('✔ Campañas IMPAR: plantillas, variables, errores, bajas, planillas y permisos');
 process.exit(0);
