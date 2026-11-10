@@ -153,6 +153,18 @@ r.post('/', requiere('admin'), async (req, res) => {
 });
 
 /* ---------- HACER PRINCIPAL Y COMPARTIDA ---------- */
+/** Línea normal que se usa para escribir a contactos nuevos (cuando la verificada no puede por las 24 h). */
+r.post('/:id/salida-nueva', requiere('admin'), async (req, res) => {
+  const { rows } = await q('SELECT id,nombre,tipo,activo FROM canales WHERE id=$1 AND empresa_id=$2', [req.params.id, req.empresaId]);
+  const canal = rows[0];
+  if (!canal || !canal.activo || canal.tipo !== 'whatsapp_qr')
+    return res.status(422).json({ error: 'Elegí una línea de WhatsApp normal (QR) activa.' });
+  await q(`UPDATE canales SET config=CASE WHEN id=$2 THEN jsonb_set(COALESCE(config,'{}'::jsonb),'{salida_nueva}','true'::jsonb,true)
+           ELSE COALESCE(config,'{}'::jsonb)-'salida_nueva' END WHERE empresa_id=$1 AND tipo='whatsapp_qr'`, [req.empresaId, canal.id]);
+  await auditar(req.empresaId, req.user.nombre, 'Canal', 'Línea para contactos nuevos: ' + canal.nombre, req.ip);
+  res.json({ ok: true, id: canal.id, nombre: canal.nombre });
+});
+
 r.post('/:id/principal-global', requiere('admin'), async(req,res)=>{
   const {rows}=await q(
     "SELECT c.id,c.nombre,c.tipo,c.activo,s.nombre AS sucursal_nombre "+

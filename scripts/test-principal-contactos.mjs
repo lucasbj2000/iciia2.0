@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import { elegirPrincipalImpar, consultarPrincipalCentral } from '../src/principal-central-impar.mjs';
+import { elegirPrincipalImpar, consultarPrincipalCentral, elegirSalidaNormal } from '../src/principal-central-impar.mjs';
 
 const leer=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=leer('src/migrations/016_canal_principal_impar.sql');
@@ -152,4 +152,19 @@ assert.ok(front.includes('type="hidden" id="c-chat-canal"'),
   'El nuevo formulario no necesita elegir línea por sucursal');
 assert.ok(!front.includes('<select required id="c-chat-canal"'),
   'El desplegable antiguo no puede reaparecer en la versión nueva');
+// Línea normal para contactos nuevos.
+{
+  const qr=(id,extra={})=>({id,tipo:'whatsapp_qr',activo:true,config:{},sucursal:'Encarnación',nombre:id,...extra});
+  const api={id:'api',tipo:'whatsapp_api',activo:true,config:{principal_global:true},sucursal:'Central',nombre:'API'};
+  const varias=[api,qr('enc'),qr('cde',{sucursal:'Ciudad del Este'}),qr('central1',{sucursal:'Central'}),qr('central2',{sucursal:'Central'})];
+  assert.throws(()=>elegirSalidaNormal(varias),/elegir en Canales cuál usar para contactos nuevos/,'no elige al azar');
+  assert.equal(elegirSalidaNormal([...varias,qr('nuevo',{config:{salida_nueva:true}})]).id,'nuevo','la elegida por el admin');
+  assert.equal(elegirSalidaNormal([api,qr('enc'),qr('central1',{sucursal:'Central'})]).id,'central1','la única de Central');
+  assert.equal(elegirSalidaNormal([api,qr('p',{sucursal:'Central',nombre:'Principal'}),qr('central2',{sucursal:'Central'})]).id,'p','la «principal» de Central');
+  assert.equal(elegirSalidaNormal([api,qr('enc',{config:{principal_global:true}}),qr('x')]).id,'enc','la principal si es normal');
+  assert.equal(elegirSalidaNormal([api,qr('apagada',{activo:false,config:{salida_nueva:true}}),qr('unica')]).id,'unica','las inactivas no cuentan');
+  assert.throws(()=>elegirSalidaNormal([api]),/No hay una línea de WhatsApp normal activa/);
+  assert.ok(canal.includes("r.post('/:id/salida-nueva', requiere('admin')"),'solo admin elige la línea');
+  assert.ok(admin.includes('data-salida='),'botón en Canales');
+}
 console.log('✔ IMPAR: canal de Central compartido y responsable editable con transferencia segura.');

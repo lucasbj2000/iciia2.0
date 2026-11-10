@@ -41,6 +41,34 @@ export async function consultarPrincipalCentral(db,empresaId) {
   const principal=elegirPrincipalImpar(rows);
   // El nombre mostrado siempre será real, incluso si el canal único todavía
   // no tiene asignada formalmente la sucursal Central.
-  return {id:principal.id,nombre:principal.nombre,linea:principal.linea,
+  return {id:principal.id,nombre:principal.nombre,linea:principal.linea,tipo:principal.tipo,
     sucursal:principal.sucursal||'',principal_global:true};
+}
+
+/** Línea normal (WhatsApp QR) para escribir a quien no tiene abierta la ventana de 24 h de la verificada.
+ * Orden: la elegida por el administrador («Contactos nuevos»), la principal si es normal,
+ * la llamada «principal» en Central, la única normal de Central o la única normal de IMPAR. */
+const salidaMarcada = c => c.config?.salida_nueva === true || c.config?.salida_nueva === 'true';
+export function elegirSalidaNormal(canales) {
+  const normales = (canales||[]).filter(c => c.tipo === 'whatsapp_qr' && c.activo === true);
+  const elegidas = normales.filter(salidaMarcada);
+  if (elegidas.length === 1) return elegidas[0];
+  const candidatas = [
+    normales.filter(marcado),
+    normales.filter(c=>central(c) && String(c.nombre||'').trim().toLocaleLowerCase('es-PY')==='principal'),
+    normales.filter(central),
+    normales
+  ];
+  for (const lista of candidatas) if (lista.length === 1) return lista[0];
+  throw Object.assign(new Error(!normales.length
+    ? 'No hay una línea de WhatsApp normal activa para escribir a contactos nuevos.'
+    : 'Hay varias líneas de WhatsApp normales: un administrador debe elegir en Canales cuál usar para contactos nuevos.'), { status: 409 });
+}
+export async function consultarSalidaNormal(db, empresaId) {
+  const {rows}=await db.query(
+    `SELECT ca.id,ca.nombre,ca.linea,ca.tipo,ca.activo,ca.config,sc.nombre AS sucursal
+       FROM canales ca LEFT JOIN sucursales sc ON sc.id=ca.sucursal_id AND sc.empresa_id=ca.empresa_id
+      WHERE ca.empresa_id=$1 AND ca.activo=TRUE AND ca.tipo='whatsapp_qr' ORDER BY ca.creado,ca.id`,[empresaId]);
+  const c=elegirSalidaNormal(rows);
+  return {id:c.id,nombre:c.nombre,linea:c.linea,tipo:c.tipo,sucursal:c.sucursal||''};
 }

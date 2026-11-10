@@ -1,6 +1,7 @@
 import { tx } from './db.mjs';
 import { normalizarNumero, telefonosContacto } from './telefonos-impar.mjs';
-import { consultarPrincipalCentral } from './principal-central-impar.mjs';
+import { consultarPrincipalCentral, consultarSalidaNormal } from './principal-central-impar.mjs';
+import { ultimoEntrante, ventanaAbierta } from './ventana-24h-impar.mjs';
 
 const fallo = (status, mensaje) => { throw Object.assign(new Error(mensaje), { status }); };
 
@@ -27,7 +28,11 @@ export async function conversacionContacto(req, contactoId, envio = null) {
     // ÚNICAMENTE la línea institucional de Central; no filtrar por
     // sucursal ni por línea del empleado. La búsqueda es la misma para
     // agentes, jefes, gerentes y administración.
-    const principal = await consultarPrincipalCentral(db,req.empresaId);
+    let principal = await consultarPrincipalCentral(db,req.empresaId);
+    // Si la principal es la línea verificada, solo se usa cuando el cliente le escribió en las últimas 24 h
+    // (Meta rechaza el texto libre fuera de ese plazo); si no, sale por la línea normal para contactos nuevos.
+    if (principal.tipo === 'whatsapp_api' && !ventanaAbierta(await ultimoEntrante(db, req.empresaId, c.id, principal.id)))
+      principal = await consultarSalidaNormal(db, req.empresaId);
     const canales=[principal];
     const numeros=await telefonosContacto(db,req.empresaId,c.id);
     const lista=numeros.length?numeros:[{id:null,numero:c.tel,etiqueta:'Principal'}];
@@ -37,7 +42,7 @@ export async function conversacionContacto(req, contactoId, envio = null) {
     // Resolver siempre en el servidor la línea activa y correcta, incluso
     // si el navegador conservó un selector desactualizado.
     if(envio.canalId && envio.canalId!==principal.id)
-      fallo(409,'Esta conversación debe iniciarse desde la línea principal de Central. Actualizá la ventana.');
+      fallo(409,'La línea para iniciar esta conversación cambió. Actualizá la ventana.');
     const canal=principal;
     const solicitado=String(envio.telefono || c.tel || '');
     const {numero:destino,clave}=normalizarNumero(solicitado);

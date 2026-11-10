@@ -140,7 +140,10 @@ async function aCanales() {
             : c.estado === 'error' ? 'Error de conexión' : 'Desconectado'}</span>
           ${c.ultima_conexion ? ' · última ' + ago(c.ultima_conexion) + ' atrás' : ''}
           ${!c.activo ? ' · <span style="color:var(--warn)">inactivo / en preparación</span>' : ''}</small>
-        ${esPrincipal(c) ? `<small style="color:var(--ok);font-weight:700">${ic('estrella')} Central · principal única para iniciar conversaciones</small>` : ''}
+        ${esPrincipal(c) ? `<small style="color:var(--ok);font-weight:700">${ic('estrella')} ${c.tipo === 'whatsapp_api'
+          ? 'Central · principal: se usa con clientes que le escribieron en las últimas 24 h; al resto se le escribe por la línea de contactos nuevos'
+          : 'Central · principal única para iniciar conversaciones'}</small>` : ''}
+        ${c.tipo === 'whatsapp_qr' && c.config?.salida_nueva ? `<small style="color:var(--ok);font-weight:700">${ic('mensaje')} Contactos nuevos: escribe a quien no tiene abierta la línea verificada</small>` : ''}
         ${c.ultimo_error ? `<small style="color:var(--bad)">${esc(String(c.ultimo_error).slice(0, 70))}</small>` : ''}</div>
       <div style="flex:none;display:flex;gap:6px;flex-wrap:wrap">
         ${c.tipo === 'whatsapp_qr'
@@ -149,6 +152,8 @@ async function aCanales() {
         <button class="btn ghost sm" data-editar="${c.id}">Editar</button>
         ${c.activo && ['whatsapp_qr','whatsapp_api'].includes(c.tipo) && !c.config?.principal_global ?
           `<button class="btn ghost sm" data-principal="${c.id}">Usar como principal</button>` : ''}
+        ${c.activo && c.tipo === 'whatsapp_qr' && !c.config?.salida_nueva ?
+          `<button class="btn ghost sm" data-salida="${c.id}">Usar para contactos nuevos</button>` : ''}
         <button class="btn danger sm" data-borrar="${c.id}">✕</button></div></div>`;
   };
 
@@ -232,6 +237,15 @@ async function aCanales() {
     b.disabled=true;
     try{await post('/canales/'+ca.id+'/principal-global',{});toast('Línea principal compartida habilitada.','ok');await aCanales();}
     catch(e){toast(e.message,'bad','Canales');b.disabled=false;}
+  });
+  $$('[data-salida]').forEach(b=>b.onclick=async()=>{
+    const ca=todos.find(c=>c.id===b.dataset.salida);
+    if(!ca)return;
+    if(!await confirmar('Línea para contactos nuevos',
+      'Cuando la línea verificada no pueda escribir (el cliente no le escribió en las últimas 24 h), los mensajes saldrán por «'+esc(ca.nombre)+'». No cambia responsables ni conversaciones abiertas.','Usar esta línea',false))return;
+    b.disabled=true;
+    try{await post('/canales/'+ca.id+'/salida-nueva',{});toast('Línea para contactos nuevos: '+ca.nombre,'ok','Canales');await aCanales();}
+    catch(e){toast(e.data?.error||e.message,'bad','Canales');b.disabled=false;}
   });
   $$('[data-qr]').forEach(b => b.onclick = () => modalQR(b.dataset.qr));
   $$('[data-probar]').forEach(b => b.onclick = async () => {

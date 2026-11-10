@@ -61,7 +61,9 @@ const fn=vm.runInNewContext(fuenteConversacion+';conversacionContacto',
   {tx,consultarPrincipalCentral:consultar,
     telefonosContacto:async()=>[{id:'telefono-principal',numero:cliente.tel,
       tel_norm:cliente.tel.slice(-8),etiqueta:'Principal'}],
-    normalizarNumero:valor=>({numero:String(valor),clave:String(valor).slice(-8)})});
+    normalizarNumero:valor=>({numero:String(valor),clave:String(valor).slice(-8)}),
+    consultarSalidaNormal:async()=>({id:'linea-normal',nombre:'Número nuevo',tipo:'whatsapp_qr'}),
+    ultimoEntrante:async()=>null, ventanaAbierta:()=>false});
 const req={empresaId:'empresa-impar',
   user:{id:idAgente,usuario:'agente.otro',nombre:'Empleado de CDE',rol:'agente',
     sucursal:'Ciudad del Este',linea:'CDE'},
@@ -75,7 +77,7 @@ assert.ok(eventos.every(e=>e.sql.trim().startsWith('SELECT')),'Vista previa sin 
 eventos.length=0;
 await assert.rejects(
   ()=>fn(req,idContacto,{texto:'Hola',canalId:idOtro}),
-  /debe iniciarse desde la línea principal/
+  /La línea para iniciar esta conversación cambió/
 );
 assert.ok(!eventos.some(e=>e.sql.includes('INSERT INTO')));
 eventos.length=0;
@@ -116,4 +118,22 @@ assert.ok(worker.includes("lower(trim(c.nombre))='principal' AND lower(trim(s.no
 assert.ok(admin.includes('La línea <b>Central → principal</b>'));
 assert.ok(canal.includes("r.post('/:id/principal-global', requiere('admin')") && canal.includes('canal.activo'),
   'Solo el administrador puede definir un WhatsApp activo como institucional');
+// Principal = línea verificada: contacto que nunca le escribió → sale por la línea normal de contactos nuevos;
+// si le escribió en las últimas 24 h → por la verificada.
+{
+  const fuente=conversacion.replace(/^import[^\n]*\n/gm,'').replace(/^export /gm,'');
+  const crear=ventana=>vm.runInNewContext(fuente+';conversacionContacto',{tx,
+    consultarPrincipalCentral:async()=>({id:'verificada',nombre:'WhatsApp API Impar Papeles',tipo:'whatsapp_api'}),
+    consultarSalidaNormal:async()=>({id:'linea-normal',nombre:'Número nuevo',tipo:'whatsapp_qr'}),
+    ultimoEntrante:async()=>ventana?new Date():null, ventanaAbierta:ts=>!!ts,
+    telefonosContacto:async()=>[{id:'t',numero:cliente.tel,etiqueta:'Principal'}],
+    normalizarNumero:valor=>({numero:String(valor),clave:String(valor).slice(-8)})});
+  hayAbierta=false;
+  assert.equal((await crear(false)(req,idContacto)).canales[0].id,'linea-normal','contacto nuevo: línea normal');
+  assert.equal((await crear(true)(req,idContacto)).canales[0].id,'verificada','ventana abierta: verificada');
+  eventos.length=0;
+  await crear(false)(req,idContacto,{texto:'Hola'});
+  const salida=eventos.find(e=>e.sql.includes('INSERT INTO outbox'));
+  assert.equal(salida.args[1],'linea-normal','el primer mensaje sale por la línea normal');
+}
 console.log('✔ IMPAR: un solo canal Central para todos, búsqueda global y sin duplicar negociaciones.');
