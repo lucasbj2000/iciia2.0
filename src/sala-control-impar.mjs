@@ -96,9 +96,10 @@ export async function fotoSala(req, consulta = q) {
   const promedios = tiemposRespuesta(consulta, { empresaId: eid, rango: rangoDesdeConsulta({ desde: hoy, hasta: hoy }),
     where: alc4.where, params: alc4.params, reglas: req.empresa?.reglas || {} }).catch(() => null);
   const [sucursales, porSucursal, cola, tiempos, ritmo, equipo, ubicados] = await Promise.all([
-    // Cada sucursal con la cantidad de personas activas asignadas: las que no tienen equipo ni movimiento no se muestran.
+    // Cada sucursal con la cantidad de agentes que atienden ahí (jefes, gerentes y administración no cuentan): las que no tienen equipo ni movimiento no se muestran.
     consulta(`SELECT s.nombre,s.ciudad,s.lat,s.lon,
-        (SELECT COUNT(*) FROM usuarios u WHERE u.empresa_id=s.empresa_id AND u.activo AND lower(u.sucursal)=lower(s.nombre))::int AS agentes
+        (SELECT COUNT(*) FROM usuarios u WHERE u.empresa_id=s.empresa_id AND u.activo AND NOT u.oculto AND u.rol='agente'
+           AND lower(trim(u.sucursal))=lower(trim(s.nombre)))::int AS agentes
        FROM sucursales s WHERE s.empresa_id=$1 AND s.activa ORDER BY s.nombre`, [eid]),
     consulta(`SELECT COALESCE(NULLIF(n.sucursal,''),'') AS sucursal,
         COUNT(*) FILTER (WHERE n.etapa NOT IN ('ganado','cerrado'))::int AS abiertas,
