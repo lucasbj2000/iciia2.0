@@ -121,6 +121,14 @@ async function registrarEstadoCloud(canal,s){
     "actualizado=now() RETURNING outbox_id",
     [canal.id,canal.empresa_id,String(s.id),ack,s.status,
      s.status==='failed'?String(s.errors?.[0]?.code||'Meta no entregó').slice(0,60):null]);
+  // Fuera de la ventana de 24 h: el mensaje del agente se reenvía solo por la línea normal.
+  if(s.status==='failed' && rows[0]?.outbox_id){
+    try{
+      const {reenviarPorLineaNormal}=await import('../reenvio-linea-normal-impar.mjs');
+      const r=await reenviarPorLineaNormal({canalId:canal.id,waId:s.id,codigo:s.errors?.[0]?.code});
+      if(r.hecho)return;
+    }catch(e){console.warn('[meta:24h] No se pudo reenviar por la línea normal:',e.name);}
+  }
   if(rows[0]?.outbox_id){
     const {rows:neg}=await q('SELECT negociacion_id FROM outbox WHERE id=$1 AND empresa_id=$2',
       [rows[0].outbox_id,canal.empresa_id]);

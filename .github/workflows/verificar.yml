@@ -182,6 +182,10 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
         run: node scripts/test-ventana-24h-pg.mjs
+      - name: Red de seguridad 24 h (reenvío por la línea normal) en PostgreSQL real
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
+        run: node scripts/test-reenvio-24h-pg.mjs
       - name: Conectar con Facebook en PostgreSQL real
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres

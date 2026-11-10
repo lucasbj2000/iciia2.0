@@ -446,15 +446,19 @@ r.post('/:id/regestionar', requiere(), async (req, res) => {
 
 /** Línea verificada fuera de las 24 h: el mensaje pasa a la línea normal principal (Meta lo rechazaría). */
 async function aplicarRutaDeEnvio(req, n) {
-  const ruta = await rutaDeEnvio({ empresaId: req.empresaId, contactoId: n.contacto_id, canalId: n.canal_id });
-  if (!ruta.cambio) return;
+  const ruta = await rutaDeEnvio({ empresaId: req.empresaId, contactoId: n.contacto_id, canalId: n.canal_id, sucursal: req.user?.sucursal || n.sucursal || '' });
+  if (ruta.canalId === n.canal_id) return;
+  // La negociación queda con su línea guardada (antes «Alta manual» quedaba sin línea).
   await q('UPDATE negociaciones SET canal_id=$3 WHERE id=$1 AND empresa_id=$2', [n.id, req.empresaId, ruta.canalId]);
   n.canal_id = ruta.canalId;
+  if (!ruta.cambio) return;
   await historial(req.empresaId, n.id,
     `Pasaron más de 24 h desde el último mensaje del cliente por «${ruta.cambio.de}»: Meta no permite texto libre por la línea verificada, así que las respuestas salen por «${ruta.cambio.a}»`, 'Sistema');
 }
 
 async function encolarSalida(req, n, texto, adjunto, cita = null) {
+  // Punto único de salida: ningún envío del agente evita la regla de 24 h ni sale sin línea asignada.
+  await aplicarRutaDeEnvio(req, n);
   const { rows: cs } = await q('SELECT * FROM contactos WHERE id=$1 AND empresa_id=$2',
     [n.contacto_id, req.empresaId]);
   const c = cs[0];

@@ -3,7 +3,7 @@
    por esa línea; fuera de ese plazo rechaza el mensaje (código 131047) y solo admite plantillas.
    En ese caso el CRM envía por la línea normal principal, para que el mensaje llegue. */
 import { q } from './db.mjs';
-import { consultarSalidaNormal } from './principal-central-impar.mjs';
+import { consultarSalidaNormal, consultarPrincipalCentral } from './principal-central-impar.mjs';
 
 export const VENTANA_MS = 24 * 60 * 60 * 1000;
 const MARGEN_MS = 5 * 60 * 1000; // no apostar al último minuto: Meta mide con su propio reloj
@@ -27,15 +27,26 @@ export async function ultimoEntrante(db, empresaId, contactoId, canalId) {
  * Decide por qué línea sale un mensaje del agente.
  * Devuelve { canalId, cambio: null | { de, a } } o lanza un error con status 409 si no hay salida posible.
  */
-export async function rutaDeEnvio({ empresaId, contactoId, canalId }, db = { query: q }) {
-  if (!canalId) return { canalId, cambio: null };
+export async function rutaDeEnvio({ empresaId, contactoId, canalId, sucursal = '' }, db = { query: q }) {
+  let asignada = false;
+  if (!canalId) {
+    // Conversación sin línea (p. ej. «Alta manual»): se asigna la principal, con la misma regla de 24 h.
+    let principal = null;
+    try { principal = await consultarPrincipalCentral(db, empresaId); } catch { /* se resuelve abajo */ }
+    if (!principal) {
+      const salida = await consultarSalidaNormal(db, empresaId, { sucursal });
+      return { canalId: salida.id, cambio: null, asignada: true };
+    }
+    canalId = principal.id; asignada = true;
+  }
   const { rows } = await db.query('SELECT id,nombre,tipo,activo FROM canales WHERE id=$1 AND empresa_id=$2', [canalId, empresaId]);
   const canal = rows[0];
-  if (!canal || canal.tipo !== 'whatsapp_api') return { canalId, cambio: null };
-  if (ventanaAbierta(await ultimoEntrante(db, empresaId, contactoId, canalId))) return { canalId, cambio: null };
+  if (!canal || canal.tipo !== 'whatsapp_api') return { canalId, cambio: null, asignada };
+  if (ventanaAbierta(await ultimoEntrante(db, empresaId, contactoId, canalId))) return { canalId, cambio: null, asignada };
   let salida = null, motivo = '';
-  try { salida = await consultarSalidaNormal(db, empresaId); } catch (e) { motivo = e.message; }
-  if (salida && salida.id !== canal.id) return { canalId: salida.id, cambio: { de: canal.nombre, a: salida.nombre } };
+  try { salida = await consultarSalidaNormal(db, empresaId, { sucursal }); } catch (e) { motivo = e.message; }
+  // Recién asignada: no hubo «cambio» de línea, simplemente arranca por la normal.
+  if (salida && salida.id !== canal.id) return { canalId: salida.id, cambio: asignada ? null : { de: canal.nombre, a: salida.nombre }, asignada };
   throw Object.assign(new Error(
     'Pasaron más de 24 horas desde el último mensaje del cliente por la línea verificada y Meta solo permite enviarle una plantilla aprobada. ' +
     (motivo || 'No hay una línea de WhatsApp normal activa para escribirle.')), { status: 409 });

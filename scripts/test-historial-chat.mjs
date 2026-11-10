@@ -40,7 +40,7 @@ const primera=await obtenerHistorialContacto(q,'empresa-impar','contacto-origina
   let visto;
   const espia=async(sql,params)=>{visto={sql,params};return {rows:[]};};
   await obtenerHistorialContacto(espia,'e','c','n');
-  assert.ok(visto.sql.includes('AND ($7::boolean OR ob.reenvio_de IS NULL)'),'Filtra las copias reenviadas');
+  assert.ok(visto.sql.includes('AND ($7::boolean OR (ob.reenvio_de IS NULL AND m.reemplazado_por IS NULL))'),'Filtra las copias reenviadas y los intentos ya reemplazados por la línea normal');
   assert.equal(visto.params[6],false,'Por defecto (agentes) no se ven');
   await obtenerHistorialContacto(espia,'e','c','n',null,{verReenvios:true});
   assert.equal(visto.params[6],true,'Administración sí las ve');

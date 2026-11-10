@@ -30,11 +30,11 @@ try {
   await admin.query("INSERT INTO mensajes(empresa_id,negociacion_id,dir,canal_id,ts) VALUES ($1,$2,'in',$3,now()-interval '2 days')", [E, N1, API]);
   // Un mensaje reciente por OTRA línea no abre la ventana de la verificada.
   await admin.query("INSERT INTO mensajes(empresa_id,negociacion_id,dir,canal_id,ts) VALUES ($1,$2,'in',$3,now()-interval '1 hour')", [E, N2, QR]);
-  assert.deepEqual(await ruta(), { canalId: QR, cambio: { de: 'WhatsApp API Impar Papeles', a: 'Principal' } });
+  assert.deepEqual(await ruta(), { canalId: QR, cambio: { de: 'WhatsApp API Impar Papeles', a: 'Principal' }, asignada: false });
 
   // Escribió por la verificada hace 3 h: se responde por la verificada.
   await admin.query("INSERT INTO mensajes(empresa_id,negociacion_id,dir,canal_id,ts) VALUES ($1,$2,'in',$3,now()-interval '3 hours')", [E, N1, API]);
-  assert.deepEqual(await ruta(), { canalId: API, cambio: null });
+  assert.deepEqual(await ruta(), { canalId: API, cambio: null, asignada: false });
   // Mensajes viejos sin canal guardado: cuenta la línea de su conversación.
   await admin.query("DELETE FROM mensajes WHERE canal_id=$1", [API]);
   await admin.query("INSERT INTO mensajes(empresa_id,negociacion_id,dir,canal_id,ts) VALUES ($1,$2,'in',NULL,now()-interval '30 minutes')", [E, N1]);
@@ -45,8 +45,31 @@ try {
   await admin.query("INSERT INTO mensajes(empresa_id,negociacion_id,dir,canal_id,ts) VALUES ($1,$2,'in',$3,now()-interval '23 hours 58 minutes')", [E, N1, API]);
   assert.equal((await ruta()).canalId, QR);
 
+  // «Alta manual»: conversación sin línea y la principal es la verificada → arranca por la normal, sin nota de «cambio».
+  await admin.query(`UPDATE canales SET config=CASE WHEN id=$1 THEN '{"principal_global":true}'::jsonb ELSE '{}'::jsonb END`, [API]);
+  await admin.query("UPDATE canales SET config='{\"salida_nueva\":true}' WHERE id=$1", [QR]);
+  const NUEVO = randomUUID();
+  assert.deepEqual(await V.rutaDeEnvio({ empresaId: E, contactoId: NUEVO, canalId: null }), { canalId: QR, cambio: null, asignada: true },
+    'sin línea + principal verificada + contacto nuevo → línea normal');
+  await admin.query("INSERT INTO negociaciones VALUES ($1,$2,$3,$4)", [randomUUID(), E, NUEVO, API]);
+  const NN = (await admin.query('SELECT id FROM negociaciones WHERE contacto_id=$1', [NUEVO])).rows[0].id;
+  await admin.query("INSERT INTO mensajes(empresa_id,negociacion_id,dir,canal_id,ts) VALUES ($1,$2,'in',$3,now()-interval '10 minutes')", [E, NN, API]);
+  assert.deepEqual(await V.rutaDeEnvio({ empresaId: E, contactoId: NUEVO, canalId: null }), { canalId: API, cambio: null, asignada: true },
+    'sin línea pero el cliente escribió por la verificada hace 10 min → verificada');
+  // Varias normales sin elegir: la de la sucursal de quien escribe.
+  const SE = randomUUID(), QR_ENC = randomUUID();
+  await admin.query("INSERT INTO sucursales VALUES ($1,$2,'Encarnación')", [SE, E]);
+  await admin.query("UPDATE canales SET config='{}' WHERE id=$1", [QR]);
+  await admin.query("UPDATE canales SET sucursal_id=NULL WHERE id=$1", [QR]);
+  await admin.query("INSERT INTO canales(id,empresa_id,sucursal_id,nombre,tipo,activo) VALUES ($1,$2,$3,'Encarnación','whatsapp_qr',true)", [QR_ENC, E, SE]);
+  assert.equal((await V.rutaDeEnvio({ empresaId: E, contactoId: randomUUID(), canalId: null, sucursal: 'Encarnación' })).canalId, QR_ENC);
+  await assert.rejects(V.rutaDeEnvio({ empresaId: E, contactoId: randomUUID(), canalId: null, sucursal: 'Lambaré' }), e => e.status === 409);
+  await admin.query("DELETE FROM canales WHERE id=$1", [QR_ENC]);
+  await admin.query("UPDATE canales SET sucursal_id=$2, config='{\"principal_global\":true}' WHERE id=$1", [QR, SUC]);
+  await admin.query("UPDATE canales SET config='{}' WHERE id=$1", [API]);
+
   // La línea normal no se toca, y sin línea normal se avisa en vez de enviar algo que Meta rechazaría.
-  assert.deepEqual(await V.rutaDeEnvio({ empresaId: E, contactoId: CT, canalId: QR }), { canalId: QR, cambio: null });
+  assert.deepEqual(await V.rutaDeEnvio({ empresaId: E, contactoId: CT, canalId: QR }), { canalId: QR, cambio: null, asignada: false });
   // Sin principal marcada pero con una sola línea normal activa: esa.
   await admin.query("UPDATE canales SET config='{}' WHERE id=$1", [QR]);
   await admin.query("INSERT INTO canales(id,empresa_id,nombre,tipo,activo) VALUES ($1,$2,'Otra API','whatsapp_api',true)", [randomUUID(), E]);

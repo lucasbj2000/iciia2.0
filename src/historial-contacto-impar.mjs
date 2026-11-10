@@ -37,7 +37,8 @@ export async function obtenerHistorialContacto(q, empresaId, contactoId, negocia
     'LEFT JOIN canales cl ON cl.id=COALESCE(m.canal_id,ob.canal_id) AND cl.empresa_id=m.empresa_id '+
     'WHERE m.empresa_id=$1 AND nx.contacto_id=$2 '+
     'AND ($4::timestamptz IS NULL OR (m.ts,m.id) < ($4::timestamptz,$5::bigint)) '+
-    'AND ($7::boolean OR ob.reenvio_de IS NULL) '+
+    // Agentes: sin reenvíos ni intentos que Meta rechazó y el CRM ya reemplazó por la línea normal.
+    'AND ($7::boolean OR (ob.reenvio_de IS NULL AND m.reemplazado_por IS NULL)) '+
     'ORDER BY m.ts DESC,m.id DESC LIMIT $6',
     [empresaId,contactoId,negociacionId,antes?.fecha||null,antes?.id||null,TAM_PAGINA+1,verReenvios===true]
   );
