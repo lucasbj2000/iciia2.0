@@ -32,6 +32,7 @@ export async function notificar(empresa, tipo, vars = {}, base = [], ref = null)
   if (!regla || !regla.v) return;
   let msg = regla.msg;
   for (const [k, v] of Object.entries(vars)) msg = msg.split(`{${k}}`).join(v ?? '—');
+  if (vars.mensajeCompleto) msg = vars.mensajeCompleto; // avisos agrupados con su propia frase
   const uids = await destinatarios(empresa, regla.dest, base);
   if (!uids.length) return;
   await q(
@@ -443,25 +444,45 @@ function etiquetaAnonima(origen, id) {
 }
 
 /* ================= MOTOR SLA ================= */
+/* «Contactado» sin retorno: si el cliente no contesta en sinRetornoHoras horas corridas (24 por defecto),
+   la negociación se cierra sola como «Sin retorno» para que no se acumulen en esa columna.
+   El plazo cuenta desde lo último que pasó: la entrada a «Contactado» o el último mensaje enviado al
+   cliente (un seguimiento del agente le vuelve a dar 24 h). Si el cliente responde, pasa a
+   «Cliente espera respuesta» y deja de contar. Las reacciones no cuentan como retorno. */
+export const SIN_RETORNO_SQL = `
+  SELECT n.id, n.agente_id, n.entrada_etapa, c.nombre AS cliente, n.aviso_sla,
+         GREATEST(n.entrada_etapa, COALESCE((SELECT MAX(m.ts) FROM mensajes m
+           WHERE m.negociacion_id=n.id AND m.empresa_id=n.empresa_id AND m.dir='out' AND NOT m.carga_historica), n.entrada_etapa)) AS desde
+    FROM negociaciones n JOIN contactos c ON c.id=n.contacto_id
+   WHERE n.empresa_id=$1 AND n.etapa='contactado'`;
 export async function motorSLA() {
   const { rows: empresas } = await q('SELECT * FROM empresas WHERE activa');
   for (const emp of empresas) {
     const r = emp.reglas || {};
-    const { rows: negs } = await q(
-      `SELECT n.*, c.nombre AS cliente FROM negociaciones n JOIN contactos c ON c.id=n.contacto_id
-        WHERE n.empresa_id=$1 AND n.etapa='contactado'`, [emp.id]);
+    const horas = Math.max(1, Number(r.sinRetornoHoras) || 24);
+    const { rows: negs } = await q(SIN_RETORNO_SQL, [emp.id]);
+    const cerradas = new Map(); // agente -> clientes cerrados en esta vuelta
     for (const n of negs) {
-      const h = horasLaborales(n.entrada_etapa, new Date(), r);
-      if (emp.flags?.autoCierre && h >= (r.slaHoras || 24)) {
-        await q(`UPDATE negociaciones SET etapa='cerrado', motivo='Sin retorno',
-                   actualizado=now(), entrada_etapa=now(), aviso_sla=FALSE WHERE id=$1`, [n.id]);
-        await historial(emp.id, n.id, `Cierre automático por ${r.slaHoras}h laborales sin retorno`, 'Sistema');
-        await notificar(emp, 'autocierre', { cliente: n.cliente }, [n.agente_id], n.id);
+      const h = (Date.now() - new Date(n.desde).getTime()) / 3600000;
+      if (emp.flags?.autoCierre && h >= horas) {
+        // Solo si sigue en «Contactado» (el cliente pudo haber respondido mientras tanto).
+        const { rowCount } = await q(`UPDATE negociaciones SET etapa='cerrado', motivo='Sin retorno',
+                   actualizado=now(), entrada_etapa=now(), aviso_sla=FALSE WHERE id=$1 AND etapa='contactado'`, [n.id]);
+        if (!rowCount) continue;
+        await historial(emp.id, n.id, `Cierre automático: el cliente no respondió en ${horas} h → Cerrado · Sin retorno`, 'Sistema');
         emitir(emp.id, 'neg:patch', { id: n.id });
-      } else if (!n.aviso_sla && h >= (r.slaHoras || 24) * ((r.avisoSlaPct || 70) / 100)) {
+        const k = n.agente_id || '';
+        if (!cerradas.has(k)) cerradas.set(k, []);
+        cerradas.get(k).push(n);
+      } else if (emp.flags?.autoCierre && !n.aviso_sla && h >= horas * ((r.avisoSlaPct || 70) / 100)) {
         await q('UPDATE negociaciones SET aviso_sla=TRUE WHERE id=$1', [n.id]);
-        await notificar(emp, 'sla', { cliente: n.cliente, tiempo: `${h.toFixed(1)}h` }, [n.agente_id], n.id);
+        await notificar(emp, 'sla', { cliente: n.cliente, tiempo: `${Math.floor(h)} h sin respuesta del cliente` }, [n.agente_id], n.id);
       }
+    }
+    // Avisos: uno por negociación si son pocas; si se cerraron muchas juntas (las acumuladas), uno solo por agente.
+    for (const [agente, lista] of cerradas) {
+      if (lista.length <= 3) for (const n of lista) await notificar(emp, 'autocierre', { cliente: n.cliente }, agente ? [agente] : [], n.id);
+      else await notificar(emp, 'autocierre', { mensajeCompleto: `Se cerraron ${lista.length} negociaciones en «Contactado» porque los clientes no respondieron en ${horas} h.` }, agente ? [agente] : [], null);
     }
   }
 }

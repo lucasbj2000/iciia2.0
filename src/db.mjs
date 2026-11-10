@@ -104,7 +104,7 @@ export const NOTI_DEF = [
 ];
 
 export const REGLAS_DEF = {
-  slaHoras: 24, jornadaIni: 8, jornadaFin: 17,
+  slaHoras: 24, sinRetornoHoras: 24, jornadaIni: 8, jornadaFin: 17,
   diasHabiles: [1, 2, 3, 4, 5], avisoSlaPct: 70, paisFeriados: 'PY', prefijoPais: '595',
   botones: [
     { id: 'b1', icono: '📍', texto: 'Pedir ubicación', accion: 'mensaje',

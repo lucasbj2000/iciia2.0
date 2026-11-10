@@ -966,8 +966,9 @@ async function aEtapas() {
 async function aReglas() {
   const r = S.empresa.reglas || {};
   AB().innerHTML = `<div class="card-box"><h3>Reglas y tiempos</h3>
-   <div class="row"><div class="field"><label>SLA de cierre (horas laborales)</label><input id="r-sla" type="number" value="${r.slaHoras}"></div>
-    <div class="field"><label>Aviso previo al SLA (%)</label><input id="r-av" type="number" value="${r.avisoSlaPct}"></div>
+   <div class="row"><div class="field"><label for="r-sr">Cerrar «Contactado» sin retorno después de (horas corridas)</label><input id="r-sr" type="number" min="1" value="${r.sinRetornoHoras || 24}"></div>
+    <div class="field"><label>Plazo de respuesta al cliente (horas laborales)</label><input id="r-sla" type="number" value="${r.slaHoras}"></div>
+    <div class="field"><label>Aviso antes del cierre (%)</label><input id="r-av" type="number" value="${r.avisoSlaPct}"></div>
     <div class="field"><label>Inicio de jornada</label><input id="r-ji" type="number" value="${r.jornadaIni}"></div>
     <div class="field"><label>Fin de jornada</label><input id="r-jf" type="number" value="${r.jornadaFin}"></div>
     <div class="field"><label>Prefijo de país</label><input id="r-pref" value="${esc(r.prefijoPais || '595')}"></div></div>
@@ -981,10 +982,12 @@ async function aReglas() {
      <li>Los cuatro canales entran por el mismo pipeline, con la sucursal del canal.</li>
      <li><b>Un cliente no puede tener dos negociaciones activas</b>: si escribe de nuevo, el mensaje entra en la existente.</li>
      <li><b>Cerrado Ganado exige el monto de cierre.</b></li>
+     <li>Si el cliente no responde en las horas indicadas desde el último mensaje, la negociación en «Contactado» se cierra sola como <b>Sin retorno</b> (con «Cierre automático» activo en Funciones).</li>
      <li>Cuando un agente responde, <b>el bot se apaga en esa conversación</b>.</li>
      <li>Las direcciones que manda el cliente se detectan y guardan en su ficha.</li></ul></div>`;
   $('#r-ok').onclick = async () => {
     await patch('/admin/reglas', { reglas: {
+      sinRetornoHoras: Math.max(1, Number($('#r-sr').value) || 24),
       slaHoras: Number($('#r-sla').value) || 24, avisoSlaPct: Number($('#r-av').value) || 70,
       jornadaIni: Number($('#r-ji').value) || 8, jornadaFin: Number($('#r-jf').value) || 17,
       prefijoPais: $('#r-pref').value.trim() || '595',

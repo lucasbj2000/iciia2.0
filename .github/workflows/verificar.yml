@@ -192,6 +192,10 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
         run: node scripts/test-reenvio-24h-pg.mjs
+      - name: Cierre automático de «Contactado» sin retorno en 24 h (PostgreSQL)
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
+        run: node scripts/test-cierre-sin-retorno-pg.mjs
       - name: Conectar con Facebook en PostgreSQL real
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
