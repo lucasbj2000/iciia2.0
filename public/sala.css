@@ -75,44 +75,48 @@ body.sala-abierta{overflow:hidden}
 .sala-vacio{color:var(--muted);font-size:var(--fs-sm);margin:4px 0;list-style:none}
 .sala-vacio.grande{font-size:clamp(15px,1.2vw,19px);margin:auto;text-align:center;padding:12px}
 /* Listas que se cortan con un desvanecido en vez de mostrar barra de desplazamiento */
-.sala-cola,.sala-agentes,.sala-ranking{-webkit-mask:linear-gradient(#000 calc(100% - 28px),transparent);mask:linear-gradient(#000 calc(100% - 28px),transparent);min-height:0;overflow:hidden}
+.sala-desliza,.sala-ranking{-webkit-mask:linear-gradient(#000 calc(100% - 28px),transparent);mask:linear-gradient(#000 calc(100% - 28px),transparent);min-height:0;overflow:hidden}
 
 /* ---------- Mapa ---------- */
 .sala-mapa{padding:0;background:radial-gradient(120% 90% at 40% 45%,#191d16 0%,var(--surface) 70%)}
 .sala-svg{position:absolute;inset:10px 10px 40px;width:calc(100% - 20px);height:calc(100% - 50px)}
-.sala-vecino{fill:#161914;stroke:#2a2f25;stroke-width:1.5}
-.sala-pais-nom{fill:var(--muted);opacity:.35;font:600 22px var(--f-texto);letter-spacing:.08em}
-.sala-pais-luz{fill:none;stroke:rgba(124,194,79,.28);stroke-width:8}
-.sala-pais{fill:#1e231b;stroke:#4a5541;stroke-width:2.2;stroke-linejoin:round}
-.sala-rio{fill:none;stroke:var(--sala-agua);stroke-opacity:.38;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
-.sala-rio-flujo{fill:none;stroke:#9FCBEE;stroke-opacity:.75;stroke-width:2;stroke-linecap:round;stroke-dasharray:3 22}
-.sala-region{fill:var(--muted);font:600 18px var(--f-texto);opacity:.55}
-.sala-ref circle{fill:var(--muted);opacity:.55}
-.sala-ref text{fill:var(--muted);font:600 14px var(--f-texto);opacity:.7}
-.sala-zona{fill:none;stroke:var(--sala-tinta);stroke-width:1.6;stroke-dasharray:3 3}
-.sala-guia{fill:none;stroke:var(--sala-tinta);stroke-width:1.3;stroke-dasharray:4 5;opacity:.55}
-.sala-lupa{fill:#151813;stroke:#4a5541;stroke-width:2.2}
-.lupa-t{opacity:.9;fill:var(--txt)}
-.sala-mini{fill:#1e231b;stroke:#3a4233;stroke-width:1.5}
-.sala-lider{fill:none;stroke:var(--muted);stroke-width:1.2;opacity:.6}
-.sala-detalle .sala-lupa{fill:rgba(18,21,16,.94)}
-.sala-sombra{fill:#000;opacity:.45}
-.sala-gota{fill:var(--sala-verde);stroke:#0f120d;stroke-width:2.5}
-.sala-ojo{fill:#0f120d}
-.con-espera .sala-ojo{fill:var(--warn)}
 .sala-radar{fill:none;stroke:var(--warn);stroke-width:2.5;opacity:0}
 .sala-e-fondo{fill:rgba(16,18,14,.97);stroke:#3a4233;stroke-width:1.2}
 .sala-nombre{fill:var(--txt);font:700 20px var(--f-titulo)}
 .sala-dato{fill:var(--muted);font:600 15px var(--f-texto)}
 .sala-dato.espera{fill:var(--warn)}
 .sala-temp{fill:var(--txt);font:700 22px var(--f-titulo)}
-.sala-lupa-g .sala-nombre{font-size:21px}
 .sala-onda{fill:none;stroke:var(--sala-verde)}
 .sala-onda.tk-respuesta{stroke:var(--sala-tinta)}
 .sala-onda.tk-venta{stroke:var(--sala-oro)}
-.sala-leyenda-mapa{position:absolute;left:16px;right:16px;bottom:10px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:var(--fs-xs)}
-.sala-l-grad{width:110px;height:8px;border-radius:4px;background:linear-gradient(90deg,rgba(124,194,79,.35),#E39A3A,#F3C55B)}
-.sala-leyenda-mapa small{margin-left:auto;font-size:var(--fs-xs)}
+.sala-leyenda-mapa{position:absolute;left:16px;right:16px;bottom:10px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;color:var(--muted);font-size:var(--fs-xs)}
+.sala-ley-i{display:inline-flex;align-items:center;gap:7px}
+.sala-ley-i i{display:inline-block;flex:none}
+.sala-ley-nodo{width:12px;height:12px;border-radius:50%;background:#10130e;border:3px solid var(--sala-verde)}
+.sala-ley-radar{width:12px;height:12px;border-radius:50%;border:2px solid var(--warn);box-shadow:0 0 0 3px color-mix(in srgb,var(--warn) 25%,transparent)}
+.sala-ley-tren{width:22px;height:4px;border-radius:2px;background:linear-gradient(90deg,transparent,var(--sala-verde))}
+/* Plano tipo red de metro */
+.sala-silueta{fill:#1a1e17;stroke:#2c3327;stroke-width:1.2;opacity:.55;vector-effect:non-scaling-stroke}
+.sala-l-via{fill:none;stroke:var(--linea);stroke-width:7;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.sala-l-brillo{fill:none;stroke:var(--linea);stroke-width:12;opacity:.22}
+.sala-l-flujo{fill:none;stroke:#fff;stroke-opacity:.55;stroke-width:2;stroke-linecap:round;stroke-dasharray:2 18}
+.sala-l-km{fill:var(--muted);font:600 14px var(--f-texto);paint-order:stroke;stroke:#141712;stroke-width:5px}
+.sala-hub-t{fill:var(--txt);opacity:.8;font:700 17px var(--f-titulo);letter-spacing:.02em}
+.sala-est-halo{fill:#10130e;stroke:var(--linea);stroke-opacity:.22;stroke-width:6}
+.sala-est-nodo{fill:#10130e;stroke:var(--linea);stroke-width:4;transform-box:fill-box;transform-origin:center}
+.con-espera .sala-est-nodo{stroke:var(--warn);fill:color-mix(in srgb,var(--warn) 22%,#10130e)}
+.sala-est-n{fill:var(--warn);font:800 14px var(--f-titulo)}
+.sala-tren{fill:var(--sala-verde);filter:drop-shadow(0 0 6px var(--sala-verde))}
+.sala-tren.tk-respuesta{fill:var(--sala-tinta);filter:drop-shadow(0 0 6px var(--sala-tinta))}
+.sala-tren.tk-venta{fill:var(--sala-oro);filter:drop-shadow(0 0 8px var(--sala-oro))}
+/* Listas en movimiento: suben solas en bucle y muestran todos los casos */
+.sala-desliza{position:relative;flex:1;min-height:0;overflow:hidden}
+.sala-desliza.con-barra{overflow:auto}
+.sala-pista{display:flex;flex-direction:column}
+.sala-pista>ul{flex:none}
+.sala-pista>.sala-cola{gap:6px;padding-bottom:6px}
+.sala-pista>.sala-agentes{padding-bottom:4px}
+.sala-desliza.mueve:hover .sala-pista,.sala-desliza.mueve:focus-within .sala-pista{animation-play-state:paused}
 
 /* ---------- Cola ---------- */
 .sala-cola{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;flex:1}
@@ -194,10 +198,14 @@ body.sala-abierta{overflow:hidden}
   .sala-vivo i{animation:sala-titila 1.6s ease-in-out infinite}
   .sala-wa.ok .sala-wa-punto,.en-linea .sala-a-punto{animation:sala-respira 2.4s ease-in-out infinite}
   .sala-wa.mal .sala-wa-punto,.sala-wa.alerta .sala-wa-punto{animation:sala-titila 1s ease-in-out infinite}
-  .sala-rio-flujo{animation:sala-fluye 2.8s linear infinite}
-  .sala-calor{animation:sala-calor 7s ease-in-out infinite}
   .sala-radar{animation:sala-radar 2.6s ease-out infinite;transform-box:fill-box;transform-origin:center}
-  .sala-pin{animation:sala-cae .7s cubic-bezier(.3,1.4,.5,1) both}
+  .sala-pin:not(.sala-est){animation:sala-cae .7s cubic-bezier(.3,1.4,.5,1) both}
+  .sala-est-nodo{animation:sala-brota .6s cubic-bezier(.3,1.5,.5,1) both}
+  .sala-l-flujo{animation:sala-fluye var(--vel,4s) linear infinite}
+  .sala-l-flujo.anillo{animation-duration:6s}
+  .sala-l-via{stroke-dasharray:1400;animation:sala-traza 1.6s cubic-bezier(.4,0,.2,1) both}
+  .sala-anillo-red .sala-l-via{stroke-dasharray:none;animation:sala-entra 1s both}
+  .sala-desliza.mueve .sala-pista{animation:sala-desliza var(--dur,20s) linear infinite}
   .sala-a-valor{animation:sala-anillo 1.4s cubic-bezier(.2,.7,.2,1) both}
   .sala-ritmo rect.rt-in,.sala-ritmo rect.rt-out{animation:sala-crece .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i) * 25ms)}
   .rt-ahora .rt-fondo{animation:sala-respira 3s ease-in-out infinite}
@@ -213,6 +221,9 @@ body.sala-abierta{overflow:hidden}
 @keyframes sala-fluye{to{stroke-dashoffset:-50}}
 @keyframes sala-calor{50%{opacity:.78}}
 @keyframes sala-radar{0%{transform:scale(1);opacity:.9}100%{transform:scale(5.5);opacity:0}}
+@keyframes sala-brota{from{transform:scale(0)}}
+@keyframes sala-traza{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes sala-desliza{to{transform:translateY(-50%)}}
 @keyframes sala-cae{from{transform:translateY(-40px);opacity:0}}
 .sala-pin{transform-box:view-box}
 @keyframes sala-anillo{from{stroke-dashoffset:188.5}}
@@ -254,7 +265,7 @@ body.sala-abierta{overflow:hidden}
 @media (max-width:700px){
   .sala-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .sala-cuerpo{grid-template-columns:1fr;grid-template-areas:"mapa" "cola" "agentes" "ritmo" "suc"}
-  .sala-mapa{height:118vw}
+  .sala-mapa{height:100vw}
   .sala-estados{flex-wrap:wrap}
   .sala-chip{flex:1;min-width:0}
   .sala-wa span{overflow:hidden;text-overflow:ellipsis}
@@ -266,3 +277,4 @@ body.sala-abierta{overflow:hidden}
   .sala-k-t,.sala-kpi small,.sala-wa span{white-space:normal}
   .sala-chip{height:auto;min-height:48px;padding:8px 12px}
 }
+.sala-guia-r{fill:none;stroke:var(--linea);stroke-opacity:.45;stroke-width:1.5;stroke-dasharray:2 4}

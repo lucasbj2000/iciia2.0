@@ -94,9 +94,9 @@ assert.ok(/^import 'dotenv\/config';\n(?:\/\/.*\n)?import '\.\/async-errors\.mjs
 
 // Reportes: mismo endpoint y alcance; comparación con el período anterior con el mismo filtro de permisos
 const varios = leer('src/routes/varios.mjs');
-assert.ok(varios.includes('anterior: ant[0]') && /AND n\.creado < now\(\) - \(\$2 \|\| ' days'\)::interval \$\{where\}/.test(varios), 'período anterior con alcance');
+assert.ok(varios.includes('anterior: ant[0]') && varios.includes('AND n.creado >= $2::timestamptz AND n.creado < $3::timestamptz ${where}`,\n    [req.empresaId, rango.iniAnt.toISOString(), rango.finAnt.toISOString(), ...params]'), 'período anterior con alcance');
 assert.ok(leer('public/js/modulos.js').includes("export { vistaReportes } from './reportes.js'"));
 const rep = leer('public/js/reportes.js');
-assert.ok(rep.includes("get(`/reportes?dias=${RANGO}`)"), 'usa el endpoint con permisos del servidor');
+assert.ok(rep.includes("get(`/reportes?desde=${desde}&hasta=${hasta}`)"), 'usa el endpoint con permisos del servidor');
 
 console.log('✔ IMPAR: soporte (flujo, permisos, resumen), reportes y cierre de sesión verificados.');

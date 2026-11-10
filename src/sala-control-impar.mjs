@@ -97,7 +97,7 @@ export async function fotoSala(req, consulta = q) {
        GROUP BY 1`, [eid, ...params]),
     consulta(`SELECT n.id,c.nombre AS cliente,u.nombre AS agente,n.sucursal,n.entrada_etapa
        FROM negociaciones n JOIN contactos c ON c.id=n.contacto_id LEFT JOIN usuarios u ON u.id=n.agente_id
-       WHERE n.empresa_id=$1 AND n.etapa='espera'${where} ORDER BY n.entrada_etapa ASC LIMIT 8`, [eid, ...params]),
+       WHERE n.empresa_id=$1 AND n.etapa='espera'${where} ORDER BY n.entrada_etapa ASC LIMIT 150`, [eid, ...params]),
     consulta(`SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY seg)::float AS mediana,
         COUNT(seg)::int AS n, COUNT(*)::int AS total FROM (
          SELECT EXTRACT(EPOCH FROM (SELECT MIN(o.ts) FROM mensajes o WHERE o.empresa_id=$1 AND o.negociacion_id=p.nid

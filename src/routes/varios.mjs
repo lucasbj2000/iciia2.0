@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { q } from '../db.mjs';
 import { requiere, hash, alcanceSQL } from '../auth.mjs';
 import { notificar, horasLaborales } from '../core.mjs';
+import { rangoDesdeConsulta, tiemposRespuesta } from '../tiempos-respuesta-impar.mjs';
 import { emitir } from '../realtime.mjs';
 import { fotoSala, climaSucursales, ROLES_SALA } from '../sala-control-impar.mjs';
 import bcrypt from 'bcryptjs';
@@ -236,18 +237,21 @@ r.delete('/calendario/:id', requiere(), async (req, res) => {
 
 /* ================= REPORTES ================= */
 r.get('/reportes', requiere(), async (req, res) => {
-  const dias = Math.min(Number(req.query.dias) || 30, 730);
+  // Período por fechas reales (día, semana, mes, año o rango) en hora de Paraguay; ?dias=N sigue funcionando.
+  const rango = rangoDesdeConsulta(req.query);
+  const dias = rango.dias;
+  const ini = rango.ini.toISOString(), fin = rango.fin.toISOString();
   const emp = req.empresa;
   const activas = (emp.etapas || []).filter(e => e.activa).map(e => e.id);
-  const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 3);
+  const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 4);
   const { where: whereSolo, params: paramsSolo } = await alcanceSQL(req.user, req.empresaId, 'n', 2);
 
   const { rows: negs } = await q(
     `SELECT n.*, c.nombre AS cliente, c.tel, c.frecuente, u.nombre AS agente_nombre,
             (SELECT COUNT(*) FROM transferencias t WHERE t.negociacion_id=n.id) AS n_transferencias
        FROM negociaciones n JOIN contactos c ON c.id=n.contacto_id LEFT JOIN usuarios u ON u.id=n.agente_id
-      WHERE n.empresa_id=$1 AND n.creado >= now() - ($2 || ' days')::interval ${where}
-      ORDER BY n.creado DESC`, [req.empresaId, String(dias), ...params]);
+      WHERE n.empresa_id=$1 AND n.creado >= $2::timestamptz AND n.creado < $3::timestamptz ${where}
+      ORDER BY n.creado DESC`, [req.empresaId, ini, fin, ...params]);
 
   const { rows: tr } = await q(
     // Mediana: unas pocas conversaciones viejas no inflan el número (el promedio llegaba a «232 h»).
@@ -255,9 +259,9 @@ r.get('/reportes', requiere(), async (req, res) => {
             COUNT(*)::int AS medidas FROM negociaciones n
        JOIN LATERAL (SELECT MIN(ts) AS primera FROM mensajes
                       WHERE negociacion_id=n.id AND dir='out' AND NOT bot AND NOT carga_historica) m ON TRUE
-      WHERE n.empresa_id=$1 AND n.creado >= now() - ($2 || ' days')::interval
+      WHERE n.empresa_id=$1 AND n.creado >= $2::timestamptz AND n.creado < $3::timestamptz
         AND m.primera IS NOT NULL ${where}`,
-    [req.empresaId, String(dias), ...params]);
+    [req.empresaId, ini, fin, ...params]);
 
   const universo = req.user.rol === 'agente'
     ? [{ id: req.user.id, nombre: req.user.nombre, rol: req.user.rol, sucursal: req.user.sucursal, disponibilidad: req.user.disponibilidad }]
@@ -277,21 +281,25 @@ r.get('/reportes', requiere(), async (req, res) => {
             COALESCE(s.nombre,'—') AS sucursal, COUNT(*) AS total,
             COUNT(*) FILTER (WHERE n.etapa='ganado') AS ganadas
        FROM negociaciones n LEFT JOIN canales ca ON ca.id=n.canal_id LEFT JOIN sucursales s ON s.id=ca.sucursal_id
-      WHERE n.empresa_id=$1 AND n.creado >= now() - ($2 || ' days')::interval ${where}
-      GROUP BY 1,2,3 ORDER BY total DESC`, [req.empresaId, String(dias), ...params]);
+      WHERE n.empresa_id=$1 AND n.creado >= $2::timestamptz AND n.creado < $3::timestamptz ${where}
+      GROUP BY 1,2,3 ORDER BY total DESC`, [req.empresaId, ini, fin, ...params]);
 
   // Período anterior de la misma duración y con el mismo alcance de permisos, para comparar.
   const { rows: ant } = await q(
     `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE n.etapa='ganado')::int AS ganadas,
             COALESCE(SUM(CASE WHEN n.etapa='ganado' THEN COALESCE(NULLIF(n.monto_cierre,0),n.valor,0) END),0)::float AS monto
        FROM negociaciones n
-      WHERE n.empresa_id=$1 AND n.creado >= now() - ($2::int * 2 || ' days')::interval
-        AND n.creado < now() - ($2 || ' days')::interval ${where}`,
-    [req.empresaId, String(dias), ...params]);
+      WHERE n.empresa_id=$1 AND n.creado >= $2::timestamptz AND n.creado < $3::timestamptz ${where}`,
+    [req.empresaId, rango.iniAnt.toISOString(), rango.finAnt.toISOString(), ...params]);
 
   const r2 = emp.reglas || {};
+  // Tiempos de respuesta del bot y de las personas (horario laboral), con el mismo alcance de permisos.
+  const { rows: personas } = await q('SELECT id,nombre FROM usuarios WHERE empresa_id=$1', [req.empresaId]);
+  const tiempos = await tiemposRespuesta(q, { empresaId: req.empresaId, rango, where, params, reglas: r2,
+    nombres: new Map(personas.map(u => [u.id, u.nombre])) });
   res.json({
     negociaciones: negs, universo, porCanal, etapasActivas: activas, anterior: ant[0], dias,
+    desde: rango.desde, hasta: rango.hasta, tiempos,
     colaEspera: espera.map(e => ({ ...e, horasLab: Number(horasLaborales(e.entrada_etapa, new Date(), r2).toFixed(1)) })),
     primeraRespuestaMin: Math.round(Number(tr[0]?.minutos) || 0),
     primeraRespuestaMedidas: tr[0]?.medidas || 0,

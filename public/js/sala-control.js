@@ -4,7 +4,7 @@
 import { $, $$, esc, get, iniciales, DISPONIBILIDAD } from './core.js';
 import { menosMovimiento, correr } from './animaciones.js';
 import { iconoClima, esDeNoche } from './clima-animado.js';
-import { CONTORNOS, RIO_PARAGUAY, CIUDADES_REFERENCIA } from './mapa-paraguay.js';
+import { CONTORNOS } from './mapa-paraguay.js';
 
 const REFRESCO_MS = 30000, CLIMA_MS = 600000;
 const PULSOS = {
@@ -25,7 +25,6 @@ const px = ([lon, lat]) => [(lon - LON0) * ESC * COS, (LAT0 - lat) * ESC];
 const ANCHO = (LON1 - LON0) * ESC * COS, ALTO = (LAT0 - LAT1) * ESC;
 const ruta = (pts, cerrar = false) => pts.map((p, i) => (i ? 'L' : 'M') + px(p).map(v => v.toFixed(1)).join(' ')).join('') + (cerrar ? 'Z' : '');
 const PAIS = CONTORNOS.paraguay.map(r => ruta(r, true)).join('');
-const VECINOS = ['argentina', 'bolivia', 'brasil'].map(k => ({ k, d: CONTORNOS[k].map(r => ruta(r, true)).join('') }));
 
 const norm = v => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/^impar\s+/, '').trim();
 const km = (a, b) => { const r = x => x * Math.PI / 180, dl = r(b.lat - a.lat), dn = r(b.lon - a.lon);
@@ -92,78 +91,130 @@ function etiqueta(s, izq) {
     ${cl && cl.temp != null ? `<g class="sala-e-clima">${climaEn(cl.cod, 0, 8, 34)}<text class="sala-temp" x="38" y="34">${Math.round(cl.temp)}°</text></g>` : ''}
   </g>`;
 }
-function pin(s, x, y, escala = 1) {
-  const izq = s._izq;
-  return `<g class="sala-pin${s.espera ? ' con-espera' : ''}" data-suc="${esc(s.k)}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${escala})">
-    <g class="sala-ondas"></g>
-    ${s.espera ? '<circle class="sala-radar" r="10"/>' : ''}
-    <ellipse class="sala-sombra" rx="9" ry="3.5"/>
-    <path class="sala-gota" d="M0 0C-3-7-13-13-13-25a13 13 0 1 1 26 0C13-13 3-7 0 0z"/>
-    <circle class="sala-ojo" cy="-25" r="5.5"/>
-    ${s.sinEtiqueta ? '' : `<g transform="translate(${izq ? -20 : 20} -46) scale(${(1 / escala).toFixed(3)})">${etiqueta(s, izq)}</g>`}</g>`;
+/* Plano tipo red de metro: Gran Asunción es un anillo con sus sucursales como estaciones y cada sucursal
+   lejana es una línea que sale en su dirección real (redondeada a 45°), con la distancia anotada.
+   Sin recuadros ampliados: todo se lee a la misma escala. La silueta de Paraguay queda de fondo. */
+const RW = 900, RH = 640, HX = 420, HY = 320, RA = 92, COL_X = 270, COL_PASO = 92;
+const COLORES_LINEA = ['#7CC24F', '#5FA8F0', '#F0B44C', '#B79AE6', '#5CCBBE', '#F08FB0', '#E8E06A'];
+function rumbo(desde, hasta) {
+  const y = Math.sin((hasta.lon - desde.lon) * Math.PI / 180) * Math.cos(hasta.lat * Math.PI / 180);
+  const x = Math.cos(desde.lat * Math.PI / 180) * Math.sin(hasta.lat * Math.PI / 180) - Math.sin(desde.lat * Math.PI / 180) * Math.cos(hasta.lat * Math.PI / 180) * Math.cos((hasta.lon - desde.lon) * Math.PI / 180);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360; // 0 = norte, 90 = este
 }
-function calorSVG(zonas, max, transformar, factor = 1) {
-  return zonas.map(z => {
-    const p = transformar(z); if (!p) return '';
-    const f = Math.sqrt(z.n / max);
-    return `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${((16 + 46 * f) * factor).toFixed(1)}" fill="url(#sala-calor)" opacity="${(.3 + .6 * f).toFixed(2)}"/>`;
-  }).join('');
+function planoRed(lista) {
+  const ubicadas = lista.filter(s => !s.sin);
+  const conGeo = ubicadas.filter(s => s.lat != null && s.lon != null);
+  const grupos = agrupar(conGeo);
+  const anillo = (grupos.sort((a, b) => b.length - a.length)[0] || []).slice();
+  const centro = anillo.length ? { lat: anillo.reduce((a, s) => a + s.lat, 0) / anillo.length, lon: anillo.reduce((a, s) => a + s.lon, 0) / anillo.length }
+    : { lat: -25.3, lon: -57.6 };
+  // Sucursales sin coordenadas también van al anillo (no se pierden).
+  ubicadas.filter(s => s.lat == null || s.lon == null).forEach(s => anillo.push(s));
+  const lejanas = conGeo.filter(s => !anillo.includes(s)).map(s => ({ s, ang: rumbo(centro, s), km: Math.round(km(centro, s)) }));
+  // Estaciones del anillo: repartidas parejo sobre el lado oeste, en el orden real norte → sur.
+  const metro = anillo.map(s => ({ s, ang: s.lat != null ? rumbo(centro, s) : 270 })).sort((a, b) => (b.s.lat ?? -99) - (a.s.lat ?? -99));
+  const n = metro.length, abre = Math.min(150, 40 * Math.max(1, n - 1));
+  metro.forEach((m, i) => {
+    const a = (n === 1 ? 270 : 270 - abre / 2 + abre * i / (n - 1)) * Math.PI / 180; // grados de brújula
+    m.x = HX + RA * Math.sin(a); m.y = HY - RA * Math.cos(a);
+  });
+  // Líneas lejanas: salen del anillo a 45°, luego horizontales hasta la terminal.
+  lejanas.sort((a, b) => a.ang - b.ang);
+  const usados = new Map();
+  lejanas.forEach(l => {
+    let q = Math.round(l.ang / 45) * 45 % 360;
+    if (q > 180 && q < 360) q = q <= 270 ? 180 : 0; // hacia el oeste no hay lugar: se pliegan al norte o al sur
+    while (usados.get(q)) q = (q + 45) % 360;
+    usados.set(q, true); l.q = q;
+    const r = q * Math.PI / 180, dx = Math.sin(r), dy = -Math.cos(r);
+    const x0 = HX + RA * dx, y0 = HY + RA * dy;
+    const diag = q === 0 || q === 180 ? 170 : q % 90 ? 190 : 150;
+    const x1 = x0 + dx * diag, y1 = y0 + dy * diag;
+    const xt = q === 0 || q === 180 || q === 90 ? x1 : x1 + 40, yt = y1;
+    l.x = xt; l.y = yt;
+    const recta = q % 90 === 0;
+    l.d = recta ? `M${x0.toFixed(1)} ${y0.toFixed(1)}L${x1.toFixed(1)} ${y1.toFixed(1)}`
+      : `M${x0.toFixed(1)} ${y0.toFixed(1)}L${(x1 - 14 * dx).toFixed(1)} ${(y1 - 14 * dy).toFixed(1)}Q${x1.toFixed(1)} ${y1.toFixed(1)} ${(x1 + 16).toFixed(1)} ${y1.toFixed(1)}L${xt.toFixed(1)} ${yt.toFixed(1)}`;
+    if (recta) { l.mx = (x0 + x1) / 2 + (q === 90 ? 0 : 34); l.my = (y0 + y1) / 2 + (q === 90 ? 0 : 16); }
+    else { l.mx = (x0 + x1) / 2 + 16; l.my = (y0 + y1) / 2 + 5; l.ini = true; }
+  });
+  return { metro, lejanas, centro };
 }
-function htmlMapa(lista, calor) {
-  const zonas = calor?.zonas || [], max = Math.max(1, ...zonas.map(z => z.n));
-  const grupos = agrupar(lista);
-  let pins = '', lupa = '', guia = '';
-  for (const g of grupos) {
-    if (g.length === 1) { const [x, y] = px([g[0].lon, g[0].lat]); g[0]._izq = x > ANCHO * .58; pins += pin(g[0], x, y, 1.35); continue; }
-    // Detalle de Gran Asunción: tarjeta en la esquina libre del mapa, con mini mapa, su calor y rótulos en columna.
-    const c = { lat: g.reduce((a, s) => a + s.lat, 0) / g.length, lon: g.reduce((a, s) => a + s.lon, 0) / g.length };
-    const [cx, cy] = px([c.lon, c.lat]);
-    const TX = 12, TY = 450, TW = 448, TH = 300, MX = 78, MY = 172, R = 60;
-    const lejos = Math.max(.02, ...g.map(s => Math.hypot((s.lon - c.lon) * COS, s.lat - c.lat)));
-    const z = (R - 16) / lejos;
-    const dentro = p => { const x = (p.lon - c.lon) * COS * z, y = (c.lat - p.lat) * z; return Math.hypot(x, y) < R + 30 ? [x, y] : null; };
-    const nombre = g.some(s => s.k === 'asuncion') ? 'Gran Asunción' : `${g[0].nombre} y alrededores`;
-    const orden = g.map(s => ({ s, x: (s.lon - c.lon) * COS * z, y: (c.lat - s.lat) * z })).sort((a, b) => a.y - b.y);
-    const paso = Math.min(78, (TH - 70) / orden.length), y0 = 60 + (TH - 60 - paso * orden.length) / 2;
-    guia = `<circle class="sala-zona" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="16"/>
-      <path class="sala-guia" d="M${(cx - 12).toFixed(1)} ${(cy + 10).toFixed(1)}L${(TX + TW - 30).toFixed(1)} ${TY}"/>`;
-    lupa = `<g class="sala-detalle" transform="translate(${TX} ${TY})">
-      <rect class="sala-lupa" width="${TW}" height="${TH}" rx="16"/>
-      <text class="sala-region lupa-t" x="20" y="34">${nombre}</text>
-      <clipPath id="sala-lupa-clip"><circle cx="${MX}" cy="${MY}" r="${R + 30}"/></clipPath>
-      <g clip-path="url(#sala-lupa-clip)"><circle class="sala-mini" cx="${MX}" cy="${MY}" r="${R + 30}"/>
-        <g class="sala-calor" transform="translate(${MX} ${MY})">${calorSVG(zonas, max, dentro, .75)}</g></g>
-      ${orden.map((o, i) => { const ly = y0 + i * paso; o.s._izq = false;
-        return `<path class="sala-lider" d="M${(MX + o.x).toFixed(1)} ${(MY + o.y - 22).toFixed(1)}C${(MX + o.x + 50).toFixed(1)} ${(MY + o.y - 22).toFixed(1)} 140 ${(ly + 29).toFixed(1)} 162 ${(ly + 29).toFixed(1)}"/>
-          <g transform="translate(162 ${ly.toFixed(1)})">${etiqueta(o.s, false)}</g>`; }).join('')}
-      ${orden.map(o => pin({ ...o.s, sinEtiqueta: true }, MX + o.x, MY + o.y, .9)).join('')}</g>`;
-  }
-  const refs = CIUDADES_REFERENCIA.filter(([n]) => !lista.some(s => norm(s.nombre) === norm(n)))
-    .map(([n, lon, lat]) => { const [x, y] = px([lon, lat]); return `<g class="sala-ref" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><circle r="3.2"/><text x="7" y="5">${esc(n)}</text></g>`; }).join('');
-  const [ax, ay] = px([-57.7, -27.82]), [bx, by] = px([-55.1, -20.0]), [ox, oy] = px([-62.6, -19.4]);
-  return `<svg class="sala-svg" viewBox="0 0 ${ANCHO.toFixed(0)} ${ALTO.toFixed(0)}" preserveAspectRatio="xMidYMid meet" role="img"
-      aria-label="Mapa de Paraguay con las sucursales de IMPAR, clientes en espera, clima por ciudad y zonas con más clientes">
-    <defs>
-      <radialGradient id="sala-calor"><stop offset="0" stop-color="#F3C55B" stop-opacity=".95"/><stop offset=".35" stop-color="#E39A3A" stop-opacity=".6"/>
-        <stop offset=".7" stop-color="#7CC24F" stop-opacity=".25"/><stop offset="1" stop-color="#7CC24F" stop-opacity="0"/></radialGradient>
-      <filter id="sala-luz" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      <clipPath id="sala-pais-clip"><path d="${PAIS}"/></clipPath>
-    </defs>
-    <g class="sala-vecinos">${VECINOS.map(v => `<path class="sala-vecino" d="${v.d}"/>`).join('')}
-      <text class="sala-pais-nom" x="${ax.toFixed(0)}" y="${ay.toFixed(0)}">Argentina</text>
-      <text class="sala-pais-nom" x="${bx.toFixed(0)}" y="${by.toFixed(0)}">Brasil</text>
-      <text class="sala-pais-nom" x="${ox.toFixed(0)}" y="${oy.toFixed(0)}">Bolivia</text></g>
-    <path class="sala-pais-luz" d="${PAIS}" filter="url(#sala-luz)"/>
-    <path class="sala-pais" d="${PAIS}"/>
-    <g clip-path="url(#sala-pais-clip)" class="sala-calor">${calorSVG(zonas, max, z => px([z.lon, z.lat]))}</g>
-    <path class="sala-rio" d="${ruta(RIO_PARAGUAY)}"/><path class="sala-rio-flujo" d="${ruta(RIO_PARAGUAY)}"/>
-    <text class="sala-region" x="${px([-60.7, -22.2])[0].toFixed(0)}" y="${px([-60.7, -22.2])[1].toFixed(0)}">Chaco</text>
-    ${refs}${guia}${pins}${lupa}
+function estacion(s, x, y, color, izq, rotulo) {
+  const tam = 9 + Math.min(9, Math.sqrt(s.nuevos) * 2.2);
+  // rotulo = punto (absoluto) donde va el rótulo; si no hay, va pegado a la estación.
+  const rx = rotulo ? rotulo[0] - x : (izq ? -(tam + 16) : tam + 16), ry = rotulo ? rotulo[1] - y : 0;
+  const guia = rotulo ? `<path class="sala-guia-r" d="M${(izq ? -tam - 4 : tam + 4).toFixed(1)} 0L${(rx + (izq ? 22 : -22)).toFixed(1)} ${ry.toFixed(1)}L${rx.toFixed(1)} ${ry.toFixed(1)}"/>` : '';
+  return `<g class="sala-pin sala-est${s.espera ? ' con-espera' : ''}" data-suc="${esc(s.k)}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})" style="--linea:${color}">
+    ${guia}<g class="sala-ondas"></g>
+    ${s.espera ? `<circle class="sala-radar" r="${tam}"/>` : ''}
+    <circle class="sala-est-halo" r="${(tam + 7).toFixed(1)}"/>
+    <circle class="sala-est-nodo" r="${tam.toFixed(1)}"/>
+    <text class="sala-est-n" y="5" text-anchor="middle">${s.espera || ''}</text>
+    <g transform="translate(${rx.toFixed(1)} ${(ry - 29).toFixed(1)})">${etiqueta(s, izq)}</g></g>`;
+}
+function htmlMapa(lista) {
+  const { metro, lejanas, centro } = planoRed(lista);
+  // Silueta de fondo: Asunción real queda debajo del anillo, así las líneas apuntan hacia donde están las ciudades.
+  const esc2 = (RH * 1.05) / ALTO, [cx, cy] = px([centro.lon, centro.lat]), ox = HX - cx * esc2, oy = HY - cy * esc2;
+  const activo = s => Math.min(1, (s.nuevos + s.espera * 2) / 12);
+  return `<svg class="sala-svg sala-red" viewBox="0 0 ${RW} ${RH}" preserveAspectRatio="xMidYMid meet" role="img"
+      aria-label="Red de sucursales de IMPAR: ${metro.length} en Gran Asunción y ${lejanas.length} en el interior, con clientes en espera y clima">
+    <defs><filter id="sala-brillo" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter></defs>
+    <path class="sala-silueta" d="${PAIS}" transform="translate(${ox.toFixed(1)} ${oy.toFixed(1)}) scale(${esc2.toFixed(4)})"/>
+    <g class="sala-red-cont">
+    ${lejanas.map((l, i) => { const c = COLORES_LINEA[(i + 1) % COLORES_LINEA.length];
+      return `<g class="sala-linea" style="--linea:${c};--vel:${(6 - activo(l.s) * 4).toFixed(1)}s">
+        <path class="sala-l-brillo" d="${l.d}" filter="url(#sala-brillo)"/>
+        <path class="sala-l-via" id="sala-via-${esc(l.s.k)}" d="${l.d}"/>
+        <path class="sala-l-flujo" d="${l.d}"/>
+        <text class="sala-l-km" x="${l.mx.toFixed(1)}" y="${(l.my - (l.ini ? 0 : 12)).toFixed(1)}" text-anchor="${l.ini ? 'start' : 'middle'}">${l.km.toLocaleString('es-PY')} km</text></g>`; }).join('')}
+    <g class="sala-anillo-red" style="--linea:${COLORES_LINEA[0]}">
+      <circle class="sala-l-brillo" cx="${HX}" cy="${HY}" r="${RA}" filter="url(#sala-brillo)"/>
+      <circle class="sala-l-via" cx="${HX}" cy="${HY}" r="${RA}"/>
+      <circle class="sala-l-flujo anillo" cx="${HX}" cy="${HY}" r="${RA}"/>
+      <text class="sala-hub-t" x="${HX}" y="${HY - 4}" text-anchor="middle">Gran</text>
+      <text class="sala-hub-t" x="${HX}" y="${HY + 16}" text-anchor="middle">Asunción</text></g>
+    ${metro.map((m, i) => estacion(m.s, m.x, m.y, COLORES_LINEA[0], true, [COL_X, HY + (i - (metro.length - 1) / 2) * COL_PASO])).join('')}
+    ${lejanas.map((l, i) => estacion(l.s, l.x, l.y, COLORES_LINEA[(i + 1) % COLORES_LINEA.length], false)).join('')}
+    </g>
   </svg>
   <div class="sala-leyenda-mapa">
-    <span class="sala-l-grad" aria-hidden="true"></span><span>Menos</span><span>Más clientes</span>
-    <small>${(calor?.ubicados || 0).toLocaleString('es-PY')} clientes ubicados · últimos 90 días</small>
+    <span class="sala-ley-i"><i class="sala-ley-nodo"></i>Tamaño: clientes nuevos hoy</span>
+    <span class="sala-ley-i"><i class="sala-ley-radar"></i>Número y onda: clientes esperando</span>
+    <span class="sala-ley-i"><i class="sala-ley-tren"></i>Cada mensaje viaja hasta su sucursal</span>
   </div>`;
+}
+/** Encuadra el plano al contenido real (con los rótulos ya medidos) para que se lea grande en cualquier pantalla. */
+function encuadrar(raiz) {
+  const svg = raiz.querySelector('.sala-red'), cont = svg?.querySelector('.sala-red-cont'); if (!cont) return;
+  const b = cont.getBBox(); if (!b.width) return;
+  const m = 34, caja = raiz.getBoundingClientRect(), prop = caja.width / Math.max(1, caja.height - 50);
+  let w = b.width + m * 2, h = b.height + m * 2;
+  // Si el panel es más alto que el plano, se agrega aire arriba y abajo en vez de achicarlo.
+  if (w / h > prop) h = w / prop; else w = h * prop;
+  svg.setAttribute('viewBox', `${(b.x + b.width / 2 - w / 2).toFixed(1)} ${(b.y + b.height / 2 - h / 2).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
+}
+/** Un «tren» recorre la línea de la sucursal (o el anillo) cuando entra un mensaje. */
+function tren(k, tipo) {
+  const svg = $('#sala-mapa .sala-red'); if (!svg) return;
+  const via = svg.querySelector(`#sala-via-${CSS.escape(k)}`);
+  const est = svg.querySelector(`.sala-est[data-suc="${CSS.escape(k)}"]`); if (!est) return;
+  const ns = 'http://www.w3.org/2000/svg', punto = document.createElementNS(ns, 'circle');
+  punto.setAttribute('r', tipo === 'venta' ? 7 : 5); punto.setAttribute('class', 'sala-tren tk-' + tipo);
+  svg.appendChild(punto);
+  const dur = via ? 1600 : 900, t0 = performance.now();
+  const m = est.transform.baseVal.consolidate()?.matrix, fin = m ? [m.e, m.f] : [HX, HY];
+  const largo = via ? via.getTotalLength() : 0;
+  const paso = t => {
+    const k2 = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k2, 3);
+    let x, y;
+    if (via) { const p = via.getPointAtLength(e * largo); x = p.x; y = p.y; }
+    else { const a0 = Math.atan2(fin[1] - HY, fin[0] - HX) + Math.PI * 1.2, a = a0 - e * Math.PI * 1.2; x = HX + RA * Math.cos(a); y = HY + RA * Math.sin(a); }
+    punto.setAttribute('cx', x.toFixed(1)); punto.setAttribute('cy', y.toFixed(1));
+    if (k2 < 1) requestAnimationFrame(paso); else punto.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300 }).onfinish = () => punto.remove();
+  };
+  requestAnimationFrame(paso);
 }
 /* Los rótulos se miden después de dibujarse para que el fondo calce justo. */
 function ajustarEtiquetas(raiz) {
@@ -256,6 +307,25 @@ function htmlSucursales(lista) {
 }
 const htmlMov = x => `<li class="tk-${x.tipo}"><i></i><b>${PULSOS[x.tipo].t}</b><span>${esc(x.sucursal || 'Sin sucursal')}</span><small>${reloj(x.ts)}</small></li>`;
 
+/* Lista en movimiento: si no entra en el panel, sube sola en bucle continuo y muestra todos los casos.
+   Se pausa al pasar el mouse o con el foco; con «reducir movimiento» queda con barra de desplazamiento. */
+function desplazar(panel, sel) {
+  const lista = panel?.querySelector(sel); if (!lista) return;
+  const caja = document.createElement('div'); caja.className = 'sala-desliza';
+  lista.replaceWith(caja); caja.appendChild(lista);
+  requestAnimationFrame(() => {
+    if (lista.scrollHeight <= caja.clientHeight + 2) return;
+    if (menosMovimiento()) { caja.classList.add('con-barra'); return; }
+    const copia = lista.cloneNode(true); copia.setAttribute('aria-hidden', 'true'); copia.classList.add('copia');
+    copia.querySelectorAll('[data-uid]').forEach(el => el.removeAttribute('data-uid'));
+    const pista = document.createElement('div'); pista.className = 'sala-pista';
+    caja.appendChild(pista); pista.append(lista, copia);
+    const filas = lista.children.length;
+    pista.style.setProperty('--dur', Math.max(12, filas * 3.2) + 's');
+    caja.classList.add('mueve');
+  });
+}
+
 /* ---------- Pintado ---------- */
 function pintar() {
   if (!E?.datos) return;
@@ -269,9 +339,12 @@ function pintar() {
   E.kpis = { espera: String(k.enEspera), nuevos: String(k.nuevos), ventas: String(k.ventas) };
   // El mapa solo se redibuja si cambió algo (así no se reinician sus animaciones).
   const firma = JSON.stringify([lista.map(s => [s.k, s.espera, s.nuevos, s.abiertas]), d.calor, [...E.clima.values()]]);
-  if (firma !== E.firmaMapa) { E.firmaMapa = firma; const m = $('#sala-mapa'); m.innerHTML = htmlMapa(lista, d.calor); ajustarEtiquetas(m); }
-  $('#sala-cola').innerHTML = htmlCola(d, k.enEspera);
-  $('#sala-agentes').innerHTML = htmlAgentes(d);
+  if (firma !== E.firmaMapa) { E.firmaMapa = firma; const m = $('#sala-mapa'); m.innerHTML = htmlMapa(lista); ajustarEtiquetas(m); encuadrar(m); }
+  // Las listas se redibujan solo si cambió su contenido: así el desplazamiento no vuelve a empezar.
+  const firmaCola = JSON.stringify(d.cola.map(c => [c.id, c.desde, c.agente])) + k.enEspera;
+  if (firmaCola !== E.firmaCola) { E.firmaCola = firmaCola; $('#sala-cola').innerHTML = htmlCola(d, k.enEspera); desplazar($('#sala-cola'), '.sala-cola'); }
+  const firmaEq = JSON.stringify(d.equipo.map(u => [u.id, u.enLinea, u.disponibilidad, u.respuestas, u.carga]));
+  if (firmaEq !== E.firmaEq) { E.firmaEq = firmaEq; $('#sala-agentes').innerHTML = htmlAgentes(d); desplazar($('#sala-agentes'), '.sala-agentes'); }
   $('#sala-ritmo').innerHTML = htmlRitmo(d);
   $('#sala-sucursales').innerHTML = htmlSucursales(lista);
 }
@@ -351,9 +424,9 @@ export function pulsoSala({ sucursal, tipo }) {
         { duration: tipo === 'venta' ? 2400 : 1700, delay: i * 340, easing: 'cubic-bezier(.2,.7,.2,1)' });
       a.onfinish = () => c.remove();
     }
-    const gota = nodo.querySelector('.sala-gota');
-    gota?.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-10px)' }, { transform: 'translateY(0)' }], { duration: 520, easing: 'cubic-bezier(.3,1.6,.5,1)' });
+    nodo.querySelector('.sala-est-nodo')?.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 520, easing: 'cubic-bezier(.3,1.6,.5,1)' });
   }
+  tren(k, tipo);
 }
 /** Un agente cambió su disponibilidad: actualizar pronto. */
 export const cambioEquipo = () => refrescarPronto();
@@ -411,6 +484,11 @@ export function abrirSala() {
     else if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) pantallaCompleta();
   };
   document.addEventListener('keydown', E.teclas);
+  // Al cambiar el tamaño (pantalla completa, girar el celular) se reencuadra el plano y se recalcula qué lista se mueve.
+  E.medida = () => { clearTimeout(E.medidaT); E.medidaT = setTimeout(() => {
+    if (!E) return; const m = $('#sala-mapa'); if (m) encuadrar(m);
+    E.firmaCola = E.firmaEq = null; pintar(); }, 250); };
+  addEventListener('resize', E.medida);
   estadoWASala(null);
   get('/canales/estado-whatsapp').then(r => estadoWASala(r.estado)).catch(() => {});
   refrescar(); cargarClima();
@@ -426,8 +504,9 @@ function pantallaCompleta() {
 export function cerrarSala() {
   if (!E) return;
   for (const t of ['reloj', 'refresco', 'climaT', 'giro']) clearInterval(E[t]);
-  clearTimeout(E.pronto);
+  clearTimeout(E.pronto); clearTimeout(E.medidaT);
   document.removeEventListener('keydown', E.teclas);
+  removeEventListener('resize', E.medida);
   if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
   const foco = E.foco; E = null;
   $('#sala')?.remove(); document.body.classList.remove('sala-abierta');

@@ -5,9 +5,53 @@ import { $, $$, esc, S, get, gs, fd, fdate, fx, etapa, bajar, vacio, skeleton, t
 import { fichaNeg } from './ficha.js';
 import { ic } from './iconos.js';
 
-let RANGO = 30;
+/* Período: día, semana, mes, año o rango libre, anclado a una fecha (hora local de Paraguay). */
+const hoyYMD = () => { const d = new Date(); return ymd(d); };
+function ymd(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+const aFecha = t => { const [y, m, d] = t.split('-').map(Number); return new Date(y, m - 1, d); };
+let PERIODO = { modo: 'mes', ancla: hoyYMD(), desde: '', hasta: '' };
+let RANGO = 30; // días del período cargado (para textos y comparaciones)
 let ORDEN = { col: 'ganadas', dir: -1 };
 let FILTRO = { q: '', etapa: '' };
+
+const MODOS = [['dia', 'Día'], ['semana', 'Semana'], ['mes', 'Mes'], ['anio', 'Año'], ['rango', 'Rango']];
+/** Desde y hasta (incluidos) del período elegido. */
+function limites(p = PERIODO) {
+  const a = aFecha(p.ancla);
+  if (p.modo === 'dia') return { desde: p.ancla, hasta: p.ancla };
+  if (p.modo === 'semana') {
+    const lunes = new Date(a); lunes.setDate(a.getDate() - ((a.getDay() + 6) % 7));
+    const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6);
+    return { desde: ymd(lunes), hasta: ymd(domingo) };
+  }
+  if (p.modo === 'mes') return { desde: ymd(new Date(a.getFullYear(), a.getMonth(), 1)), hasta: ymd(new Date(a.getFullYear(), a.getMonth() + 1, 0)) };
+  if (p.modo === 'anio') return { desde: `${a.getFullYear()}-01-01`, hasta: `${a.getFullYear()}-12-31` };
+  return { desde: p.desde || p.ancla, hasta: p.hasta || p.ancla };
+}
+function mover(dir) {
+  const a = aFecha(PERIODO.ancla);
+  if (PERIODO.modo === 'dia') a.setDate(a.getDate() + dir);
+  else if (PERIODO.modo === 'semana') a.setDate(a.getDate() + dir * 7);
+  else if (PERIODO.modo === 'mes') a.setMonth(a.getMonth() + dir, 1);
+  else if (PERIODO.modo === 'anio') a.setFullYear(a.getFullYear() + dir, 0, 1);
+  PERIODO.ancla = ymd(a);
+}
+const fLarga = (t, o) => aFecha(t).toLocaleDateString('es-PY', o);
+const capital = t => t.charAt(0).toLocaleUpperCase('es') + t.slice(1);
+function nombrePeriodo(p = PERIODO) {
+  const { desde, hasta } = limites(p), hoy = hoyYMD();
+  if (p.modo === 'dia') return desde === hoy ? 'Hoy' : capital(fLarga(desde, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+  if (p.modo === 'semana') {
+    const mismoMes = desde.slice(0, 7) === hasta.slice(0, 7);
+    return `Semana del ${fLarga(desde, mismoMes ? { day: 'numeric' } : { day: 'numeric', month: 'long' })} al ${fLarga(hasta, { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  }
+  if (p.modo === 'mes') return capital(fLarga(desde, { month: 'long', year: 'numeric' }));
+  if (p.modo === 'anio') return desde.slice(0, 4);
+  return `${fLarga(desde, { day: 'numeric', month: 'short', year: 'numeric' })} – ${fLarga(hasta, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+/** «el período anterior»: ayer, la semana pasada, el mes pasado… */
+const anteriorTxt = () => ({ dia: 'el día anterior', semana: 'la semana anterior', mes: 'el mes anterior', anio: 'el año anterior' }[PERIODO.modo]
+  || `los ${RANGO} días anteriores`);
 
 const ALCANCE = {
   admin: 'Toda la empresa', gerente: 'Toda la empresa', jefe: 'Tu equipo', agente: 'Tus negociaciones'
@@ -39,31 +83,28 @@ function delta(actual, previo, { masEsMejor = true, puntos = false } = {}) {
   if (!dir) return `<span class="rep-delta">Igual que el período anterior</span>`;
   const bueno = (dir > 0) === masEsMejor;
   return `<span class="rep-delta ${bueno ? 'bien' : 'mal'}"><span aria-hidden="true">${dir > 0 ? '▲' : '▼'}</span> ${txt}
-    <span class="rep-delta-ref">vs. ${RANGO} días anteriores</span></span>`;
+    <span class="rep-delta-ref">vs. ${anteriorTxt()}</span></span>`;
 }
 
 /* ---------- Evolución: ingresos (barras) y ganadas (línea), en un solo eje ---------- */
-function cubetas(ns, dias) {
-  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-  const modo = dias <= 31 ? 'dia' : dias <= 120 ? 'semana' : 'mes';
+function cubetas(ns, desde, hasta) {
+  const ini = aFecha(desde), finExcl = aFecha(hasta); finExcl.setDate(finExcl.getDate() + 1);
+  const dias = Math.round((finExcl - ini) / 86400000);
+  const modo = dias <= 31 ? 'dia' : dias <= 190 ? 'semana' : 'mes';
   const out = [];
   if (modo === 'dia') {
-    for (let i = dias - 1; i >= 0; i--) {
-      const d = new Date(hoy); d.setDate(d.getDate() - i);
+    for (let d = new Date(ini); d < finExcl; d.setDate(d.getDate() + 1)) {
       const h = new Date(d); h.setDate(h.getDate() + 1);
-      out.push({ desde: d, hasta: h, etiqueta: `${d.getDate()}/${d.getMonth() + 1}`, largo: d.toLocaleDateString('es-PY', { weekday: 'long', day: 'numeric', month: 'long' }) });
+      out.push({ desde: new Date(d), hasta: h, etiqueta: `${d.getDate()}/${d.getMonth() + 1}`, largo: d.toLocaleDateString('es-PY', { weekday: 'long', day: 'numeric', month: 'long' }) });
     }
   } else if (modo === 'semana') {
-    const n = Math.ceil(dias / 7);
-    for (let i = n - 1; i >= 0; i--) {
-      const h = new Date(hoy); h.setDate(h.getDate() + 1 - i * 7);
-      const d = new Date(h); d.setDate(d.getDate() - 7);
-      out.push({ desde: d, hasta: h, etiqueta: `${d.getDate()}/${d.getMonth() + 1}`, largo: `Semana del ${d.toLocaleDateString('es-PY', { day: 'numeric', month: 'long' })}` });
+    for (let d = new Date(ini); d < finExcl; d.setDate(d.getDate() + 7)) {
+      const h = new Date(d); h.setDate(h.getDate() + 7);
+      out.push({ desde: new Date(d), hasta: h < finExcl ? h : new Date(finExcl), etiqueta: `${d.getDate()}/${d.getMonth() + 1}`, largo: `Semana del ${d.toLocaleDateString('es-PY', { day: 'numeric', month: 'long' })}` });
     }
   } else {
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1), h = new Date(hoy.getFullYear(), hoy.getMonth() - i + 1, 1);
-      out.push({ desde: d, hasta: h, etiqueta: d.toLocaleDateString('es-PY', { month: 'short' }).replace('.', ''), largo: d.toLocaleDateString('es-PY', { month: 'long', year: 'numeric' }) });
+    for (let d = new Date(ini.getFullYear(), ini.getMonth(), 1); d < finExcl; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+      out.push({ desde: d < ini ? new Date(ini) : d, hasta: new Date(d.getFullYear(), d.getMonth() + 1, 1), etiqueta: d.toLocaleDateString('es-PY', { month: 'short' }).replace('.', ''), largo: capital(d.toLocaleDateString('es-PY', { month: 'long', year: 'numeric' })) });
     }
   }
   const dentro = (t, c) => { const x = new Date(t); return x >= c.desde && x < c.hasta; };
@@ -74,8 +115,8 @@ function cubetas(ns, dias) {
   return { modo, cubetas: out };
 }
 
-function graficoEvolucion(ns, ancho0 = 720) {
-  const { modo, cubetas: cs } = cubetas(ns, RANGO);
+function graficoEvolucion(ns, ancho0 = 720, desde, hasta) {
+  const { modo, cubetas: cs } = cubetas(ns, desde, hasta);
   const W = Math.max(280, Math.round(ancho0)), H = ancho0 < 500 ? 190 : 220, izq = 34, der = 10, arr = 12, abj = 26;
   const max = Math.max(1, ...cs.map(c => Math.max(c.ingresos, c.ganadas)));
   const paso = max <= 4 ? 1 : max <= 10 ? 2 : max <= 25 ? 5 : max <= 60 ? 10 : Math.ceil(max / 5 / 10) * 10;
@@ -101,7 +142,7 @@ function graficoEvolucion(ns, ancho0 = 720) {
       <small>${modo === 'dia' ? 'Por día' : modo === 'semana' ? 'Por semana' : 'Por mes'}</small></div>
     <div class="rep-svgwrap">
     <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img"
-      aria-label="Negociaciones ingresadas y ganadas en los últimos ${RANGO} días: ${totalIng} ingresadas y ${totalGan} ganadas.">
+      aria-label="Negociaciones ingresadas y ganadas (${esc(nombrePeriodo())}): ${totalIng} ingresadas y ${totalGan} ganadas.">
       ${ticks.map(v => `<line class="rep-gl" x1="${izq}" x2="${W - der}" y1="${y(v)}" y2="${y(v)}"/>
         <text class="rep-ytick" x="${izq - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join('')}
       ${cs.map(barra).join('')}
@@ -230,15 +271,110 @@ function detalle(ns) {
       || `<tr><td colspan="7">${vacio('⌕', 'Sin resultados', 'Probá con otro nombre o quitá el filtro de etapa.')}</td></tr>`}</tbody></table></div>`;
 }
 
+/* ---------- Tiempo de respuesta: bot y agentes ---------- */
+const nivel = i => i == null ? 'nada' : i >= 80 ? 'bien' : i >= 50 ? 'medio' : 'mal';
+const NIVEL_TXT = { bien: 'Muy bien', medio: 'Mejorable', mal: 'Lento', nada: 'Sin datos' };
+const corto = min => {
+  if (min == null) return '—';
+  if (min < 1) return `${Math.max(1, Math.round(min * 60))} s`;
+  return tiempo(min);
+};
+function anillo(indice, etiqueta) {
+  const r = 52, c = 2 * Math.PI * r, v = indice == null ? 0 : indice;
+  return `<div class="rep-anillo ${nivel(indice)}" role="img" aria-label="${etiqueta}: índice ${indice == null ? 'sin datos' : indice + ' por ciento'}">
+    <svg viewBox="0 0 120 120" width="132" height="132" aria-hidden="true">
+      <circle class="rep-anillo-fondo" cx="60" cy="60" r="${r}"/>
+      <circle class="rep-anillo-valor" cx="60" cy="60" r="${r}" style="--largo:${c.toFixed(1)};--final:${(c * (1 - v / 100)).toFixed(1)}"/>
+    </svg>
+    <span class="rep-anillo-n"><b data-correr>${indice == null ? '—' : indice + '%'}</b><small>${NIVEL_TXT[nivel(indice)]}</small></span></div>`;
+}
+function tarjetaTiempo(titulo, icono, r, meta, extra) {
+  return `<article class="rep-indice">
+    <header><span class="rep-indice-ic" aria-hidden="true">${ic(icono)}</span><div><h4>${titulo}</h4><small>Meta: responder en menos de ${meta}</small></div></header>
+    <div class="rep-indice-cuerpo">${anillo(r.indice, titulo)}
+      <dl class="rep-indice-datos">
+        <div><dt>La mitad responde en</dt><dd>${corto(r.mediana)}</dd></div>
+        <div><dt>Promedio</dt><dd>${corto(r.promedio)}</dd></div>
+        <div><dt>9 de cada 10, en menos de</dt><dd>${corto(r.p90)}</dd></div>
+        <div><dt>Veces medidas</dt><dd data-correr>${(r.n || 0).toLocaleString('es-PY')}</dd></div>
+      </dl></div>${extra || ''}</article>`;
+}
+/** Completa la serie con todas las cubetas del período (días, semanas o meses sin datos incluidos). */
+function serieCompleta(t, desde, hasta) {
+  const hay = new Map(t.serie.map(x => [x.clave, x])), out = [];
+  const fin = aFecha(hasta);
+  if (t.modo === 'mes') {
+    for (let d = aFecha(desde.slice(0, 7) + '-01'); d <= fin; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+      const k = ymd(d).slice(0, 7); out.push(hay.get(k) || { clave: k, bot: null, agente: null });
+    }
+  } else {
+    const paso = t.modo === 'semana' ? 7 : 1;
+    for (let d = aFecha(desde); d <= fin; d.setDate(d.getDate() + paso)) {
+      const k = ymd(d); out.push(hay.get(k) || { clave: k, bot: null, agente: null });
+    }
+  }
+  return out.length ? out : t.serie;
+}
+function serieTiempos(t, desde, hasta) {
+  if (!t.serie.length) return '';
+  t = { ...t, serie: serieCompleta(t, desde, hasta) };
+  const maxA = Math.max(1, ...t.serie.map(x => x.agente || 0)), maxB = Math.max(1 / 60, ...t.serie.map(x => x.bot || 0));
+  const fila = (k, max, clase, titulo) => `<div class="rep-mini">
+      <span class="rep-mini-t">${titulo}</span>
+      <div class="rep-mini-barras">${t.serie.map((x, i) => {
+        const v = x[k], alto = v == null ? 0 : Math.max(6, v / max * 100);
+        return `<span class="rep-mini-b ${clase} ${v == null ? 'vacia' : ''}" style="--alto:${alto.toFixed(1)}%;--i:${i}"
+          title="${esc(etiquetaClave(x.clave, t.modo))}: ${v == null ? 'sin datos' : corto(v)}"></span>`; }).join('')}</div></div>`;
+  return `<div class="rep-tiempos-serie">
+    <p class="rep-nota">Mediana ${t.modo === 'dia' ? 'por día' : t.modo === 'semana' ? 'por semana' : 'por mes'}: barras más bajas = respuestas más rápidas.</p>
+    ${fila('agente', maxA, 'ag', 'Agentes')}${t.bot.n ? fila('bot', maxB, 'bt', 'Bot') : ''}
+    <div class="rep-mini rep-mini-ejes" aria-hidden="true"><span></span><span><small>${esc(etiquetaClave(t.serie[0].clave, t.modo))}</small><small>${esc(etiquetaClave(t.serie.at(-1).clave, t.modo))}</small></span></div></div>`;
+}
+const etiquetaClave = (k, modo) => modo === 'mes' ? capital(fLarga(k + '-01', { month: 'long', year: 'numeric' }))
+  : modo === 'semana' ? 'Semana del ' + fLarga(k, { day: 'numeric', month: 'long' }) : capital(fLarga(k, { weekday: 'long', day: 'numeric', month: 'long' }));
+function rankingTiempos(t) {
+  const ps = t.personas.filter(p => p.n);
+  if (!ps.length) return '';
+  const max = Math.max(1, ...ps.map(p => p.mediana || 0));
+  return `<div class="rep-ranking"><h4>Por persona <small>(mediana en horario laboral · de más rápido a más lento)</small></h4>
+    ${ps.map((p, i) => `<div class="rep-rank-fila" style="--i:${i}">
+      <span class="rep-rank-n"><b>${esc(p.nombre)}</b><small>${p.n} ${p.n === 1 ? 'respuesta' : 'respuestas'}</small></span>
+      <span class="rep-pista"><i class="rep-crece ${nivel(p.indice)}" style="--w:${Math.max(3, (p.mediana || 0) / max * 100).toFixed(1)}%"></i></span>
+      <span class="rep-rank-v"><b>${corto(p.mediana)}</b><span class="rep-chip ${nivel(p.indice)}">${p.indice}% en meta</span></span></div>`).join('')}</div>`;
+}
+function bloqueTiempos(t, desde, hasta) {
+  if (!t) return '';
+  const metaAg = `${t.metaAgenteMin} min (horario laboral)`;
+  const pendientes = t.sinRespuesta ? `<p class="rep-alerta-suave">${t.sinRespuesta} ${t.sinRespuesta === 1 ? 'mensaje de cliente sigue' : 'mensajes de clientes siguen'} sin respuesta en este período.</p>` : '';
+  return `<section class="card-box rep-card rep-tiempos rep-anima" style="--i:1" aria-label="Índice de tiempo de respuesta">
+    <div class="rep-tiempos-cab"><h3>Índice de tiempo de respuesta</h3>
+      <p class="rep-nota">Porcentaje de veces que el cliente recibió respuesta dentro de la meta. Se mide desde que el cliente escribe hasta la primera respuesta.</p></div>
+    <div class="rep-indices">
+      ${tarjetaTiempo('Agentes', 'usuario', t.agente, metaAg, pendientes)}
+      ${t.bot.n ? tarjetaTiempo('Bot', 'bot', t.bot, '1 min', '') :
+        `<article class="rep-indice rep-indice-vacio"><header><span class="rep-indice-ic" aria-hidden="true">${ic('bot')}</span><div><h4>Bot</h4><small>Meta: responder en menos de 1 min</small></div></header>
+          ${vacio('bot', 'El bot no respondió en este período', 'Aparece cuando las respuestas automáticas o el menú de sucursales atienden a un cliente.')}</article>`}
+    </div>
+    ${serieTiempos(t, desde, hasta)}${rankingTiempos(t)}
+    ${t.recortado ? '<p class="rep-nota">Período muy largo: se midieron las primeras 60.000 conversaciones.</p>' : ''}
+  </section>`;
+}
+
+/* Animaciones de entrada: anillos, barras y tarjetas, una sola vez por carga (quietas con reducir movimiento). */
+function animarEntrada(root) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { root.classList.add('vivo', 'sin-mov'); return; }
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('vivo')));
+}
+
 /* Las cifras principales «corren» hasta su valor (300 ms; quietas con reducir movimiento). */
 function correrNumeros(root) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  $$('.rep-grande, .rep-cifra b, .rep-mio b', root).forEach(el => {
+  $$('.rep-grande, .rep-cifra b, .rep-mio b, [data-correr]', root).forEach(el => {
     const final = el.textContent, m = final.match(/^(\D*)([\d.]+)(.*)$/);
     if (!m) return;
     const objetivo = Number(m[2].replace(/\./g, ''));
     if (!Number.isFinite(objetivo) || objetivo < 2) return;
-    const t0 = performance.now(), dur = 300;
+    const t0 = performance.now(), dur = 700;
     const paso = t => {
       const k = Math.min(1, (t - t0) / dur), v = Math.round(objetivo * (1 - Math.pow(1 - k, 3)));
       el.textContent = k < 1 ? m[1] + v.toLocaleString('es-PY') + m[3] : final;
@@ -250,9 +386,35 @@ function correrNumeros(root) {
 
 /* ---------- Vista ---------- */
 export async function vistaReportes() {
-  $('#view').innerHTML = `<div class="section">${skeleton(6)}</div>`;
-  const d = await get(`/reportes?dias=${RANGO}`);
+  const previo = $('#view .rep');
+  if (previo) previo.classList.add('rep-cargando'); // cambio de período: se atenúa, no parpadea
+  else $('#view').innerHTML = `<div class="section">${skeleton(6)}</div>`;
+  const { desde, hasta } = limites();
+  let d;
+  try { d = await get(`/reportes?desde=${desde}&hasta=${hasta}`); }
+  catch (e) { previo?.classList.remove('rep-cargando'); toast(e.message, 'bad', 'Reportes'); return; }
+  RANGO = d.dias || 30;
   pintar(d);
+}
+
+function barraPeriodo() {
+  const { hasta } = limites(), hoy = hoyYMD();
+  // No se navega hacia períodos que todavía no empezaron.
+  const siguienteFuturo = PERIODO.modo !== 'rango' && (() => { const g = PERIODO.ancla; mover(1); const l = limites(); PERIODO.ancla = g; return l.desde > hoy; })();
+  return `<div class="rep-periodo" role="group" aria-label="Período del reporte">
+    <div class="rep-modos" role="tablist" aria-label="Agrupar por">${MODOS.map(([id, t]) =>
+      `<button role="tab" data-modo="${id}" class="${PERIODO.modo === id ? 'on' : ''}" aria-selected="${PERIODO.modo === id}">${t}</button>`).join('')}</div>
+    ${PERIODO.modo === 'rango'
+      ? `<div class="rep-rango-fechas">
+          <label>Desde <input type="date" id="rep-desde" value="${esc(limites().desde)}" max="${hoy}"></label>
+          <label>Hasta <input type="date" id="rep-hasta" value="${esc(hasta)}" max="${hoy}"></label>
+          <button class="btn sm" id="rep-aplicar">Ver período</button></div>`
+      : `<div class="rep-nav">
+          <button class="rep-flecha" id="rep-ant" aria-label="Período anterior">${ic('flecha-izq')}</button>
+          <span class="rep-periodo-et" aria-live="polite">${esc(nombrePeriodo())}</span>
+          <button class="rep-flecha" id="rep-sig" aria-label="Período siguiente" ${siguienteFuturo ? 'disabled' : ''}>${ic('flecha-der')}</button>
+          ${limites().hasta < hoy || limites().desde > hoy ? '<button class="btn ghost sm" id="rep-hoy">Volver a hoy</button>' : ''}</div>`}
+  </div>`;
 }
 
 function pintar(d) {
@@ -270,13 +432,12 @@ function pintar(d) {
   $('#view').innerHTML = `<div class="section fx-vista rep">
    <div class="rep-barra">
      <span class="rep-alcance" title="Lo que ves depende de tu rol">${ic('escudo')} ${ALCANCE[S.usuario.rol] || 'Tu alcance'}</span>
-     <div class="rep-rango" role="group" aria-label="Período">${[7, 30, 90, 365].map(x =>
-       `<button data-rango="${x}" class="${RANGO === x ? 'on' : ''}" aria-pressed="${RANGO === x}">${x === 365 ? '1 año' : x + ' días'}</button>`).join('')}</div>
+     ${barraPeriodo()}
      ${fx('exportar') ? `<button class="btn ghost sm" id="r-export">⭳ Exportar CSV</button>` : ''}</div>
 
    <section class="rep-hero card-box" aria-label="Resumen del período">
      <div class="rep-principal">
-       <span class="rep-et">Monto cerrado en ${RANGO === 365 ? 'el último año' : `los últimos ${RANGO} días`}</span>
+       <span class="rep-et">Monto cerrado · ${esc(nombrePeriodo())}</span>
        <b class="rep-grande">${gs(monto)}</b>
        ${delta(monto, a?.monto)}
        <p class="rep-frase">${gan.length} ${gan.length === 1 ? 'venta ganada' : 'ventas ganadas'} de ${total} ${total === 1 ? 'negociación' : 'negociaciones'}, ticket promedio <b>${gs(gan.length ? Math.round(monto / gan.length) : 0)}</b></p>
@@ -296,6 +457,8 @@ function pintar(d) {
        <li><b>${marca('regestionado')}</b> re gestionadas</li>
      </ul>
    </section>
+
+   ${bloqueTiempos(d.tiempos, d.desde, d.hasta)}
 
    <div class="rep-grid rep-grid-2">
      <section class="card-box rep-card rep-ancha"><h3>Ingresadas y ganadas</h3><div id="rep-evol"></div></section>
@@ -330,18 +493,37 @@ function pintar(d) {
   </div>`;
 
   const root = $('#view');
+  // Orden de entrada: cada bloque aparece un instante después del anterior.
+  $$('.rep > section, .rep > .rep-grid > section', root).forEach((el, i) => { el.classList.add('rep-anima'); el.style.setProperty('--i', i); });
+  animarEntrada($('.rep', root));
   correrNumeros(root);
   const evol = $('#rep-evol');
   let anchoPrevio = 0;
   const dibujar = () => {
     const w = evol.clientWidth; if (!w || Math.abs(w - anchoPrevio) < 4) return;
     const primera = !anchoPrevio;
-    anchoPrevio = w; evol.innerHTML = graficoEvolucion(ns, w); conectarGrafico(evol);
+    anchoPrevio = w; evol.innerHTML = graficoEvolucion(ns, w, d.desde, d.hasta); conectarGrafico(evol);
     if (primera) evol.querySelector('svg')?.classList.add('entra'); // se dibuja solo al abrir, no al redimensionar
   };
   dibujar();
   if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!evol.isConnected) return ro.disconnect(); dibujar(); }); ro.observe(evol); }
-  $$('[data-rango]').forEach(b => b.onclick = () => { RANGO = Number(b.dataset.rango); vistaReportes(); });
+  $$('[data-modo]').forEach(b => b.onclick = () => {
+    // Al cambiar de agrupación se conserva la fecha que se estaba mirando (nunca en el futuro).
+    const l = limites(), hoy = hoyYMD(), ref = l.hasta > hoy ? hoy : l.hasta;
+    PERIODO = b.dataset.modo === 'rango'
+      ? { ...PERIODO, modo: 'rango', desde: l.desde > ref ? ref : l.desde, hasta: ref }
+      : { ...PERIODO, modo: b.dataset.modo, ancla: ref };
+    vistaReportes();
+  });
+  if ($('#rep-ant')) $('#rep-ant').onclick = () => { mover(-1); vistaReportes(); };
+  if ($('#rep-sig')) $('#rep-sig').onclick = () => { mover(1); vistaReportes(); };
+  if ($('#rep-hoy')) $('#rep-hoy').onclick = () => { PERIODO.ancla = hoyYMD(); vistaReportes(); };
+  if ($('#rep-aplicar')) $('#rep-aplicar').onclick = () => {
+    const de = $('#rep-desde').value, ha = $('#rep-hasta').value;
+    if (!de || !ha) return toast('Elegí las dos fechas.', 'warn', 'Reportes');
+    PERIODO = { ...PERIODO, modo: 'rango', desde: de <= ha ? de : ha, hasta: de <= ha ? ha : de };
+    vistaReportes();
+  };
   const abrir = () => $$('[data-neg]', root).forEach(el => {
     el.onclick = () => fichaNeg(el.dataset.neg);
     el.onkeydown = e => { if (e.key === 'Enter') fichaNeg(el.dataset.neg); };
@@ -361,7 +543,7 @@ function pintar(d) {
     const filas = ns.map(n => [fdate(n.creado), n.cliente, n.tel, n.origen, etapa(n.etapa).nombre,
       n.agente_nombre || '', n.sucursal, n.linea, n.valor, n.monto_cierre, n.motivo || '',
       (n.marcadores || []).join('/')].map(v => String(v ?? '').replace(/;/g, ',')).join(';'));
-    bajar(`reporte_${S.empresa.codigo}_${RANGO}d.csv`, [head.join(';'), ...filas].join('\n'));
+    bajar(`reporte_${S.empresa.codigo}_${d.desde}_a_${d.hasta}.csv`, [head.join(';'), ...filas].join('\n'));
     toast('Reporte exportado', 'ok');
   };
 }
