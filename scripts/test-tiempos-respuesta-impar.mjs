@@ -42,8 +42,26 @@ assert.ok(varios.includes('tiemposRespuesta(') && varios.includes('rangoDesdeCon
 
 // Sala de control: plano tipo red sin recuadro ampliado, listas completas en movimiento
 const sala = leer('public/js/sala-control.js'), salaCss = leer('public/sala.css'), salaSrv = leer('src/sala-control-impar.mjs');
-assert.ok(!sala.includes('lupa') && sala.includes('function planoRed(') && sala.includes('function encuadrar('), 'sin recuadro ampliado: plano tipo red que se encuadra solo');
-assert.ok(sala.includes('class="sala-pin sala-est') && sala.includes('data-suc=') && sala.includes('sala-ondas'), 'los pulsos siguen encontrando su sucursal');
+assert.ok(!sala.includes('lupa') && !sala.includes('mapa-paraguay') && sala.includes('function htmlCiudades(') && sala.includes("from './planos-ciudades.js'"), 'sin mapa del país: cada sucursal con el plano de su distrito');
+const { distritoDe, planoCiudad } = await import('../public/js/planos-ciudades.js');
+const { DISTRITOS } = await import('../public/js/distritos-py.js');
+const casos = [['Asunción', -25.2991778, -57.6356097, 'Asunción'], ['Lambaré', -25.3526614, -57.6023125, 'Lambaré'],
+  ['Madame Lynch', -25.2892772, -57.5488351, 'Fernando de la Mora'], ['Ciudad del Este', -25.5050402, -54.6376159, 'Ciudad del Este'],
+  ['Encarnación', -27.3300948, -55.8638838, 'Encarnación'], ['Pedro Juan Caballero', -22.5620638, -55.7210496, 'Pedro Juan Caballero']];
+for (const [nombre, lat, lon, distrito] of casos) {
+  assert.equal(DISTRITOS[distritoDe({ nombre, lat, lon })].n, distrito, nombre + ' cae en su distrito');
+  const svg = planoCiudad({ nombre, lat, lon });
+  assert.ok(svg.includes('class="plano-distrito"') && svg.includes('class="plano-pin"') && svg.includes(' km</text>') && svg.includes('class="plano-norte"'), nombre + ': plano con ubicación, escala y norte');
+}
+assert.equal(DISTRITOS[distritoDe({ nombre: 'Sucursal nueva', lat: -25.3397, lon: -57.5088 })].n, 'San Lorenzo', 'una sucursal nueva se ubica por sus coordenadas');
+assert.equal(distritoDe({ nombre: 'Sin datos' }), null);
+assert.ok(leer('public/js/distritos-py.js').includes('Cartografía Censal 2022'), 'límites oficiales del INE');
+assert.ok(sala.includes("kpiPromedio('agente', 'Respuesta de agentes'") && sala.includes("kpiPromedio('bot', 'Respuesta del bot'"), 'promedio de respuesta de agentes y bot por separado');
+assert.ok(salaSrv.includes('promedios: await promediosSala(promedios)'), 'el servidor manda los promedios de hoy');
+const graf = leer('public/graficos-impar.css'), gjs = leer('public/js/graficos-impar.js');
+assert.ok(gjs.includes('export function hoja(') && gjs.includes('export function registro(') && graf.includes('marcas de corte'), 'gráficos con el lenguaje de imprenta de IMPAR');
+assert.ok(leer('public/index.html').includes('/graficos-impar.css?v='), 'estilos de gráficos cargados');
+assert.ok(sala.includes('class="sala-pin sala-ciudad') && sala.includes('data-suc=') && sala.includes('sala-ondas'), 'los pulsos siguen encontrando su sucursal');
 assert.ok(salaSrv.includes("ORDER BY n.entrada_etapa ASC LIMIT 150"), 'la cola trae todos los casos');
 assert.ok(sala.includes("copia.setAttribute('aria-hidden', 'true')") && sala.includes('if (firmaCola !== E.firmaCola)'), 'bucle continuo sin duplicar lectura y sin reiniciarse en cada refresco');
 assert.ok(/:hover \.sala-pista,[^{]*:focus-within \.sala-pista\{animation-play-state:paused\}/.test(salaCss), 'se pausa con el mouse o el foco');

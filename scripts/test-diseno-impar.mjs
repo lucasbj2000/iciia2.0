@@ -86,8 +86,8 @@ assert.ok(!sala.includes('ROTA_MS') && sala.includes("e.key === 'Escape' && !doc
 for (const id of ['sala-mapa', 'sala-cola', 'sala-agentes', 'sala-ritmo', 'sala-sucursales', 'sala-clima', 'sala-wa', 'sala-mov'])
   assert.ok(sala.includes(`id="${id}"`), 'Panel ' + id);
 assert.ok(salaCss.includes('grid-template-areas:"mapa cola agentes" "mapa ritmo suc"'), 'Todo en una pantalla en PC y TV');
-assert.ok(leer('public/js/mapa-paraguay.js').includes('Natural Earth') && sala.includes("from './mapa-paraguay.js'"), 'Contorno real de Paraguay');
-assert.ok(sala.includes('Tasa de respuesta') && sala.includes('Agentes en línea') && sala.includes('export function estadoWASala('));
+assert.ok(sala.includes("from './planos-ciudades.js'") && !sala.includes('mapa-paraguay'), 'Sucursales con el plano de su distrito');
+assert.ok(sala.includes('Respuesta de agentes') && sala.includes('Respuesta del bot') && sala.includes('Agentes en línea') && sala.includes('export function estadoWASala('));
 assert.ok(leer('src/sala-control-impar.mjs').includes('export function zonasDeCalor(') && leer('src/sala-control-impar.mjs').includes('Math.round(lat * 10) / 10'), 'Calor agregado en celdas, nunca ubicaciones individuales');
 assert.ok(leer('src/routes/varios.mjs').includes("r.get('/sala-control/clima', requiere(...ROLES_SALA)"));
 assert.ok(leer('src/realtime.mjs').includes('export const uidsConectados'), 'En línea = CRM abierto de verdad');

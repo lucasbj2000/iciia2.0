@@ -1,10 +1,11 @@
 /* IMPAR · Sala de control en vivo — todo en una sola pantalla.
-   Mapa real de Paraguay con las sucursales, calor de clientes y clima por ciudad; cola con relojes,
-   agentes en línea, tasa de respuesta, ritmo del día y movimientos en vivo. Pensada para una TV. */
+   Cada sucursal con el plano de su distrito y su clima; cola con relojes, agentes en línea, promedio de
+   respuesta de agentes y del bot por separado, ritmo del día y movimientos en vivo. Pensada para una TV. */
 import { $, $$, esc, get, iniciales, DISPONIBILIDAD } from './core.js';
 import { menosMovimiento, correr } from './animaciones.js';
 import { iconoClima, esDeNoche } from './clima-animado.js';
-import { CONTORNOS } from './mapa-paraguay.js';
+import { planoCiudad } from './planos-ciudades.js';
+import { hoja } from './graficos-impar.js';
 
 const REFRESCO_MS = 30000, CLIMA_MS = 600000;
 const PULSOS = {
@@ -18,13 +19,6 @@ const ESTADO_WA = {
   reconectando: { t: 'WhatsApp reconectando', c: 'alerta' },
   conectando: { t: 'WhatsApp conectando', c: 'alerta' }
 };
-
-/* ---------- Proyección ---------- */
-const LON0 = -63.25, LAT0 = -18.85, LON1 = -53.85, LAT1 = -28.05, ESC = 100, COS = Math.cos(23.5 * Math.PI / 180);
-const px = ([lon, lat]) => [(lon - LON0) * ESC * COS, (LAT0 - lat) * ESC];
-const ANCHO = (LON1 - LON0) * ESC * COS, ALTO = (LAT0 - LAT1) * ESC;
-const ruta = (pts, cerrar = false) => pts.map((p, i) => (i ? 'L' : 'M') + px(p).map(v => v.toFixed(1)).join(' ')).join('') + (cerrar ? 'Z' : '');
-const PAIS = CONTORNOS.paraguay.map(r => ruta(r, true)).join('');
 
 const norm = v => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/^impar\s+/, '').trim();
 const km = (a, b) => { const r = x => x * Math.PI / 180, dl = r(b.lat - a.lat), dn = r(b.lon - a.lon);
@@ -51,8 +45,13 @@ const espera = desde => { const s = Math.max(0, (Date.now() - new Date(desde)) /
   return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`; };
 const horaAsu = () => Number(new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: 'America/Asuncion' })) % 24;
 const disp = id => DISPONIBILIDAD.find(x => x.id === id) || DISPONIBILIDAD[DISPONIBILIDAD.length - 1];
-/** Ícono de clima animado dentro del mapa (SVG anidado). */
-const climaEn = (cod, x, y, t) => iconoClima(cod, esDeNoche()).replace('<svg ', `<svg x="${x}" y="${y}" width="${t}" height="${t}" `);
+/** Minutos a texto corto: segundos si es menos de un minuto. */
+const minutos = m => {
+  if (m == null || !Number.isFinite(m)) return null;
+  if (m < 1) return `${Math.max(1, Math.round(m * 60))} s`;
+  if (m < 60) return `${Math.round(m)} min`;
+  const h = Math.floor(m / 60), r = Math.round(m % 60); return r ? `${h} h ${r} min` : `${h} h`;
+};
 
 let E = null;
 
@@ -81,151 +80,41 @@ function agrupar(lista) {
 }
 
 /* ---------- Mapa ---------- */
-function etiqueta(s, izq) {
-  const cl = E.clima.get(norm(s.nombre));
-  const linea2 = s.espera ? `${s.espera} ${s.espera === 1 ? 'espera' : 'esperan'} · ${s.nuevos} hoy` : `${s.nuevos} nuevos hoy · ${s.abiertas} abiertas`;
-  return `<g class="sala-etiqueta${izq ? ' izq' : ''}" data-izq="${izq ? 1 : 0}">
-    <rect class="sala-e-fondo" rx="10" height="58"/>
-    <text class="sala-nombre" y="25">${esc(s.nombre)}</text>
-    <text class="sala-dato${s.espera ? ' espera' : ''}" y="47">${linea2}</text>
-    ${cl && cl.temp != null ? `<g class="sala-e-clima">${climaEn(cl.cod, 0, 8, 34)}<text class="sala-temp" x="38" y="34">${Math.round(cl.temp)}°</text></g>` : ''}
-  </g>`;
-}
-/* Plano tipo red de metro: Gran Asunción es un anillo con sus sucursales como estaciones y cada sucursal
-   lejana es una línea que sale en su dirección real (redondeada a 45°), con la distancia anotada.
-   Sin recuadros ampliados: todo se lee a la misma escala. La silueta de Paraguay queda de fondo. */
-const RW = 900, RH = 640, HX = 420, HY = 320, RA = 92, COL_X = 270, COL_PASO = 92;
-const COLORES_LINEA = ['#7CC24F', '#5FA8F0', '#F0B44C', '#B79AE6', '#5CCBBE', '#F08FB0', '#E8E06A'];
-function rumbo(desde, hasta) {
-  const y = Math.sin((hasta.lon - desde.lon) * Math.PI / 180) * Math.cos(hasta.lat * Math.PI / 180);
-  const x = Math.cos(desde.lat * Math.PI / 180) * Math.sin(hasta.lat * Math.PI / 180) - Math.sin(desde.lat * Math.PI / 180) * Math.cos(hasta.lat * Math.PI / 180) * Math.cos((hasta.lon - desde.lon) * Math.PI / 180);
-  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360; // 0 = norte, 90 = este
-}
-function planoRed(lista) {
+/* Sucursales con el plano de su distrito (límites oficiales del INE), lo que espera, lo nuevo del día y el clima.
+   Primero Gran Asunción (las que están a menos de 25 km entre sí), después el interior. Sin mapa. */
+function htmlCiudades(lista) {
   const ubicadas = lista.filter(s => !s.sin);
-  const conGeo = ubicadas.filter(s => s.lat != null && s.lon != null);
-  const grupos = agrupar(conGeo);
-  const anillo = (grupos.sort((a, b) => b.length - a.length)[0] || []).slice();
-  const centro = anillo.length ? { lat: anillo.reduce((a, s) => a + s.lat, 0) / anillo.length, lon: anillo.reduce((a, s) => a + s.lon, 0) / anillo.length }
-    : { lat: -25.3, lon: -57.6 };
-  // Sucursales sin coordenadas también van al anillo (no se pierden).
-  ubicadas.filter(s => s.lat == null || s.lon == null).forEach(s => anillo.push(s));
-  const lejanas = conGeo.filter(s => !anillo.includes(s)).map(s => ({ s, ang: rumbo(centro, s), km: Math.round(km(centro, s)) }));
-  // Estaciones del anillo: repartidas parejo sobre el lado oeste, en el orden real norte → sur.
-  const metro = anillo.map(s => ({ s, ang: s.lat != null ? rumbo(centro, s) : 270 })).sort((a, b) => (b.s.lat ?? -99) - (a.s.lat ?? -99));
-  const n = metro.length, abre = Math.min(150, 40 * Math.max(1, n - 1));
-  metro.forEach((m, i) => {
-    const a = (n === 1 ? 270 : 270 - abre / 2 + abre * i / (n - 1)) * Math.PI / 180; // grados de brújula
-    m.x = HX + RA * Math.sin(a); m.y = HY - RA * Math.cos(a);
-  });
-  // Líneas lejanas: salen del anillo a 45°, luego horizontales hasta la terminal.
-  lejanas.sort((a, b) => a.ang - b.ang);
-  const usados = new Map();
-  lejanas.forEach(l => {
-    let q = Math.round(l.ang / 45) * 45 % 360;
-    if (q > 180 && q < 360) q = q <= 270 ? 180 : 0; // hacia el oeste no hay lugar: se pliegan al norte o al sur
-    while (usados.get(q)) q = (q + 45) % 360;
-    usados.set(q, true); l.q = q;
-    const r = q * Math.PI / 180, dx = Math.sin(r), dy = -Math.cos(r);
-    const x0 = HX + RA * dx, y0 = HY + RA * dy;
-    const diag = q === 0 || q === 180 ? 170 : q % 90 ? 190 : 150;
-    const x1 = x0 + dx * diag, y1 = y0 + dy * diag;
-    const xt = q === 0 || q === 180 || q === 90 ? x1 : x1 + 40, yt = y1;
-    l.x = xt; l.y = yt;
-    const recta = q % 90 === 0;
-    l.d = recta ? `M${x0.toFixed(1)} ${y0.toFixed(1)}L${x1.toFixed(1)} ${y1.toFixed(1)}`
-      : `M${x0.toFixed(1)} ${y0.toFixed(1)}L${(x1 - 14 * dx).toFixed(1)} ${(y1 - 14 * dy).toFixed(1)}Q${x1.toFixed(1)} ${y1.toFixed(1)} ${(x1 + 16).toFixed(1)} ${y1.toFixed(1)}L${xt.toFixed(1)} ${yt.toFixed(1)}`;
-    if (recta) { l.mx = (x0 + x1) / 2 + (q === 90 ? 0 : 34); l.my = (y0 + y1) / 2 + (q === 90 ? 0 : 16); }
-    else { l.mx = (x0 + x1) / 2 + 16; l.my = (y0 + y1) / 2 + 5; l.ini = true; }
-  });
-  return { metro, lejanas, centro };
-}
-function estacion(s, x, y, color, izq, rotulo) {
-  const tam = 9 + Math.min(9, Math.sqrt(s.nuevos) * 2.2);
-  // rotulo = punto (absoluto) donde va el rótulo; si no hay, va pegado a la estación.
-  const rx = rotulo ? rotulo[0] - x : (izq ? -(tam + 16) : tam + 16), ry = rotulo ? rotulo[1] - y : 0;
-  const guia = rotulo ? `<path class="sala-guia-r" d="M${(izq ? -tam - 4 : tam + 4).toFixed(1)} 0L${(rx + (izq ? 22 : -22)).toFixed(1)} ${ry.toFixed(1)}L${rx.toFixed(1)} ${ry.toFixed(1)}"/>` : '';
-  return `<g class="sala-pin sala-est${s.espera ? ' con-espera' : ''}" data-suc="${esc(s.k)}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})" style="--linea:${color}">
-    ${guia}<g class="sala-ondas"></g>
-    ${s.espera ? `<circle class="sala-radar" r="${tam}"/>` : ''}
-    <circle class="sala-est-halo" r="${(tam + 7).toFixed(1)}"/>
-    <circle class="sala-est-nodo" r="${tam.toFixed(1)}"/>
-    <text class="sala-est-n" y="5" text-anchor="middle">${s.espera || ''}</text>
-    <g transform="translate(${rx.toFixed(1)} ${(ry - 29).toFixed(1)})">${etiqueta(s, izq)}</g></g>`;
-}
-function htmlMapa(lista) {
-  const { metro, lejanas, centro } = planoRed(lista);
-  // Silueta de fondo: Asunción real queda debajo del anillo, así las líneas apuntan hacia donde están las ciudades.
-  const esc2 = (RH * 1.05) / ALTO, [cx, cy] = px([centro.lon, centro.lat]), ox = HX - cx * esc2, oy = HY - cy * esc2;
-  const activo = s => Math.min(1, (s.nuevos + s.espera * 2) / 12);
-  return `<svg class="sala-svg sala-red" viewBox="0 0 ${RW} ${RH}" preserveAspectRatio="xMidYMid meet" role="img"
-      aria-label="Red de sucursales de IMPAR: ${metro.length} en Gran Asunción y ${lejanas.length} en el interior, con clientes en espera y clima">
-    <defs><filter id="sala-brillo" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter></defs>
-    <path class="sala-silueta" d="${PAIS}" transform="translate(${ox.toFixed(1)} ${oy.toFixed(1)}) scale(${esc2.toFixed(4)})"/>
-    <g class="sala-red-cont">
-    ${lejanas.map((l, i) => { const c = COLORES_LINEA[(i + 1) % COLORES_LINEA.length];
-      return `<g class="sala-linea" style="--linea:${c};--vel:${(6 - activo(l.s) * 4).toFixed(1)}s">
-        <path class="sala-l-brillo" d="${l.d}" filter="url(#sala-brillo)"/>
-        <path class="sala-l-via" id="sala-via-${esc(l.s.k)}" d="${l.d}"/>
-        <path class="sala-l-flujo" d="${l.d}"/>
-        <text class="sala-l-km" x="${l.mx.toFixed(1)}" y="${(l.my - (l.ini ? 0 : 12)).toFixed(1)}" text-anchor="${l.ini ? 'start' : 'middle'}">${l.km.toLocaleString('es-PY')} km</text></g>`; }).join('')}
-    <g class="sala-anillo-red" style="--linea:${COLORES_LINEA[0]}">
-      <circle class="sala-l-brillo" cx="${HX}" cy="${HY}" r="${RA}" filter="url(#sala-brillo)"/>
-      <circle class="sala-l-via" cx="${HX}" cy="${HY}" r="${RA}"/>
-      <circle class="sala-l-flujo anillo" cx="${HX}" cy="${HY}" r="${RA}"/>
-      <text class="sala-hub-t" x="${HX}" y="${HY - 4}" text-anchor="middle">Gran</text>
-      <text class="sala-hub-t" x="${HX}" y="${HY + 16}" text-anchor="middle">Asunción</text></g>
-    ${metro.map((m, i) => estacion(m.s, m.x, m.y, COLORES_LINEA[0], true, [COL_X, HY + (i - (metro.length - 1) / 2) * COL_PASO])).join('')}
-    ${lejanas.map((l, i) => estacion(l.s, l.x, l.y, COLORES_LINEA[(i + 1) % COLORES_LINEA.length], false)).join('')}
-    </g>
-  </svg>
-  <div class="sala-leyenda-mapa">
-    <span class="sala-ley-i"><i class="sala-ley-nodo"></i>Tamaño: clientes nuevos hoy</span>
-    <span class="sala-ley-i"><i class="sala-ley-radar"></i>Número y onda: clientes esperando</span>
-    <span class="sala-ley-i"><i class="sala-ley-tren"></i>Cada mensaje viaja hasta su sucursal</span>
-  </div>`;
-}
-/** Encuadra el plano al contenido real (con los rótulos ya medidos) para que se lea grande en cualquier pantalla. */
-function encuadrar(raiz) {
-  const svg = raiz.querySelector('.sala-red'), cont = svg?.querySelector('.sala-red-cont'); if (!cont) return;
-  const b = cont.getBBox(); if (!b.width) return;
-  const m = 34, caja = raiz.getBoundingClientRect(), prop = caja.width / Math.max(1, caja.height - 50);
-  let w = b.width + m * 2, h = b.height + m * 2;
-  // Si el panel es más alto que el plano, se agrega aire arriba y abajo en vez de achicarlo.
-  if (w / h > prop) h = w / prop; else w = h * prop;
-  svg.setAttribute('viewBox', `${(b.x + b.width / 2 - w / 2).toFixed(1)} ${(b.y + b.height / 2 - h / 2).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
-}
-/** Un «tren» recorre la línea de la sucursal (o el anillo) cuando entra un mensaje. */
-function tren(k, tipo) {
-  const svg = $('#sala-mapa .sala-red'); if (!svg) return;
-  const via = svg.querySelector(`#sala-via-${CSS.escape(k)}`);
-  const est = svg.querySelector(`.sala-est[data-suc="${CSS.escape(k)}"]`); if (!est) return;
-  const ns = 'http://www.w3.org/2000/svg', punto = document.createElementNS(ns, 'circle');
-  punto.setAttribute('r', tipo === 'venta' ? 7 : 5); punto.setAttribute('class', 'sala-tren tk-' + tipo);
-  svg.appendChild(punto);
-  const dur = via ? 1600 : 900, t0 = performance.now();
-  const m = est.transform.baseVal.consolidate()?.matrix, fin = m ? [m.e, m.f] : [HX, HY];
-  const largo = via ? via.getTotalLength() : 0;
-  const paso = t => {
-    const k2 = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k2, 3);
-    let x, y;
-    if (via) { const p = via.getPointAtLength(e * largo); x = p.x; y = p.y; }
-    else { const a0 = Math.atan2(fin[1] - HY, fin[0] - HX) + Math.PI * 1.2, a = a0 - e * Math.PI * 1.2; x = HX + RA * Math.cos(a); y = HY + RA * Math.sin(a); }
-    punto.setAttribute('cx', x.toFixed(1)); punto.setAttribute('cy', y.toFixed(1));
-    if (k2 < 1) requestAnimationFrame(paso); else punto.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300 }).onfinish = () => punto.remove();
+  const grupos = agrupar(ubicadas).sort((a, b) => b.length - a.length);
+  const metro = new Set(grupos[0] || []);
+  const orden = [...ubicadas].sort((a, b) => Number(metro.has(b)) - Number(metro.has(a)) || a.nombre.localeCompare(b.nombre, 'es'));
+  const max = Math.max(1, ...orden.map(s => s.espera));
+  const tarjeta = (s, i) => {
+    const cl = E.clima.get(norm(s.nombre));
+    return `<article class="sala-pin sala-ciudad pliego${s.espera ? ' con-espera' : ''}${metro.has(s) && metro.size > 1 ? ' metro' : ''}" data-suc="${esc(s.k)}" style="--i:${i}">
+      <div class="sala-ci-dibujo" data-plano="${esc(JSON.stringify({ nombre: s.nombre, lat: s.lat, lon: s.lon }))}"></div>
+      <svg class="sala-ci-pulso" viewBox="-100 -60 200 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g class="sala-ondas"></g></svg>
+      <header class="sala-ci-cab"><h4>${esc(s.nombre)}</h4>
+        ${cl && cl.temp != null ? `<span class="sala-ci-clima" title="Clima ahora">${iconoClima(cl.cod, esDeNoche())}<b>${Math.round(cl.temp)}°</b></span>` : ''}</header>
+      <div class="sala-ci-datos">
+        <span class="sala-ci-espera"><b>${s.espera}</b><small>${s.espera === 1 ? 'espera' : 'esperan'}</small></span>
+        <span class="sala-ci-otros"><span title="Clientes nuevos hoy"><b>${s.nuevos}</b> nuevos</span><span><b>${s.abiertas}</b> abiertas</span></span>
+      </div>
+      <span class="sala-ci-medidor" aria-hidden="true"><i style="--w:${(s.espera / max * 100).toFixed(1)}%"></i></span>
+    </article>`;
   };
-  requestAnimationFrame(paso);
+  if (!orden.length) return '<p class="sala-vacio grande">Cargá las sucursales en Configuración para verlas acá.</p>';
+  const enMetro = orden.filter(s => metro.has(s) && metro.size > 1), resto = orden.filter(s => !enMetro.includes(s));
+  const bloque = (t, xs, ini) => xs.length ? `<section class="sala-ci-grupo"><h3 class="sala-sub">${t}</h3>
+      <div class="sala-ci-grilla" style="--n:${xs.length}">${xs.map((s, i) => tarjeta(s, ini + i)).join('')}</div></section>` : '';
+  return enMetro.length ? bloque('Gran Asunción', enMetro, 0) + bloque('Interior', resto, enMetro.length) : bloque('Sucursales', resto, 0);
 }
-/* Los rótulos se miden después de dibujarse para que el fondo calce justo. */
-function ajustarEtiquetas(raiz) {
-  for (const e of $$('.sala-etiqueta', raiz)) {
-    const n = e.querySelector('.sala-nombre'), d = e.querySelector('.sala-dato'), cl = e.querySelector('.sala-e-clima'), r = e.querySelector('.sala-e-fondo');
-    const texto = Math.max(n.getComputedTextLength(), d.getComputedTextLength());
-    const ancho = 14 + texto + (cl ? 92 : 14);
-    n.setAttribute('x', 14); d.setAttribute('x', 14);
-    if (cl) cl.setAttribute('transform', `translate(${(14 + texto + 12).toFixed(1)} 0)`);
-    r.setAttribute('width', ancho.toFixed(1));
-    if (e.dataset.izq === '1') e.setAttribute('transform', `translate(${(-ancho).toFixed(1)} 0)`);
+
+/* Los planos se dibujan al tamaño real de cada tarjeta, así los textos del plano se leen a su tamaño. */
+function pintarPlanos(raiz) {
+  for (const el of $$('.sala-ci-dibujo[data-plano]', raiz)) {
+    const r = el.getBoundingClientRect(); if (r.width < 40 || r.height < 30) continue;
+    let s; try { s = JSON.parse(el.dataset.plano); } catch { continue; }
+    el.innerHTML = planoCiudad(s, { W: Math.round(r.width), H: Math.round(r.height) }) || '<span class="sala-ci-sinplano">Ubicación sin plano cargado</span>';
   }
 }
 
@@ -238,18 +127,24 @@ function kpis(d, lista) {
   const enLinea = d.equipo.filter(u => u.enLinea).length, reciben = d.equipo.filter(u => u.enLinea && disp(u.disponibilidad).recibe).length;
   return { enEspera, nuevos, ventas, monto, tasa, enLinea, reciben, pr };
 }
+/** Promedio de respuesta con una regla de meta: la marca muestra dónde cae el promedio respecto de la meta. */
+function kpiPromedio(id, titulo, r, meta, nota) {
+  const v = r?.promedio, txt = minutos(v);
+  const nivel = v == null ? '' : v <= meta ? 'ok' : v <= meta * 3 ? 'alerta' : 'mal';
+  const pos = v == null ? 0 : Math.min(100, v / (meta * 4) * 100);
+  return `<div class="sala-kpi sala-kpi-prom ${nivel}" data-kpi="${id}">
+    <span class="sala-k-t">${titulo}</span>
+    <b class="sala-k-v">${txt ?? '—'}</b>
+    ${v == null ? '' : `<span class="sala-regla" aria-hidden="true"><i class="sala-regla-meta" style="left:25%"></i><i class="sala-regla-v" style="--x:${pos.toFixed(1)}%"></i></span>`}
+    <small>${v == null ? (id === 'bot' ? 'El bot no respondió hoy' : 'Sin respuestas medidas hoy') : `${nota} · meta ${minutos(meta)}`}</small></div>`;
+}
 function htmlKpis(k, d) {
-  const nivel = k.tasa == null ? '' : k.tasa >= 90 ? 'ok' : k.tasa >= 70 ? 'alerta' : 'mal';
-  const C = 2 * Math.PI * 30;
+  const pm = d.promedios;
   return `
   <div class="sala-kpi${k.enEspera > 5 ? ' alerta' : ''}" data-kpi="espera"><span class="sala-k-t">Clientes esperando</span>
     <b class="sala-k-v" data-n>${k.enEspera}</b><small>${k.enEspera ? 'Responder primero a los de más tiempo' : 'Nadie espera ahora'}</small></div>
-  <div class="sala-kpi sala-kpi-tasa ${nivel}" data-kpi="tasa">
-    <svg class="sala-anillo" viewBox="0 0 72 72" aria-hidden="true"><circle class="sala-a-fondo" cx="36" cy="36" r="30"/>
-      <circle class="sala-a-valor" cx="36" cy="36" r="30" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - (k.tasa || 0) / 100)).toFixed(1)}"/></svg>
-    <div><span class="sala-k-t">Tasa de respuesta</span><b class="sala-k-v">${k.tasa == null ? '—' : k.tasa + '%'}</b>
-    <small>${k.pr.total ? `${k.pr.n} de ${k.pr.total} conversaciones de hoy` : 'Sin mensajes de clientes hoy'}</small></div></div>
-  <div class="sala-kpi" data-kpi="resp"><span class="sala-k-t">Primera respuesta</span><b class="sala-k-v">${duracion(k.pr.mediana)}</b><small>Mediana de hoy</small></div>
+  ${kpiPromedio('agente', 'Respuesta de agentes', pm?.agente, pm?.metaAgenteMin ?? 10, 'Promedio de hoy en horario laboral')}
+  ${kpiPromedio('bot', 'Respuesta del bot', pm?.bot, pm?.metaBotMin ?? 1, 'Promedio de hoy')}
   <div class="sala-kpi" data-kpi="nuevos"><span class="sala-k-t">Clientes nuevos hoy</span><b class="sala-k-v" data-n>${k.nuevos}</b><small>En todas las sucursales</small></div>
   <div class="sala-kpi sala-kpi-oro" data-kpi="ventas"><span class="sala-k-t">Ventas cerradas hoy</span><b class="sala-k-v" data-n>${k.ventas}</b><small>${gsCorto(k.monto)}</small></div>
   <div class="sala-kpi" data-kpi="linea"><span class="sala-k-t">Agentes en línea</span><b class="sala-k-v">${k.enLinea}<span class="sala-k-de">/${d.equipo.length}</span></b>
@@ -290,8 +185,8 @@ function htmlRitmo(d) {
       <line class="rt-base" x1="0" x2="${W}" y1="${H}" y2="${H}"/>
       ${horas.map((x, i) => { const cx = i * paso + paso / 2, ah = x.h === ahora;
         return `<g class="${ah ? 'rt-ahora' : ''}" style="--i:${i}">${ah ? `<rect class="rt-fondo" x="${(i * paso + 1).toFixed(1)}" y="-4" width="${(paso - 2).toFixed(1)}" height="${H + 4}" rx="4"/>` : ''}
-          <rect class="rt-in" x="${(cx - bw - 1).toFixed(1)}" y="${y(x.entran).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H - y(x.entran)).toFixed(1)}" rx="2"><title>${x.h} h: entraron ${x.entran}</title></rect>
-          <rect class="rt-out" x="${(cx + 1).toFixed(1)}" y="${y(x.responden).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H - y(x.responden)).toFixed(1)}" rx="2"><title>${x.h} h: respuestas ${x.responden}</title></rect>
+          ${hoja(cx - bw - 1, y(x.entran), bw, H - y(x.entran), 'rt-in').replace('</g>', `<title>${x.h} h: entraron ${x.entran}</title></g>`)}
+          ${hoja(cx + 1, y(x.responden), bw, H - y(x.responden), 'rt-out').replace('</g>', `<title>${x.h} h: respuestas ${x.responden}</title></g>`)}
           ${i % 2 === 0 || ah ? `<text class="rt-eje" x="${cx.toFixed(1)}" y="${H + 19}" text-anchor="middle">${x.h}</text>` : ''}</g>`; }).join('')}
     </svg>`;
 }
@@ -339,7 +234,7 @@ function pintar() {
   E.kpis = { espera: String(k.enEspera), nuevos: String(k.nuevos), ventas: String(k.ventas) };
   // El mapa solo se redibuja si cambió algo (así no se reinician sus animaciones).
   const firma = JSON.stringify([lista.map(s => [s.k, s.espera, s.nuevos, s.abiertas]), d.calor, [...E.clima.values()]]);
-  if (firma !== E.firmaMapa) { E.firmaMapa = firma; const m = $('#sala-mapa'); m.innerHTML = htmlMapa(lista); ajustarEtiquetas(m); encuadrar(m); }
+  if (firma !== E.firmaMapa) { E.firmaMapa = firma; const m = $('#sala-mapa'); m.innerHTML = htmlCiudades(lista); pintarPlanos(m); }
   // Las listas se redibujan solo si cambió su contenido: así el desplazamiento no vuelve a empezar.
   const firmaCola = JSON.stringify(d.cola.map(c => [c.id, c.desde, c.agente])) + k.enEspera;
   if (firmaCola !== E.firmaCola) { E.firmaCola = firmaCola; $('#sala-cola').innerHTML = htmlCola(d, k.enEspera); desplazar($('#sala-cola'), '.sala-cola'); }
@@ -411,7 +306,7 @@ export function pulsoSala({ sucursal, tipo }) {
   refrescarPronto();
   if (menosMovimiento()) return;
   const k = norm(sucursal);
-  const kpi = { venta: 'ventas', nuevo: 'nuevos', mensaje: 'espera', respuesta: 'tasa' }[tipo];
+  const kpi = { venta: 'ventas', nuevo: 'nuevos', mensaje: 'espera', respuesta: 'agente' }[tipo];
   const kv = $(`[data-kpi="${kpi}"]`); if (kv) { kv.classList.remove('destella'); void kv.offsetWidth; kv.classList.add('destella'); }
   $(`.sala-ranking [data-suc="${CSS.escape(k)}"]`)?.animate([{ background: 'var(--sala-destello)' }, { background: 'transparent' }], { duration: 1600 });
   for (const nodo of $$(`.sala-pin[data-suc="${CSS.escape(k)}"]`)) {
@@ -424,9 +319,10 @@ export function pulsoSala({ sucursal, tipo }) {
         { duration: tipo === 'venta' ? 2400 : 1700, delay: i * 340, easing: 'cubic-bezier(.2,.7,.2,1)' });
       a.onfinish = () => c.remove();
     }
-    nodo.querySelector('.sala-est-nodo')?.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 520, easing: 'cubic-bezier(.3,1.6,.5,1)' });
+    nodo.classList.remove('late', 'tk-nuevo', 'tk-mensaje', 'tk-respuesta', 'tk-venta'); void nodo.offsetWidth;
+    nodo.classList.add('late', 'tk-' + tipo);
+    clearTimeout(nodo._late); nodo._late = setTimeout(() => nodo.classList.remove('late', 'tk-' + tipo), 1500);
   }
-  tren(k, tipo);
 }
 /** Un agente cambió su disponibilidad: actualizar pronto. */
 export const cambioEquipo = () => refrescarPronto();
@@ -453,7 +349,7 @@ export function abrirSala() {
       </div></header>
     <div class="sala-kpis" id="sala-kpis"><div class="sala-kpi"><span class="sala-k-t">Cargando la sala…</span></div></div>
     <main class="sala-cuerpo">
-      <section class="sala-panel sala-mapa" id="sala-mapa" aria-label="Mapa de sucursales"></section>
+      <section class="sala-panel sala-mapa" id="sala-mapa" aria-label="Sucursales"></section>
       <section class="sala-panel sala-p-cola" id="sala-cola" aria-label="Clientes esperando respuesta"></section>
       <section class="sala-panel sala-p-ritmo" id="sala-ritmo" aria-label="Ritmo del día"></section>
       <section class="sala-panel sala-p-agentes" id="sala-agentes" aria-label="Agentes"></section>
@@ -486,7 +382,7 @@ export function abrirSala() {
   document.addEventListener('keydown', E.teclas);
   // Al cambiar el tamaño (pantalla completa, girar el celular) se reencuadra el plano y se recalcula qué lista se mueve.
   E.medida = () => { clearTimeout(E.medidaT); E.medidaT = setTimeout(() => {
-    if (!E) return; const m = $('#sala-mapa'); if (m) encuadrar(m);
+    if (!E) return; const m = $('#sala-mapa'); if (m) pintarPlanos(m);
     E.firmaCola = E.firmaEq = null; pintar(); }, 250); };
   addEventListener('resize', E.medida);
   estadoWASala(null);

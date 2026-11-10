@@ -4,6 +4,7 @@
 import { $, $$, esc, S, get, gs, fd, fdate, fx, etapa, bajar, vacio, skeleton, toast, DISPONIBILIDAD } from './core.js';
 import { fichaNeg } from './ficha.js';
 import { ic } from './iconos.js';
+import { hoja, registro, crucesAnillo } from './graficos-impar.js';
 
 /* Período: día, semana, mes, año o rango libre, anclado a una fecha (hora local de Paraguay). */
 const hoyYMD = () => { const d = new Date(); return ymd(d); };
@@ -129,8 +130,8 @@ function graficoEvolucion(ns, ancho0 = 720, desde, hasta) {
   const ticks = []; for (let v = 0; v <= tope; v += paso) ticks.push(v);
   const barra = (c, i) => {
     if (!c.ingresos) return '';
-    const x = cx(i) - ancho / 2, yt = y(c.ingresos), h = y(0) - yt, r = Math.min(4, h, ancho / 2);
-    return `<path class="rep-bar" d="M${x},${y(0)} V${yt + r} Q${x},${yt} ${x + r},${yt} H${x + ancho - r} Q${x + ancho},${yt} ${x + ancho},${yt + r} V${y(0)} Z"/>`;
+    const yt = y(c.ingresos);
+    return hoja(cx(i) - ancho / 2, yt, ancho, y(0) - yt, 'rep-bar', ` style="--i:${i}"`);
   };
   const linea = cs.map((c, i) => `${i ? 'L' : 'M'}${cx(i).toFixed(1)},${y(c.ganadas).toFixed(1)}`).join(' ');
   const ultimo = cs.length - 1;
@@ -147,7 +148,7 @@ function graficoEvolucion(ns, ancho0 = 720, desde, hasta) {
         <text class="rep-ytick" x="${izq - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join('')}
       ${cs.map(barra).join('')}
       <path class="rep-line" d="${linea}" pathLength="1"/>
-      ${cs.map((c, i) => c.ganadas || i === ultimo ? `<circle class="rep-dot" cx="${cx(i)}" cy="${y(c.ganadas)}" r="4"/>` : '').join('')}
+      ${cs.map((c, i) => c.ganadas || i === ultimo ? registro(cx(i), y(c.ganadas), 4, 'rep-dot') : '').join('')}
       ${cs.map((c, i) => (i % cadaCuanto === 0 && (i === ultimo || ultimo - i >= Math.ceil(cadaCuanto * .7))) || i === ultimo
         ? `<text class="rep-xtick" x="${cx(i)}" y="${H - 8}" text-anchor="${i === ultimo && cs.length > 1 ? 'end' : i === 0 ? 'start' : 'middle'}">${esc(c.etiqueta)}</text>` : '').join('')}
       ${cs.map((c, i) => `<rect class="rep-hit" x="${izq + banda * i}" y="${arr}" width="${banda}" height="${H - arr - abj}" data-i="${i}"/>`).join('')}
@@ -280,9 +281,10 @@ const corto = min => {
   return tiempo(min);
 };
 function anillo(indice, etiqueta) {
-  const r = 52, c = 2 * Math.PI * r, v = indice == null ? 0 : indice;
+  const r = 44, c = 2 * Math.PI * r, v = indice == null ? 0 : indice;
   return `<div class="rep-anillo ${nivel(indice)}" role="img" aria-label="${etiqueta}: índice ${indice == null ? 'sin datos' : indice + ' por ciento'}">
     <svg viewBox="0 0 120 120" width="132" height="132" aria-hidden="true">
+      ${crucesAnillo(60, r)}<circle class="rep-anillo-guia" cx="60" cy="60" r="${r - 10}"/>
       <circle class="rep-anillo-fondo" cx="60" cy="60" r="${r}"/>
       <circle class="rep-anillo-valor" cx="60" cy="60" r="${r}" style="--largo:${c.toFixed(1)};--final:${(c * (1 - v / 100)).toFixed(1)}"/>
     </svg>

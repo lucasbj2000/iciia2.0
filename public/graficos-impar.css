@@ -1,0 +1,132 @@
+/* ============ Gráficos con identidad IMPAR ============
+   IMPAR vende papel e insumos gráficos, así que los gráficos hablan el idioma de la imprenta:
+   marcas de corte en las esquinas de cada pieza, barras que son hojas con la esquina doblada,
+   puntos como marcas de registro y anillos con sus cruces. Colores: verde IMPAR (marca),
+   gris del logo y cian de proceso para la segunda serie. */
+:root{--g-verde:#5E9E2C;--g-cian:#1C8FC7;--g-gris:#8B8D90;--g-marca:color-mix(in srgb,var(--txt) 38%,transparent);--g-pliegue:rgba(255,255,255,.62)}
+:root:not([data-tema="claro"]){--g-verde:#7CC24F;--g-cian:#38ADE3;--g-gris:#939497;--g-pliegue:rgba(255,255,255,.5)}
+
+/* Paleta de reportes: ingresadas en cian, ganadas en verde IMPAR. */
+.rep,:root:not([data-tema="claro"]) .rep{--s1:var(--g-cian);--s2:var(--g-verde);--gris-dato:var(--g-gris)}
+.rep-mini-b.bt{background:var(--g-cian)}
+.rep-mini-b.ag{background:var(--g-verde)}
+
+/* Marcas de corte en las esquinas: tarjetas de reportes, paneles de la sala y sucursales. */
+.rep .card-box,.sala-panel,.pliego{position:relative}
+.rep .card-box::before,.sala-panel::before,.pliego::before{
+  content:"";position:absolute;inset:5px;pointer-events:none;z-index:0;
+  --m:var(--g-marca);--l:11px;--g:1.5px;
+  background:
+    linear-gradient(var(--m),var(--m)) left top/var(--l) var(--g) no-repeat,
+    linear-gradient(var(--m),var(--m)) left top/var(--g) var(--l) no-repeat,
+    linear-gradient(var(--m),var(--m)) right top/var(--l) var(--g) no-repeat,
+    linear-gradient(var(--m),var(--m)) right top/var(--g) var(--l) no-repeat,
+    linear-gradient(var(--m),var(--m)) left bottom/var(--l) var(--g) no-repeat,
+    linear-gradient(var(--m),var(--m)) left bottom/var(--g) var(--l) no-repeat,
+    linear-gradient(var(--m),var(--m)) right bottom/var(--l) var(--g) no-repeat,
+    linear-gradient(var(--m),var(--m)) right bottom/var(--g) var(--l) no-repeat}
+.sala-ciudad.pliego::before{--l:8px;inset:4px}
+
+/* Hojas (barras SVG) con la esquina doblada. */
+.hoja-p{fill:var(--g-pliegue)}
+.rep-bar .hoja-c{fill:var(--s1)}
+.rt-in .hoja-c{fill:var(--g-gris)}
+.rt-out .hoja-c{fill:var(--g-verde)}
+.rt-in{opacity:.75}
+
+/* Barras HTML: la misma hoja doblada, recortando la esquina y dibujando la solapa. */
+.rep-pista i,.rep-mini-b:not(.vacia),.sala-r-barra i,.sala-ci-medidor i{position:relative;border-radius:0!important;
+  -webkit-mask:linear-gradient(225deg,transparent 0 4.3px,#000 4.3px);mask:linear-gradient(225deg,transparent 0 4.3px,#000 4.3px)}
+.rep-pista i::after,.rep-mini-b:not(.vacia)::after,.sala-r-barra i::after,.sala-ci-medidor i::after{content:"";position:absolute;top:0;right:0;width:6px;height:6px;
+  background:linear-gradient(225deg,transparent 50%,var(--g-pliegue) 50%)}
+.rep-pista{border-radius:2px}
+
+/* Líneas de guía como líneas de corte y puntos como marcas de registro. */
+.rep-gl{stroke-dasharray:2 5}
+.registro circle{fill:var(--surface);stroke:var(--s2);stroke-width:2;vector-effect:non-scaling-stroke}
+.registro path{stroke:var(--s2);stroke-width:1.2;vector-effect:non-scaling-stroke}
+.rep-dot{fill:none;stroke:none}
+
+/* Anillos de índice con cruces de registro y guía interior. */
+.anillo-cruz{stroke:var(--g-marca);stroke-width:1.5;fill:none}
+.rep-anillo circle.rep-anillo-guia{stroke:var(--line);stroke-width:1;stroke-dasharray:2 4}
+.rep-anillo-valor{stroke-linecap:butt}
+
+/* ---------- Sala: promedios de respuesta con regla de meta ---------- */
+.sala-kpi>*{position:relative;z-index:1}
+.sala-kpi-prom.ok .sala-k-v{color:var(--sala-verde)}
+.sala-kpi-prom.alerta .sala-k-v{color:var(--warn)}
+.sala-kpi-prom.mal .sala-k-v{color:var(--bad)}
+.sala-regla{position:relative;display:block;height:5px;margin:6px 0 2px;background:color-mix(in srgb,var(--txt) 12%,transparent);flex:none}
+.sala-regla-meta{position:absolute;top:-4px;width:2px;height:13px;background:var(--txt);opacity:.55}
+.sala-regla-v{position:absolute;inset:0 auto 0 0;width:var(--x);background:var(--sala-tinta);transition:width 1s cubic-bezier(.2,.7,.2,1);
+  -webkit-mask:linear-gradient(225deg,transparent 0 3.5px,#000 3.5px);mask:linear-gradient(225deg,transparent 0 3.5px,#000 3.5px)}
+.sala-kpi-prom.ok .sala-regla-v{background:var(--sala-verde)}
+.sala-kpi-prom.alerta .sala-regla-v{background:var(--warn)}
+.sala-kpi-prom.mal .sala-regla-v{background:var(--bad)}
+
+/* ---------- Sala: sucursales dibujadas ---------- */
+.sala-mapa{display:flex;flex-direction:column;gap:clamp(8px,1vw,14px)}
+.sala-ci-grupo{display:flex;flex-direction:column;min-height:0}
+.sala-ci-grupo:first-child{flex:1.1}.sala-ci-grupo+.sala-ci-grupo{flex:1}
+.sala-ci-grilla{display:grid;grid-template-columns:repeat(min(var(--n),3),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:clamp(8px,.8vw,12px);flex:1;min-height:0}
+.sala-ciudad{display:grid;grid-template-rows:minmax(70px,1fr) auto auto auto;gap:6px;padding:8px 8px 10px;border:1px solid var(--line);border-radius:12px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--surface2) 70%,transparent),var(--surface));overflow:hidden;min-height:0;transition:border-color .4s}
+.sala-ciudad>*{position:relative;z-index:1}
+.sala-ciudad.con-espera{border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
+.sala-ci-dibujo{min-height:0;position:relative;display:flex;align-items:stretch;justify-content:center;border:1px solid var(--line);background:color-mix(in srgb,var(--surface2) 55%,var(--surface));overflow:hidden}
+.sala-ci-sinplano{margin:auto;color:var(--muted);font-size:var(--fs-xs)}
+/* Plano del distrito: cartografía sobria en tonos neutros; solo el distrito y la sucursal llevan color de marca. */
+.plano{position:absolute;inset:0;width:100%;height:100%;display:block}
+.plano-fondo{fill:color-mix(in srgb,var(--surface) 92%,var(--txt))}
+.plano-trama{stroke:color-mix(in srgb,var(--txt) 6%,transparent);stroke-width:1}
+.plano-vecino{fill:color-mix(in srgb,var(--surface2) 80%,var(--txt) 3%);stroke:color-mix(in srgb,var(--txt) 26%,transparent);stroke-width:.8;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.plano-distrito{fill:color-mix(in srgb,var(--sala-verde,var(--brand)) 13%,var(--surface2));stroke:var(--sala-verde,var(--brand));stroke-width:1.8;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.plano-rot-v{fill:var(--muted);font:500 10.5px var(--f-texto);letter-spacing:.04em;opacity:.85;paint-order:stroke;stroke:color-mix(in srgb,var(--surface2) 80%,transparent);stroke-width:3px}
+.plano-pin-halo{fill:color-mix(in srgb,var(--txt) 12%,transparent);stroke:var(--txt);stroke-width:1;stroke-opacity:.5}
+.plano-pin-c{fill:var(--txt);stroke:var(--surface);stroke-width:1.5}
+.con-espera .plano-pin-c{fill:var(--warn)}
+.plano-pin-cruz{stroke:var(--txt);stroke-width:1.2;opacity:.8}
+.plano-norte path{fill:var(--txt);opacity:.75}
+.plano-norte text{fill:var(--muted);font:700 9px var(--f-texto)}
+.plano-escala rect{fill:none;stroke:var(--txt);stroke-width:.8;opacity:.75}
+.plano-escala rect.lleno{fill:var(--txt)}
+.plano-escala text{fill:var(--muted);font:600 10px var(--f-texto)}
+.plano-fuente{fill:var(--muted);font:600 9.5px var(--f-texto);opacity:.85;paint-order:stroke;stroke:color-mix(in srgb,var(--surface) 85%,transparent);stroke-width:3px}
+.sala-ci-pulso{position:absolute!important;inset:0;width:100%;height:100%;pointer-events:none;z-index:0!important}
+.sala-ci-cab{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.sala-ci-cab h4{margin:0;font:700 clamp(14px,1.05vw,19px)/1.15 var(--f-titulo);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sala-ci-clima{display:inline-flex;align-items:center;gap:3px;flex:none;color:var(--muted)}
+.sala-ci-clima svg{width:24px;height:24px}
+.sala-ci-clima b{font:700 clamp(13px,.95vw,17px) var(--f-titulo);color:var(--txt)}
+.sala-ci-datos{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+.sala-ci-espera{display:flex;align-items:baseline;gap:5px}
+.sala-ci-espera b{font:800 clamp(22px,1.9vw,34px)/1 var(--f-titulo);font-variant-numeric:tabular-nums;color:var(--muted)}
+.con-espera .sala-ci-espera b{color:var(--warn)}
+.sala-ci-espera small{color:var(--muted);font-size:var(--fs-xs)}
+.sala-ci-otros{white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;color:var(--muted);font-size:var(--fs-xs);line-height:1.35;text-align:right}
+.sala-ci-otros b{color:var(--txt);font-variant-numeric:tabular-nums}
+.sala-ci-medidor{display:block;height:5px;background:color-mix(in srgb,var(--txt) 7%,transparent)}
+.sala-ci-medidor i{display:block;height:100%;width:var(--w);background:var(--warn)}
+.sala-ciudad.late{border-color:var(--sala-verde)}
+.sala-ciudad.late.tk-venta{border-color:var(--sala-oro)}
+.sala-ciudad.late.tk-respuesta{border-color:var(--sala-tinta)}
+
+@media (prefers-reduced-motion:no-preference){
+  .sala-ciudad{animation:g-entra .6s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i) * 70ms)}
+  .plano-distrito{animation:g-entra .8s ease-out both}
+  .plano-pin-halo{transform-box:fill-box;transform-origin:center;animation:g-respira 3s ease-in-out infinite}
+  .sala-ciudad.late{animation:g-late 1.4s ease-out}
+  .rep-bar{transform-box:fill-box;transform-origin:bottom;animation:g-crece .7s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 18ms)}
+  .registro{animation:g-entra .5s ease-out .5s both}
+}
+@keyframes g-respira{50%{transform:scale(1.35);opacity:.55}}
+@keyframes g-entra{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes g-late{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--sala-verde) 55%,transparent)}100%{box-shadow:0 0 0 14px transparent}}
+@keyframes g-crece{from{transform:scaleY(0)}}
+
+@media (max-width:700px){
+  .sala-ci-grilla{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sala-ciudad{grid-template-rows:110px auto auto auto}
+  .sala-mapa{height:auto!important;overflow:visible}
+}

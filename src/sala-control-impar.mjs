@@ -5,6 +5,7 @@ import { q } from './db.mjs';
 import { emitir, uidsConectados } from './realtime.mjs';
 import { alcanceSQL } from './auth.mjs';
 import { sucursalDe, detectarCiudad } from './geografia-impar.mjs';
+import { tiemposRespuesta, rangoDesdeConsulta, fechaLocal } from './tiempos-respuesta-impar.mjs';
 
 export const ROLES_SALA = ['admin', 'gerente', 'jefe'];
 const HOY = "date_trunc('day', now() AT TIME ZONE 'America/Asuncion') AT TIME ZONE 'America/Asuncion'";
@@ -80,10 +81,20 @@ export async function climaSucursales(req, consulta = q) {
   return datos;
 }
 
+async function promediosSala(p) {
+  const t = await p; if (!t) return null;
+  const uno = r => ({ promedio: r.promedio, mediana: r.mediana, n: r.n, indice: r.indice });
+  return { agente: uno(t.agente), bot: uno(t.bot), metaAgenteMin: t.metaAgenteMin, metaBotMin: t.metaBotMin, sinRespuesta: t.sinRespuesta };
+}
 export async function fotoSala(req, consulta = q) {
   const eid = req.empresaId;
   const { where, params } = await alcanceSQL(req.user, eid, 'n', 2);
   const equipoFiltro = req.user.rol === 'jefe' ? params[0] : null;
+  // Promedio de respuesta de hoy, por separado para el bot y para las personas (mismo cálculo que Reportes).
+  const alc4 = await alcanceSQL(req.user, eid, 'n', 4);
+  const hoy = fechaLocal(new Date());
+  const promedios = tiemposRespuesta(consulta, { empresaId: eid, rango: rangoDesdeConsulta({ desde: hoy, hasta: hoy }),
+    where: alc4.where, params: alc4.params, reglas: req.empresa?.reglas || {} }).catch(() => null);
   const [sucursales, porSucursal, cola, tiempos, ritmo, equipo, ubicados] = await Promise.all([
     consulta(`SELECT nombre,ciudad,lat,lon FROM sucursales WHERE empresa_id=$1 AND activa ORDER BY nombre`, [eid]),
     consulta(`SELECT COALESCE(NULLIF(n.sucursal,''),'') AS sucursal,
@@ -136,6 +147,7 @@ export async function fotoSala(req, consulta = q) {
     porSucursal: porSucursal.rows,
     cola: cola.rows.map(x => ({ id: x.id, cliente: nombreCorto(x.cliente), agente: x.agente ? nombreCorto(x.agente) : null,
       sucursal: x.sucursal || '', desde: x.entrada_etapa })),
+    promedios: await promediosSala(promedios),
     primeraRespuesta: { mediana: tiempos.rows[0]?.mediana ?? null, n: tiempos.rows[0]?.n || 0, total: tiempos.rows[0]?.total || 0 },
     calor: zonasDeCalor(ubicados.rows),
     ritmo: ritmo.rows,
