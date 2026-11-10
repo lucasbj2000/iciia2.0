@@ -67,13 +67,15 @@
 
 /* ---------- Sala: sucursales dibujadas ---------- */
 .sala-mapa{display:flex;flex-direction:column;gap:clamp(8px,1vw,14px)}
-.sala-ci-grupo{display:flex;flex-direction:column;min-height:0}
-.sala-ci-grupo:first-child{flex:1.1}.sala-ci-grupo+.sala-ci-grupo{flex:1}
-.sala-ci-grilla{display:grid;grid-template-columns:repeat(min(var(--n),3),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:clamp(8px,.8vw,12px);flex:1;min-height:0}
-.sala-ciudad{display:grid;grid-template-rows:minmax(70px,1fr) auto auto auto;gap:6px;padding:8px 8px 10px;border:1px solid var(--line);border-radius:12px;
+.sala-ci-grupo{display:flex;flex-direction:column}
+.sala-ci-grupo{flex:1 1 auto}
+.sala-ci-grilla{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));grid-auto-rows:minmax(172px,1fr);gap:clamp(8px,.8vw,12px);flex:1}
+.sala-ciudad{display:grid;grid-template-rows:minmax(72px,1fr) auto auto auto;min-height:172px;gap:6px;padding:8px 8px 10px;border:1px solid var(--line);border-radius:12px;
   background:linear-gradient(180deg,color-mix(in srgb,var(--surface2) 70%,transparent),var(--surface));overflow:hidden;min-height:0;transition:border-color .4s}
 .sala-ciudad>*{position:relative;z-index:1}
 .sala-ciudad.con-espera{border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
+.sala-ci-vista{position:relative;min-height:0;display:flex}
+.sala-ci-vista>.sala-ci-dibujo{flex:1}
 .sala-ci-dibujo{min-height:0;position:relative;display:flex;align-items:stretch;justify-content:center;border:1px solid var(--line);background:color-mix(in srgb,var(--surface2) 55%,var(--surface));overflow:hidden}
 .sala-ci-sinplano{margin:auto;color:var(--muted);font-size:var(--fs-xs)}
 /* Plano del distrito: cartografía sobria en tonos neutros; solo el distrito y la sucursal llevan color de marca. */
@@ -95,11 +97,11 @@
 .plano-fuente{fill:var(--muted);font:600 9.5px var(--f-texto);opacity:.85;paint-order:stroke;stroke:color-mix(in srgb,var(--surface) 85%,transparent);stroke-width:3px}
 .sala-ci-pulso{position:absolute!important;inset:0;width:100%;height:100%;pointer-events:none;z-index:0!important}
 .sala-ci-cab{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
-.sala-ci-cab h4{margin:0;font:700 clamp(14px,1.05vw,19px)/1.15 var(--f-titulo);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sala-ci-clima{display:inline-flex;align-items:center;gap:3px;flex:none;color:var(--muted)}
-.sala-ci-clima svg{width:24px;height:24px}
+.sala-ci-cab h4{margin:0;font:700 clamp(13px,.95vw,18px)/1.2 var(--f-titulo);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sala-ci-clima{position:absolute;right:6px;bottom:6px;display:inline-flex;align-items:center;gap:3px;padding:2px 7px 2px 4px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--muted);z-index:2}
+.sala-ci-clima svg{width:20px;height:20px}
 .sala-ci-clima b{font:700 clamp(13px,.95vw,17px) var(--f-titulo);color:var(--txt)}
-.sala-ci-datos{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+.sala-ci-datos{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;min-height:34px}
 .sala-ci-espera{display:flex;align-items:baseline;gap:5px}
 .sala-ci-espera b{font:800 clamp(22px,1.9vw,34px)/1 var(--f-titulo);font-variant-numeric:tabular-nums;color:var(--muted)}
 .con-espera .sala-ci-espera b{color:var(--warn)}

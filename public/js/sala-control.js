@@ -91,10 +91,10 @@ function htmlCiudades(lista) {
   const tarjeta = (s, i) => {
     const cl = E.clima.get(norm(s.nombre));
     return `<article class="sala-pin sala-ciudad pliego${s.espera ? ' con-espera' : ''}${metro.has(s) && metro.size > 1 ? ' metro' : ''}" data-suc="${esc(s.k)}" style="--i:${i}">
-      <div class="sala-ci-dibujo" data-plano="${esc(JSON.stringify({ nombre: s.nombre, lat: s.lat, lon: s.lon }))}"></div>
+      <div class="sala-ci-vista"><div class="sala-ci-dibujo" data-plano="${esc(JSON.stringify({ nombre: s.nombre, lat: s.lat, lon: s.lon }))}"></div>
+        ${cl && cl.temp != null ? `<span class="sala-ci-clima" title="Clima ahora">${iconoClima(cl.cod, esDeNoche())}<b>${Math.round(cl.temp)}°</b></span>` : ''}</div>
       <svg class="sala-ci-pulso" viewBox="-100 -60 200 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g class="sala-ondas"></g></svg>
-      <header class="sala-ci-cab"><h4>${esc(s.nombre)}</h4>
-        ${cl && cl.temp != null ? `<span class="sala-ci-clima" title="Clima ahora">${iconoClima(cl.cod, esDeNoche())}<b>${Math.round(cl.temp)}°</b></span>` : ''}</header>
+      <header class="sala-ci-cab"><h4 title="${esc(s.nombre)}">${esc(s.nombre)}</h4></header>
       <div class="sala-ci-datos">
         <span class="sala-ci-espera"><b>${s.espera}</b><small>${s.espera === 1 ? 'espera' : 'esperan'}</small></span>
         <span class="sala-ci-otros"><span title="Clientes nuevos hoy"><b>${s.nuevos}</b> nuevos</span><span><b>${s.abiertas}</b> abiertas</span></span>
