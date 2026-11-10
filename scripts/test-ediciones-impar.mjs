@@ -1,5 +1,6 @@
 /** IMPAR · Mensajes editados por clientes en WhatsApp. Datos ficticios, sin sesión real. */
 import { contactosDeBaileys, textoContactos } from '../src/contactos-compartidos-impar.mjs';
+import { contenidoBaileys } from '../src/contenido-whatsapp-impar.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -15,6 +16,12 @@ const codigo = ba.slice(i, f).replace(
 function entorno() {
   const mensajes = new Map(), inbox = new Map(), eventos = [];
   const q = async (sql, a) => {
+    if (sql.includes("'eliminado',true")) {
+      const m = mensajes.get(a[1]);
+      if (!m) return { rows: [] };
+      m.editado = { ...(m.editado || {}), eliminado: true, eliminado_ts: a[2] };
+      return { rows: [{ negociacion_id: m.neg }] };
+    }
     if (sql.startsWith('UPDATE mensajes SET editado')) {
       const m = mensajes.get(a[1]);
       if (!m || (m.editado?.ts || 0) >= a[3]) return { rows: [] };
@@ -38,7 +45,7 @@ function entorno() {
     return { rows: [] };
   };
   const sesiones = new Map([['c', {}]]);
-  const ctx = vm.createContext({ q, console, sesiones, Promise, Date, Number, String, JSON, Object, process,
+  const ctx = vm.createContext({ contenidoBaileys, q, console, sesiones, Promise, Date, Number, String, JSON, Object, process,
     setTimeout: () => 0, clearTimeout() {}, emitir: (_e, t, d) => eventos.push([t, d.id]),
     parejaDesdeEventoWA: () => null, registrarParejaWA: async () => true, modoDesdeEventoWA: () => null, registrarModoEntranteWA: async () => false, bajarMedia: async () => null, despertados: 0,
     contactosDeBaileys, textoContactos });
@@ -121,16 +128,24 @@ const edicion = (id, texto, ts, extra = {}) => ({
   await e.recibirEdicion(mod, edicion('M5', 'Retiro el viernes', 1800000300), canal, 'c');
   assert.equal(e.mensajes.get('M5').editado.veces, 1, 'No se aplica dos veces');
   assert.equal(e.sesiones.get('c').edicionesWA, 1, 'Contador sin duplicar');
-  // Otros protocolMessage (p. ej. borrados) no generan mensajes.
+  // Un mensaje borrado por el cliente no genera un mensaje nuevo: se marca como eliminado y conserva el texto.
   await e.ctx.r(mod, { key: { id: 'PROTO-2', remoteJid: '595981000001@s.whatsapp.net', fromMe: false },
     message: { protocolMessage: { type: 0, key: { id: 'M5' } } } }, canal, 'c');
   assert.equal(e.inbox.size, 0);
-  // El diagnóstico registra solo el tipo, nunca el contenido.
+  assert.equal(e.mensajes.get('M5').editado.eliminado, true, 'Marcado como eliminado');
+  assert.equal(e.mensajes.get('M5').txt, 'Retiro el viernes', 'Se conserva lo que había escrito');
+  // Una reacción ahora se guarda, citando el mensaje y marcada como especial (no mueve la negociación).
   await e.ctx.r(mod, { key: { id: 'R1', remoteJid: '595981000001@s.whatsapp.net', fromMe: false },
     message: { reactionMessage: { text: '👍', key: { id: 'M5' } }, messageContextInfo: {} } }, canal, 'c');
+  const r1 = e.inbox.get('R1');
+  assert.equal(r1.txt, 'Reaccionó con 👍');
+  assert.equal(r1.payload.especial, 'reaccion');
+  assert.equal(r1.payload.cita.ext, 'M5');
+  // El diagnóstico de tipos no admitidos registra solo el tipo, nunca el contenido.
+  await e.ctx.r(mod, { key: { id: 'X1', remoteJid: '595981000001@s.whatsapp.net', fromMe: false },
+    message: { keepInChatMessage: { keepType: 1 }, messageContextInfo: {} } }, canal, 'c');
   const tipos = Object.fromEntries(e.sesiones.get('c').tiposNoAdmitidos);
-  assert.deepEqual(JSON.parse(JSON.stringify(tipos)), { 'protocolMessage/0': 1, reactionMessage: 1 });
-  assert.ok(!JSON.stringify(tipos).includes('👍'));
+  assert.deepEqual(JSON.parse(JSON.stringify(tipos)), { keepInChatMessage: 1 });
 }
 
 // 6) Integración.
@@ -141,7 +156,7 @@ const edicion = (id, texto, ts, extra = {}) => ({
   assert.ok(ba.includes('[wa:no_admitidos]') && ba.includes('[wa:ediciones] por_update='), 'Diagnósticos sin contenido');
   assert.ok(leer('src/worker.mjs').includes('editado: m.payload?.editado || null'), 'Worker pasa la edición');
   const core = leer('src/core.mjs');
-  assert.equal((core.match(/remitente_numero,cita,editado(,canal_id)?\)/g) || []).length, 2, 'Ambas inserciones guardan la edición');
+  assert.equal((core.match(/remitente_numero,cita,editado(,canal_id)?(,especial)?\)/g) || []).length, 2, 'Ambas inserciones guardan la edición');
   const sql = leer('src/migrations/027_mensajes_editados_impar.sql');
   assert.ok(sql.includes('ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS editado JSONB'));
   assert.ok(!/\b(DROP|DELETE|TRUNCATE|UPDATE)\b/i.test(sql), 'Migración solo aditiva');

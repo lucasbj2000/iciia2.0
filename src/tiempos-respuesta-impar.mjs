@@ -106,7 +106,8 @@ export async function tiemposRespuesta(q, { empresaId, rango, where = '', params
                     lag(m.dir) OVER (PARTITION BY m.negociacion_id ORDER BY m.ts, m.id) AS previo
                FROM mensajes m JOIN negociaciones n ON n.id=m.negociacion_id AND n.empresa_id=m.empresa_id
               WHERE m.empresa_id=$1 AND m.ts >= $2::timestamptz - interval '2 days' AND m.ts < $3::timestamptz
-                AND NOT m.carga_historica AND m.reemplazado_por IS NULL ${where}) t
+                AND NOT m.carga_historica AND m.reemplazado_por IS NULL
+                AND COALESCE(m.especial,'') NOT IN ('reaccion','sistema') ${where}) t
        JOIN LATERAL (
             SELECT MIN(x.ts) FILTER (WHERE x.bot) AS bot_ts, MIN(x.ts) FILTER (WHERE NOT x.bot) AS ag_ts,
                    (array_agg(x.autor_id ORDER BY x.ts) FILTER (WHERE NOT x.bot AND x.autor_id IS NOT NULL))[1] AS autor

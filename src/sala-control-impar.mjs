@@ -114,7 +114,7 @@ export async function fotoSala(req, consulta = q) {
          SELECT EXTRACT(EPOCH FROM (SELECT MIN(o.ts) FROM mensajes o WHERE o.empresa_id=$1 AND o.negociacion_id=p.nid
            AND o.dir='out' AND NOT o.bot AND NOT o.carga_historica AND o.ts > p.entra) - p.entra) AS seg
          FROM (SELECT m.negociacion_id AS nid, MIN(m.ts) AS entra FROM mensajes m JOIN negociaciones n ON n.id=m.negociacion_id
-               WHERE m.empresa_id=$1 AND m.dir='in' AND NOT m.carga_historica AND m.ts >= ${HOY}${where} GROUP BY 1) p
+               WHERE m.empresa_id=$1 AND m.dir='in' AND NOT m.carga_historica AND COALESCE(m.especial,'') NOT IN ('reaccion','sistema') AND m.ts >= ${HOY}${where} GROUP BY 1) p
        ) x`, [eid, ...params]),
     consulta(`SELECT EXTRACT(HOUR FROM m.ts AT TIME ZONE 'America/Asuncion')::int AS h,
         COUNT(*) FILTER (WHERE m.dir='in')::int AS entran,

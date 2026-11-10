@@ -4,6 +4,7 @@
  */
 import crypto from 'node:crypto';
 import { contactosDeCloud, textoContactos } from '../contactos-compartidos-impar.mjs';
+import { contenidoCloud, textoAdjuntoFallido, textoAnuncio, textoReaccion, textoAdjuntoMeta } from '../contenido-whatsapp-impar.mjs';
 import { API, traducirError } from '../redes-sociales-impar.mjs';
 import { q } from '../db.mjs';
 import { guardarDesdeUrl, urlPublica } from '../archivos.mjs';
@@ -91,12 +92,16 @@ async function procesarWhatsAppAPI(body) {
       for(const estado of v.statuses || [])await registrarEstadoCloud(canal,estado);
       for (const m of v.messages || []) {
         const perfil = (v.contacts || []).find(c => c.wa_id === m.from);
-        const { texto, media, ubicacion } = await extraerWhatsApp(m, canal);
+        const { texto, media, ubicacion, especial, citaExt } = await extraerWhatsApp(m, canal);
         if (!texto && !media && !ubicacion) continue;
+        // Una reacción cita el mensaje al que reacciona; un mensaje común, el que el cliente respondió.
+        const citado = citaExt || m.context?.id;
         await guardarInbox(canal, 'whatsapp_api', m.id, m.from, perfil?.profile?.name || '', texto, {
           mediaUrl: media?.url, mediaTipo: media?.tipo, mediaNombre: media?.nombre, ubicacion,
           payload: { ts: Number(m.timestamp) * 1000, archivoId: media?.id,
-            ...(m.context?.id ? { cita: { ext: String(m.context.id).slice(0, 180), txt: '', dir: 'in' } } : {}) }
+            ...(citado ? { cita: { ext: String(citado).slice(0, 180), txt: '', dir: 'in' } } : {}),
+            ...(especial ? { especial } : {}),
+            ...(m.referral ? { anuncio: textoAnuncio(m.referral) } : {}) }
         });
       }
     }
@@ -140,29 +145,29 @@ async function registrarEstadoCloud(canal,s){
 }
 
 async function extraerWhatsApp(m, canal) {
-  let texto = '', media = null, ubicacion = null;
+  let texto = '', media = null, ubicacion = null, especial = null, citaExt = null;
+  const simple = contenidoCloud(m);
+  if (simple?.omitir) return { texto: '', media, ubicacion };
+  if (simple) return { texto: simple.texto || '', media, ubicacion, especial: simple.especial || null, citaExt: simple.citaExt || null };
   switch (m.type) {
-    case 'text': texto = m.text?.body || ''; break;
-    case 'button': texto = m.button?.text || ''; break;
-    case 'interactive':
-      texto = m.interactive?.button_reply?.title || m.interactive?.list_reply?.title || ''; break;
     case 'location':
       ubicacion = { lat: m.location?.latitude, lon: m.location?.longitude,
         nombre: m.location?.name || '', direccion: m.location?.address || '' };
       texto = '[ubicación compartida]'; break;
     case 'image': case 'video': case 'audio': case 'document': case 'sticker': {
-      texto = m[m.type]?.caption || '';
       const nodo = m[m.type] || {};
+      texto = nodo.caption || '';
       if (nodo.id) {
         try { media = await bajarMediaWA(nodo.id, canal, nodo.filename || `${m.type}-${Date.now()}`, nodo.mime_type); }
-        catch (e) { console.error('[meta] adjunto:', e.message); texto = texto || `[${m.type} recibido]`; }
+        catch (e) { console.error('[meta] adjunto:', e.message); }
       }
+      // Sin archivo: queda el aviso con qué era y su nombre, más el texto que haya mandado.
+      if (!media) texto = [textoAdjuntoFallido(m.type, nodo), texto].filter(Boolean).join('\n');
       break;
     }
     case 'contacts': texto = textoContactos(contactosDeCloud(m.contacts)); break;
-    default: texto = `[${m.type} recibido]`;
   }
-  return { texto, media, ubicacion };
+  return { texto, media, ubicacion, especial, citaExt };
 }
 
 async function bajarMediaWA(mediaId, canal, nombre, mime) {
@@ -186,9 +191,24 @@ async function procesarMeta(body, tipo) {
     if (!canal) { console.warn(`[meta] sin canal ${tipo} para`, entry.id); continue; }
 
     for (const ev of entry.messaging || []) {
-      if (!ev.message || ev.message.is_echo) continue;
       const sid = ev.sender?.id;
-      if (!sid) continue;
+      if (!sid || sid === entry.id) continue; // ecos de la propia página
+      // Reacción del cliente a un mensaje: queda en la conversación sin pasarla a espera.
+      if (ev.reaction?.mid) {
+        const nombreR = await nombrePerfil(sid, canal, tipo);
+        const emoji = ev.reaction.action === 'unreact' ? '' : (ev.reaction.emoji || ev.reaction.reaction || '');
+        await guardarInbox(canal, tipo, `react:${ev.reaction.mid}:${ev.timestamp || Date.now()}`, sid, nombreR, textoReaccion(emoji), {
+          payload: { ts: ev.timestamp, especial: 'reaccion', cita: { ext: String(ev.reaction.mid).slice(0, 180), txt: '', dir: 'in' } } });
+        continue;
+      }
+      // Botón o menú tocado por el cliente.
+      if (ev.postback && !ev.message) {
+        const nombreP = await nombrePerfil(sid, canal, tipo);
+        await guardarInbox(canal, tipo, ev.postback.mid || `postback:${sid}:${ev.timestamp}`, sid, nombreP,
+          ev.postback.title || ev.postback.payload || 'Tocó un botón', { payload: { ts: ev.timestamp, ...(ev.postback.referral ? { anuncio: textoAnuncio(ev.postback.referral) } : {}) } });
+        continue;
+      }
+      if (!ev.message || ev.message.is_echo) continue;
 
       const texto = ev.message.text || '';
       const adj = ev.message.attachments || [];
@@ -199,13 +219,17 @@ async function procesarMeta(body, tipo) {
           nombre: loc.title || '', direccion: loc.url || '' };
       }
       const media = ubicacion ? null : await bajarMediaMeta(adj, canal);
-      if (!texto && !media && !ubicacion) continue;
+      const extraAdj = !media && !ubicacion && adj.length ? textoAdjuntoMeta(adj) : '';
+      const textoFinal = [texto, extraAdj].filter(Boolean).join('\n') || (ubicacion ? '[ubicación compartida]' : '');
+      if (!textoFinal && !media && !ubicacion) continue;
 
       const nombre = await nombrePerfil(sid, canal, tipo);
-      await guardarInbox(canal, tipo, ev.message.mid, sid, nombre,
-        texto || (ubicacion ? '[ubicación compartida]' : (media ? '' : descripcionAdjunto(adj))), {
+      const citado = ev.message.reply_to?.mid;
+      await guardarInbox(canal, tipo, ev.message.mid, sid, nombre, textoFinal, {
         mediaUrl: media?.url, mediaTipo: media?.tipo, mediaNombre: media?.nombre, ubicacion,
-        payload: { ts: ev.timestamp, archivoId: media?.id }
+        payload: { ts: ev.timestamp, archivoId: media?.id,
+          ...(citado ? { cita: { ext: String(citado).slice(0, 180), txt: '', dir: 'in' } } : {}),
+          ...(ev.message.referral || ev.referral ? { anuncio: textoAnuncio(ev.message.referral || ev.referral) } : {}) }
       });
     }
   }
@@ -222,13 +246,6 @@ async function bajarMediaMeta(adjuntos, canal) {
     });
     return { id: g.id, url: g.url, tipo: g.tipo, nombre: g.nombre };
   } catch (e) { console.error('[meta] adjunto no descargado:', e.message); return null; }
-}
-
-function descripcionAdjunto(adj) {
-  if (!adj || !adj.length) return '';
-  return ({ image: '[imagen recibida]', video: '[video recibido]', audio: '[audio recibido]',
-    file: '[archivo recibido]', share: '[contenido compartido]', story_mention: '[mención en historia]',
-    location: '[ubicación compartida]' })[adj[0].type] || `[${adj[0].type} recibido]`;
 }
 
 // Messenger no tiene «username» (pedirlo hace fallar toda la consulta); Instagram sí.

@@ -1,6 +1,7 @@
 /** IMPAR · Ediciones cifradas de WhatsApp (secretEncryptedMessage, MESSAGE_EDIT).
  * Cifrado real con el algoritmo de whatsmeow y el proto real de Baileys. Datos ficticios. */
 import assert from 'node:assert/strict';
+import { contenidoBaileys } from '../src/contenido-whatsapp-impar.mjs';
 import { readFileSync } from 'node:fs';
 import { hkdfSync, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import vm from 'node:vm';
@@ -33,7 +34,7 @@ function entorno() {
     return { rows: [] };
   };
   const sesiones = new Map([['c', {}]]);
-  const ctx = vm.createContext({ q, console, sesiones, Promise, Date, Number, String, JSON, Object, Buffer, Map, Set,
+  const ctx = vm.createContext({ contenidoBaileys, q, console, sesiones, Promise, Date, Number, String, JSON, Object, Buffer, Map, Set,
     process, hkdfSync, createDecipheriv, setTimeout: () => 0, clearTimeout() {}, emitir() {},
     parejaDesdeEventoWA: () => null, registrarParejaWA: async () => true, modoDesdeEventoWA: () => null, registrarModoEntranteWA: async () => false, bajarMedia: async () => null });
   vm.runInContext(codigo + ';globalThis.t={recibir,secretosMensajes};', ctx);

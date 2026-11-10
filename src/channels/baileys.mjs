@@ -4,6 +4,7 @@
  */
 import QRCode from 'qrcode';
 import { contactosDeBaileys, textoContactos } from '../contactos-compartidos-impar.mjs';
+import { contenidoBaileys } from '../contenido-whatsapp-impar.mjs';
 import { hkdfSync, createDecipheriv } from 'node:crypto';
 import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -250,6 +251,11 @@ export async function iniciar(canal) {
       } catch (e) { console.error(`[wa:${canal.nombre}] update:`, e.message); }
     });
 
+    sock.ev.on('call', llamadas => {
+      if (S.sock !== sock) return;
+      for (const l of llamadas || []) recibirLlamada(canal, id, l).catch(e =>
+        console.warn('[wa:llamadas] Llamada no registrada:', e.name));
+    });
     sock.ev.on('messages.update', cambios => {
       if (S.sock !== sock) return;
       for (const cambio of cambios || []) {
@@ -585,7 +591,15 @@ async function recibir(mod,m,canal,id){
           messageTimestamp:Number.isFinite(ms)&&ms>0?Math.floor(ms/1000):m.messageTimestamp}},canal,id);
       return;
     }
+    // El cliente eliminó un mensaje: se marca como eliminado sin borrar lo que había escrito.
+    const REVOCAR=mod.proto?.Message?.ProtocolMessage?.Type?.REVOKE ?? 0;
+    if(Number(protocolo.type)===REVOCAR && protocolo.key?.id){
+      await marcarEliminado(canal,String(protocolo.key.id),fechaDe(m));
+      return;
+    }
   }
+  const especialWA=contenidoBaileys(contenido);
+  if(especialWA?.omitir)return;
   const texto=contenido.conversation ||
     contenido.extendedTextMessage?.text ||
     contenido.imageMessage?.caption ||
@@ -600,7 +614,7 @@ async function recibir(mod,m,canal,id){
     nombre:loc.name||'',direccion:loc.address||''}:null;
   const hayMedia=['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage']
     .some(tipo=>Boolean(contenido[tipo]));
-  const etiqueta=texto || (ubicacion?'[ubicación compartida]':especial({...m,message:contenido}));
+  const etiqueta=texto || especialWA?.texto || (ubicacion?'[ubicación compartida]':especial({...m,message:contenido}));
   if(!etiqueta && !hayMedia && !ubicacion){
     const s=sesiones.get(id);
     if(s){
@@ -617,14 +631,16 @@ async function recibir(mod,m,canal,id){
   const {pareja,remitente}=remitenteDe(m);
   const fecha=fechaDe(m);
   const S1=sesiones.get(id);
-  const cita=extraerCita(contenido,[S1?.numero,S1?.lid].filter(Boolean));
+  // Una reacción cita el mensaje al que reacciona.
+  const cita=especialWA?.citaExt ? {ext:String(especialWA.citaExt).slice(0,180),txt:'',dir:'in'}
+    : extraerCita(contenido,[S1?.numero,S1?.lid].filter(Boolean));
   const {rows}=await q(
     'INSERT INTO inbox (empresa_id,canal_id,tipo,ext_id,remitente,nombre,txt,'+
     "ubicacion,payload,estado) VALUES($1,$2,'whatsapp_qr',$3,$4,$5,$6,$7,$8,$9) "+
     'ON CONFLICT(canal_id,ext_id) DO NOTHING RETURNING id',
     [canal.empresa_id,id,String(m.key.id),remitente,m.pushName||'',etiqueta,
      ubicacion?JSON.stringify(ubicacion):null,
-     JSON.stringify({ts:fecha,archivoId:null,...(cita?{cita}:{})}),hayMedia?'capturando':'pendiente']);
+     JSON.stringify({ts:fecha,archivoId:null,...(cita?{cita}:{}),...(especialWA?.especial?{especial:especialWA.especial}:{})}),hayMedia?'capturando':'pendiente']);
   const entrada=rows[0]?.id;
   if(!entrada){
     await reemplazarNoDescifrado(mod,m,contenido,canal,id,{etiqueta,ubicacion,hayMedia});
@@ -660,6 +676,29 @@ async function recibir(mod,m,canal,id){
       despertar();
     }catch(e){console.error('[wa:multimedia] Finalización:',e.name);}
   });
+}
+
+/** Mensaje eliminado por el cliente: queda visible para el agente con la marca «eliminado». */
+async function marcarEliminado(canal,ext,ts){
+  const {rows}=await q(
+    "UPDATE mensajes SET editado=COALESCE(editado,'{}'::jsonb)||jsonb_build_object('eliminado',true,'eliminado_ts',$3::bigint) "+
+    "WHERE empresa_id=$1 AND msg_id=$2 AND dir='in' RETURNING negociacion_id",[canal.empresa_id,ext,ts]);
+  for(const x of rows)emitir(canal.empresa_id,'neg:patch',{id:x.negociacion_id});
+}
+
+/** Llamada de WhatsApp al número normal: el CRM no atiende llamadas, así que se avisa en la conversación. */
+async function recibirLlamada(canal,id,llamada){
+  if(!llamada?.id || llamada.status!=='offer' || llamada.isGroup)return;
+  const jid=String(llamada.chatId||llamada.from||'');
+  if(!jid || jid.endsWith('@g.us'))return;
+  const {remitente}=remitenteDe({key:{remoteJid:jid}});
+  const ts=llamada.date instanceof Date?llamada.date.getTime():Date.now();
+  const txt=`📞 Llamada de ${llamada.isVideo?'video':'voz'} de WhatsApp sin atender. Respondele por este chat.`;
+  const {rows}=await q(
+    'INSERT INTO inbox (empresa_id,canal_id,tipo,ext_id,remitente,nombre,txt,ubicacion,payload,estado) '+
+    "VALUES($1,$2,'whatsapp_qr',$3,$4,'',$5,NULL,$6,'pendiente') ON CONFLICT(canal_id,ext_id) DO NOTHING RETURNING id",
+    [canal.empresa_id,id,'llamada:'+String(llamada.id),remitente,txt,JSON.stringify({ts,archivoId:null,especial:'llamada'})]);
+  if(rows[0])despertarWorker();
 }
 
 function especial(m) {

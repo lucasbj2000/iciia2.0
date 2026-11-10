@@ -59,6 +59,7 @@ export async function drenarInbox() {
           extId: m.ext_id, remitente, nombre: m.nombre, texto: m.txt,
           mediaUrl: m.media_url, mediaTipo: m.media_tipo, mediaNombre: m.media_nombre,
           archivoId: m.payload?.archivoId || null, ubicacion: m.ubicacion, cita: m.payload?.cita || null, editado: m.payload?.editado || null,
+          especial: m.payload?.especial || null, anuncio: m.payload?.anuncio || null,
           ts: m.payload?.ts || m.ts
         });
         // Respuestas a campañas del número verificado: «BAJA» y nota en el Historial.

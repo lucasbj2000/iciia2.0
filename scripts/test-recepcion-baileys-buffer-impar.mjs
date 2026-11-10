@@ -1,5 +1,6 @@
 /** IMPAR: prueba funcional de captura rápida de mensajes sin sesión WhatsApp real. */
 import assert from 'node:assert/strict';
+import { contenidoBaileys } from '../src/contenido-whatsapp-impar.mjs';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const leer=f=>readFileSync(new URL('../'+f,import.meta.url),'utf8');
@@ -31,7 +32,7 @@ const q=async(sql,args)=>{
  updates.push({sql,args});
  return {rows:[]};
 };
-const context=vm.createContext({q,console,sesiones,Promise,Date,Number,String,JSON,process,emitir:()=>{},
+const context=vm.createContext({ contenidoBaileys,q,console,sesiones,Promise,Date,Number,String,JSON,process,emitir:()=>{},
   setTimeout:()=>0,
   parejaDesdeEventoWA:()=>null,registrarParejaWA:async()=>true,modoDesdeEventoWA:()=>null,registrarModoEntranteWA:async()=>false,
   bajarMedia:async()=>null,despertados:0});

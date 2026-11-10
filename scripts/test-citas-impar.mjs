@@ -1,5 +1,6 @@
 /** IMPAR · Respuestas citadas: cliente → CRM y CRM → cliente. Datos ficticios, sin red ni sesión real. */
 import assert from 'node:assert/strict';
+import { contenidoBaileys } from '../src/contenido-whatsapp-impar.mjs';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { resolverCitaEntrante, citaParaEnvio, vistaPrevia } from '../src/citas-impar.mjs';
@@ -24,7 +25,7 @@ const tramo = (src, desde, hasta) => {
     return { rows: [] };
   };
   const sesiones = new Map([['c', { numero: '595971000000', lid: '88990011' }]]);
-  const ctx = vm.createContext({ q, console, sesiones, Promise, Date, Number, String, JSON, Object, process,
+  const ctx = vm.createContext({ contenidoBaileys, q, console, sesiones, Promise, Date, Number, String, JSON, Object, process,
     setTimeout: () => 0, clearTimeout() {}, emitir() {}, parejaDesdeEventoWA: () => null,
     registrarParejaWA: async () => true, modoDesdeEventoWA: () => null, registrarModoEntranteWA: async () => false, bajarMedia: async () => null });
   vm.runInContext(codigo + ';globalThis.t={recibir,extraerCita};', ctx);
@@ -51,7 +52,7 @@ const tramo = (src, desde, hasta) => {
   const envios = [];
   const sock = { sendMessage: async (jid, contenido, opciones) => { envios.push({ jid, contenido, opciones }); return { key: { id: 'NUEVO' + envios.length } }; } };
   const sesiones = new Map([['c', { sock, estado: 'conectado' }]]);
-  const ctx = vm.createContext({ sesiones, process, console, String, Error,
+  const ctx = vm.createContext({ contenidoBaileys, sesiones, process, console, String, Error,
     rutaParaEnvioWA: async (_c, jid) => ({ destino: jid }), guardarOriginal: async () => true,
     cargarBaileys: async () => ({ proto: {} }), q: async () => ({ rows: [] }),
     readFileSync: () => Buffer.from('x'), join: (...p) => p.join('/'), MEDIA_DIR: '/m' });
@@ -74,7 +75,7 @@ const tramo = (src, desde, hasta) => {
   const meta = leer('src/channels/meta.mjs');
   const fuente = tramo(meta, 'export async function enviarWhatsAppAPI(', 'export async function enviarMeta(').replace(/^export /, '');
   const cuerpos = [];
-  const ctx = vm.createContext({ process, JSON, String, Error, WA_API: 'https://graph.test',
+  const ctx = vm.createContext({ contenidoBaileys, process, JSON, String, Error, WA_API: 'https://graph.test',
     resolverToken: () => 'token', urlPublica: u => 'https://crm.test' + u,
     fetch: async (_u, o) => { cuerpos.push(JSON.parse(o.body)); return { ok: true, json: async () => ({ messages: [{ id: 'wamid.X' }] }) }; } });
   vm.runInContext(fuente + ';globalThis.enviar=enviarWhatsAppAPI;', ctx);
@@ -84,7 +85,7 @@ const tramo = (src, desde, hasta) => {
   assert.equal(cuerpos[0].text.body, 'Respuesta');
   await ctx.enviar(canal, '0981000001', 'Sin cita', null);
   assert.equal(cuerpos[1].context, undefined);
-  assert.ok(meta.includes("m.context?.id ? { cita: { ext: String(m.context.id).slice(0, 180)"), 'Cloud API recibe citas');
+  assert.ok(meta.includes("const citado = citaExt || m.context?.id;") && meta.includes("...(citado ? { cita: { ext: String(citado).slice(0, 180)"), 'Cloud API recibe citas (y reacciones citan su mensaje)');
 }
 
 // 4) Vínculo con el mensaje del CRM y validación de pertenencia.
@@ -119,7 +120,7 @@ const tramo = (src, desde, hasta) => {
   assert.ok(worker.includes('cita: m.payload?.cita || null'), 'Worker pasa la cita recibida');
   assert.ok(worker.includes('baileys.enviar(canal, o.destino, cuerpo, adjunto, opcionesEnvio)'), 'Worker envía cita por QR');
   assert.ok(worker.includes('meta.enviarWhatsAppAPI(canal, o.destino, cuerpo, adjunto, opcionesEnvio)'), 'Worker envía cita por Cloud API');
-  assert.equal((core.match(/remitente_numero,cita[,)]/g) || []).length, 2, 'Ambas inserciones guardan la cita');
+  assert.equal((core.match(/remitente_numero,cita[,)]/g) || []).length, 3, 'Las tres inserciones (nueva, abierta y reacción) guardan la cita');
   assert.ok(core.includes('.catch(e => { console.warn(\'[citas] Vínculo no resuelto:\', e.name); return null; })'),
     'Una cita fallida no bloquea el mensaje');
   const iRuta = ruta.indexOf("r.post('/:id/mensajes'"), iCita = ruta.indexOf('citaParaEnvio(q', iRuta), iBot = ruta.indexOf('botAutoOff', iRuta);

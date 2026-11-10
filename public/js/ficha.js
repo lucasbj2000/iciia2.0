@@ -230,8 +230,10 @@ function citaHTML(c) {
 
 function editadoHTML(e) {
   if (!e) return '';
+  const eliminado = e.eliminado ? `<span class="msg-eliminado" title="El cliente borró este mensaje en su WhatsApp; el CRM conserva lo que había escrito">🗑 El cliente eliminó este mensaje</span>` : '';
+  if (!e.veces) return eliminado;
   const original = e.original ? `<div class="msg-editado-original"><b>Antes:</b> ${esc(e.original)}</div>` : '';
-  return `<details class="msg-editado"><summary title="El cliente editó este mensaje en WhatsApp">✎ Editado${Number(e.veces) > 1 ? ` (${Number(e.veces)} veces)` : ''}</summary>${original}</details>`;
+  return `<details class="msg-editado"><summary title="El cliente editó este mensaje en WhatsApp">✎ Editado${Number(e.veces) > 1 ? ` (${Number(e.veces)} veces)` : ''}</summary>${original}</details>${eliminado}`;
 }
 
 function mensajeHTML(m) {
@@ -256,7 +258,11 @@ function mensajeHTML(m) {
        const otroNumero = m.dir === 'in' && m.remitente_numero && ultimos8(m.remitente_numero) !== ultimos8(actual?.tel);
        const responder = /^\d+$/.test(String(m.id || ''))
          ? `<button type="button" class="msg-responder" data-responder="${m.id}" title="Responder citando este mensaje" aria-label="Responder citando este mensaje">↩</button>` : '';
-       return `<div class="msg ${m.dir} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}"${tramo} data-linea="${esc(m.linea_id || '')}">
+       // Reacciones y avisos de WhatsApp: burbuja compacta que no se responde.
+       if (m.especial === 'reaccion' || m.especial === 'sistema') return `<div class="msg ${m.dir} esp esp-${m.especial}"${tramo} data-linea="${esc(m.linea_id || '')}">
+          ${citaHTML(m.cita)}<div class="esp-txt">${esc(m.txt || '')}</div>
+          <small>${lineaMensaje(m)}<time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time></small></div>`;
+       return `<div class="msg ${m.dir} ${m.especial ? 'esp-' + m.especial : ''} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}"${tramo} data-linea="${esc(m.linea_id || '')}">
           ${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
           <small>${lineaMensaje(m)}${m.carga_historica ? `${ic('lapiz')} Carga histórica (admin) · ` : ''}${m.bot ? `${ic('bot')} Bot · ` : ''}<time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time>${otroNumero ? ` · <span class="msg-otro-num" title="Escribió desde otro número">${ic('celular')} ${esc(m.remitente_numero)}</span>` : ''}
           ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ` · ${ic('alerta')} no enviado` : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small></div>`;

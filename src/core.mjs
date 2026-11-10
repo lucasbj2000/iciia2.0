@@ -226,8 +226,12 @@ async function sucursalPorDefecto(empresa) {
 /** Punto único por donde entra TODO mensaje externo (los 4 canales). */
 export async function ingresarMensaje(empresa, {
   canalId, canalSucursal, canalLinea, origen, extId, remitente, nombre, texto,
-  mediaUrl, mediaTipo, mediaNombre, archivoId, ubicacion, ts, externoTipo, cita, editado
+  mediaUrl, mediaTipo, mediaNombre, archivoId, ubicacion, ts, externoTipo, cita, editado,
+  especial = null, anuncio = null
 }) {
+  // Ver src/contenido-whatsapp-impar.mjs: reacciones y avisos de WhatsApp no mueven la negociación.
+  if (!['reaccion', 'sistema', 'llamada', 'no_admitido'].includes(especial)) especial = null;
+  const informativo = especial === 'reaccion' || especial === 'sistema';
   if (extId) {
     const { rows } = await q('SELECT 1 FROM mensajes WHERE empresa_id=$1 AND msg_id=$2 LIMIT 1', [empresa.id, extId]);
     if (rows.length) return { duplicado: true };
@@ -277,6 +281,25 @@ export async function ingresarMensaje(empresa, {
     }
   }
 
+  /* --- reacción o aviso de WhatsApp: se guarda en la conversación del cliente sin moverla ---
+     No pasa a «Cliente espera respuesta», no avisa al agente, no despierta al bot y no abre
+     una negociación nueva: va a la abierta o, si no hay, a la última que tuvo. */
+  if (informativo) {
+    // Primero la conversación del mensaje al que reaccionó; si no se conoce, la abierta o la última.
+    const delCitado = citaFinal?.id ? (await q('SELECT negociacion_id AS id FROM mensajes WHERE id=$1 AND empresa_id=$2',
+      [citaFinal.id, empresa.id])).rows[0] : null;
+    const destino = (delCitado?.id ? delCitado : null) || await negActivaDeContacto(empresa, contacto.id)
+      || (await q('SELECT id FROM negociaciones WHERE empresa_id=$1 AND contacto_id=$2 ORDER BY actualizado DESC LIMIT 1',
+        [empresa.id, contacto.id])).rows[0];
+    if (!destino) return { informativo: true, sinNegociacion: true, contacto };
+    await q(
+      `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,msg_id,ts,remitente_numero,cita,canal_id,especial)
+       VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`,
+      [empresa.id, destino.id, texto || '', extId || null, cuando, telefonoWhatsApp || null, citaJSON, canalId || null, especial]);
+    emitir(empresa.id, 'neg:patch', { id: destino.id });
+    return { negociacionId: destino.id, informativo: true, contacto };
+  }
+
   /* --- detección de ubicación --- */
   let det = null;
   if (empresa.flags?.detectarUbicacion) {
@@ -303,11 +326,12 @@ export async function ingresarMensaje(empresa, {
       contacto.responsable_id = enlace.id;
     }
     await q(
-      `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita,editado,canal_id)
-       VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT DO NOTHING`,
+      `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita,editado,canal_id,especial)
+       VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT DO NOTHING`,
       [empresa.id, abierta.id, texto || '', mediaUrl || null, mediaTipo || null, mediaNombre || null,
        archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando,
-      telefonoWhatsApp || null, citaJSON, editadoJSON, canalId || null]);
+      telefonoWhatsApp || null, citaJSON, editadoJSON, canalId || null, especial]);
+    if (anuncio) await historial(empresa.id, abierta.id, anuncio, 'Sistema');
     // Si el cliente escribió por otra línea (otro número de WhatsApp, Cloud API, Messenger…),
     // la negociación pasa a ese canal: el agente responde desde el mismo número al que le escribieron.
     if (canalId && abierta.canal_id !== canalId) {
@@ -374,11 +398,12 @@ export async function ingresarMensaje(empresa, {
   const neg = rows[0];
 
   await q(
-    `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita,editado,canal_id)
-     VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT DO NOTHING`,
+    `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,media_url,media_tipo,media_nombre,archivo_id,ubicacion,msg_id,ts,remitente_numero,cita,editado,canal_id,especial)
+     VALUES ($1,$2,'in',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT DO NOTHING`,
     [empresa.id, neg.id, texto || '', mediaUrl || null, mediaTipo || null, mediaNombre || null,
      archivoId || null, ubicacion ? JSON.stringify(ubicacion) : null, extId || null, cuando,
-      telefonoWhatsApp || null, citaJSON, editadoJSON, canalId || null]);
+      telefonoWhatsApp || null, citaJSON, editadoJSON, canalId || null, especial]);
+  if (anuncio) await historial(empresa.id, neg.id, anuncio, 'Sistema');
 
   if (empresa.flags?.bot && empresa.bot?.activo) programarBot(empresa,neg.id);
   await historial(empresa.id, neg.id,

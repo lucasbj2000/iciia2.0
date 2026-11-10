@@ -30,7 +30,7 @@ console.log('✔ Tiempo real: reconexión, señal de vida y resincronización de
   const core = leer('src/core.mjs'), hist = leer('src/historial-contacto-impar.mjs'), mig = leer('src/migrations/032_linea_mensajes_impar.sql');
   const coreJs = leer('public/js/core.js'), ficha = leer('public/js/ficha.js'), neg = leer('public/js/negociaciones.js'), chat = leer('public/js/chat-mensajes.js');
   assert.ok(mig.includes('ADD COLUMN IF NOT EXISTS canal_id') && !/DELETE\s+FROM|DROP\s/i.test(mig), 'Migración agrega la línea sin borrar nada');
-  assert.equal((core.match(/editadoJSON, canalId \|\| null\]/g) || []).length, 2, 'Los mensajes entrantes guardan su línea');
+  assert.equal((core.match(/editadoJSON, canalId \|\| null, especial\]/g) || []).length, 2, 'Los mensajes entrantes guardan su línea');
   assert.ok(hist.includes('LEFT JOIN canales cl ON cl.id=COALESCE(m.canal_id,ob.canal_id)'), 'El chat muestra la línea de entrada o de salida');
   const m = await import('../public/js/core.js').catch(() => null);
   const etiquetaLinea = m?.etiquetaLinea || new Function(coreJs.slice(coreJs.indexOf('export function etiquetaLinea')).replace('export ', '') + '; return etiquetaLinea;')();

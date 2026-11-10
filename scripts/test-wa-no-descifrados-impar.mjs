@@ -2,6 +2,7 @@
  * Ninguno queda invisible: se espera el reenvío y, si no llega, se deja un aviso
  * que luego se reemplaza por el original. Datos ficticios, sin sesión real. */
 import assert from 'node:assert/strict';
+import { contenidoBaileys } from '../src/contenido-whatsapp-impar.mjs';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
@@ -39,7 +40,7 @@ function entorno() {
     return { rows: [] };
   };
   const sesiones = new Map([['c', { totalEntradas: 0 }]]);
-  const ctx = vm.createContext({
+  const ctx = vm.createContext({ contenidoBaileys,
     q, console: { log() {}, warn() {}, error() {} }, sesiones, Promise, Date, Number, String, JSON, process,
     setTimeout: (fn, ms) => { const t = { fn, ms, vivo: true }; timers.push(t); return t; },
     clearTimeout: t => { if (t) t.vivo = false; },

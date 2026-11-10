@@ -22,7 +22,7 @@ try {
       sucursal text, valor numeric DEFAULT 0, monto_cierre numeric DEFAULT 0, creado timestamptz DEFAULT now(), actualizado timestamptz DEFAULT now(),
       entrada_etapa timestamptz DEFAULT now());
     CREATE TABLE mensajes(id bigserial PRIMARY KEY, empresa_id uuid, negociacion_id uuid, dir text, bot boolean DEFAULT false,
-      carga_historica boolean DEFAULT false, autor_id uuid, ts timestamptz DEFAULT now());`);
+      carga_historica boolean DEFAULT false, autor_id uuid, ts timestamptz DEFAULT now(), especial text, reemplazado_por bigint);`);
   await client.query(`INSERT INTO sucursales(empresa_id,nombre) VALUES ($1,'Asunción'),($1,'Encarnación'),($2,'Ajena')`, [E, OTRA]);
   await client.query(`INSERT INTO usuarios VALUES ($2,$1,'Andrea Recalde',NULL,'disponible','Asunción','agente'),($3,$1,'Tomás Acosta',NULL,'almuerzo','Encarnación','agente')`, [E, A1, A2]);
   await client.query(`INSERT INTO contactos(id,empresa_id,nombre,ciudad) VALUES ($2,$1,'María Elena González','Encarnación'),($3,$1,'Librería Sol','')`, [E, C1, C2]);
