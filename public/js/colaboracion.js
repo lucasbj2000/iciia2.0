@@ -1,4 +1,5 @@
 import { $, $$, esc, get, post, fdate, toast } from './core.js';
+import { historialVisual } from './historial-visual.js';
 const campos={titulo:'Título',etapa:'Etapa',agente_id:'Responsable',responsable_id:'Responsable del contacto',sucursal:'Sucursal',linea:'Línea',valor:'Valor',monto_cierre:'Monto de cierre',motivo:'Motivo',bot_activo:'Bot',nombre:'Nombre',tel:'Teléfono',email:'Correo',doc:'Documento',ciudad:'Ciudad',direccion:'Dirección',notas:'Notas del contacto',usuario:'Usuario',rol:'Rol',cargo:'Cargo',superior_id:'Superior',equipo:'Equipo',nacimiento:'Nacimiento',activo:'Acceso activo',oculto:'Usuario oculto',contraseña:'Contraseña',registro:'Registro',nota_interna:'Nota interna'};
 const operacion={INSERT:'Alta',UPDATE:'Cambio',DELETE:'Eliminación'};
 const valor=v=>v==null?'—':typeof v==='object'?JSON.stringify(v,null,2):String(v);
@@ -39,5 +40,5 @@ export async function cargarCambiosNeg(id){
   const revision=box._revision=(box._revision||0)+1;
   const result=await get(`/negociaciones/${id}/cambios`);
   if($('#f-cambios')!==box||box._revision!==revision)return;
-  box.innerHTML=tablaCambios(result.cambios);
+  box.innerHTML=historialVisual(result);
 }

@@ -195,8 +195,7 @@ function pintar() {
    </div>
 
    <div id="t-notas" class="hidden">${notasHTML()}</div>
-   <div id="t-his" class="hidden"><h3>Historial de cambios</h3><div id="f-cambios"></div><h3>Actividad</h3><ul class="tl">${(n.historial || []).map(h =>
-     `<li>${esc(h.txt)}<small>${fdate(h.ts)} · ${esc(h.por)}</small></li>`).join('')}</ul></div>
+   <div id="t-his" class="hidden"><h3>Historial</h3><p class="hv-ayuda">Todo lo que pasó con esta negociación, del más nuevo al más viejo.</p><div id="f-cambios" class="hv"><p class="hv-vacio">Cargando…</p></div></div>
   </div>`, true);
 
   $('.modal').classList.add('conversation-modal');
@@ -297,8 +296,8 @@ export async function refrescarFicha(id, seguir = false) {
   const titulo = $('#f-etapa');
   if (titulo) { titulo.textContent = etapa(n.etapa).nombre; titulo.style.setProperty('--etapa', etapa(n.etapa).color); }
   if ($('#f-bot')) $('#f-bot').checked = n.bot_activo !== false;
-  const historial = $('#t-his .tl');
-  if (historial) historial.innerHTML = (n.historial || []).map(h => `<li>${esc(h.txt)}<small>${fdate(h.ts)} · ${esc(h.por)}</small></li>`).join('');
+  // El Historial visible se recarga con su línea de tiempo (cambios + actividad).
+  if ($('#t-his') && !$('#t-his').classList.contains('hidden')) cargarCambiosNeg(id).catch(() => {});
 }
 
 export function confirmarEnvio({ id, clienteId, mensajeId }) {

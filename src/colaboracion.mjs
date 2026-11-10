@@ -1,5 +1,6 @@
 import { q, tx } from './db.mjs';
 import { alcanceSQL } from './auth.mjs';
+import { NOTA_REENVIO_SQL } from './historial-contacto-impar.mjs';
 
 const fallo = (status, msg) => { throw Object.assign(new Error(msg), { status }); };
 export async function negociacionVisible(req, id, db = { query: q }, bloquear = false) {
@@ -61,5 +62,29 @@ export async function listarCambios(req, filtro = {}) {
   if (filtro.q) add("(usuario ILIKE ? OR campo ILIKE ?)",'%'+String(filtro.q).slice(0,100)+'%');
   if (filtro.antes) { if (!/^\d{1,18}$/.test(String(filtro.antes))) fallo(422,'Cursor inválido.'); add('id<?::bigint',String(filtro.antes)); }
   const { rows } = await q(`SELECT * FROM registro_cambios WHERE ${condiciones.join(' AND ')} ORDER BY id DESC LIMIT 100`,params);
-  return { cambios: rows, siguiente: rows.length === 100 ? rows.at(-1).id : null };
+  // Nombres para leer el historial sin identificadores: autores y personas que aparecen como valor.
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const ids = new Set();
+  for (const c of rows) {
+    if (c.usuario_id) ids.add(c.usuario_id);
+    for (const v of [c.anterior, c.nuevo]) if (typeof v === 'string' && uuid.test(v)) ids.add(v);
+  }
+  const personas = {};
+  if (ids.size) {
+    const { rows: us } = await q('SELECT id,nombre,usuario FROM usuarios WHERE empresa_id=$1 AND id=ANY($2::uuid[])', [req.empresaId, [...ids]]);
+    for (const u of us) personas[u.id] = u.nombre;
+  }
+  const autores = {};
+  const sinId = [...new Set(rows.filter(c => !c.usuario_id && c.usuario).map(c => c.usuario))];
+  if (sinId.length) {
+    const { rows: us } = await q('SELECT usuario,nombre FROM usuarios WHERE empresa_id=$1 AND usuario=ANY($2::text[])', [req.empresaId, sinId]);
+    for (const u of us) autores[u.usuario] = u.nombre;
+  }
+  // En la ficha, la actividad del sistema (ingresos, respuestas, transferencias) va en la misma línea de tiempo.
+  let actividad;
+  if (filtro.negociacion && !filtro.antes) {
+    ({ rows: actividad } = await q(`SELECT txt,por,ts FROM historial WHERE negociacion_id=$1 AND empresa_id=$2 AND ($3::boolean OR NOT ${NOTA_REENVIO_SQL}) ORDER BY ts DESC LIMIT 200`,
+      [filtro.negociacion, req.empresaId, req.user.rol === 'admin']));
+  }
+  return { cambios: rows, siguiente: rows.length === 100 ? rows.at(-1).id : null, personas, autores, ...(actividad ? { actividad } : {}) };
 }

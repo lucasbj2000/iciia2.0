@@ -1,0 +1,40 @@
+/* ============ Historial de la negociación: línea de tiempo ============
+   Cada momento es una tarjeta con quién, a qué hora y qué pasó en una frase. El punto de la izquierda
+   indica el tipo de evento con un ícono y un color; los detalles del mismo momento van debajo. */
+.hv-ayuda{margin:-6px 0 12px;color:var(--muted);font-size:var(--fs-sm)}
+.hv-vacio{color:var(--muted);font-size:var(--fs-sm);padding:12px 0}
+.hv-dia{margin:18px 0 8px;font:700 var(--fs-sm)/1.2 var(--f-titulo);color:var(--muted);display:flex;align-items:center;gap:10px}
+.hv-dia::after{content:"";flex:1;height:1px;background:var(--line)}
+.hv-dia:first-child{margin-top:4px}
+.hv-lista{list-style:none;margin:0;padding:0;position:relative}
+.hv-lista::before{content:"";position:absolute;left:15px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.hv-momento{position:relative;display:grid;grid-template-columns:32px minmax(0,1fr);gap:10px;padding:0 0 10px}
+.hv-punto{position:relative;z-index:1;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
+  background:var(--surface);border:2px solid var(--c,var(--line));color:var(--c,var(--muted))}
+.hv-punto svg{width:15px;height:15px}
+.hv-tarjeta{border:1px solid var(--line);border-left:3px solid var(--c,var(--line));border-radius:10px;padding:9px 12px;background:var(--surface);min-width:0}
+.hv-tarjeta header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.hv-av{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;flex:none;font:700 10px var(--f-titulo);
+  background:var(--verde-suave,color-mix(in srgb,var(--brand) 18%,transparent));color:var(--verde-texto,var(--brand))}
+.hv-av.auto{background:var(--surface2);color:var(--muted)}
+.hv-av svg{width:13px;height:13px}
+.hv-quien{display:flex;align-items:baseline;gap:8px;min-width:0;font-size:var(--fs-sm)}
+.hv-quien b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hv-quien time{color:var(--muted);font-size:var(--fs-xs);flex:none}
+.hv-frase{margin:0;font-size:var(--fs-md);line-height:1.45}
+.hv-antes{margin:2px 0 0;color:var(--muted);font-size:var(--fs-sm)}
+.hv-detalles{list-style:none;margin:8px 0 0;padding:8px 0 0;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:5px}
+.hv-detalles li{display:flex;gap:8px;align-items:flex-start;font-size:var(--fs-sm)}
+.hv-detalles small{color:var(--muted)}
+.hv-mini{flex:none;color:var(--muted);margin-top:2px}.hv-mini svg{width:13px;height:13px}
+.hv-etapa{display:inline-flex;align-items:center;gap:5px;padding:1px 9px 1px 7px;border-radius:999px;font-weight:600;font-size:.92em;
+  background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--txt);border:1px solid color-mix(in srgb,var(--c) 45%,transparent)}
+.hv-etapa::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c)}
+.hv-tecnico{margin-top:8px;font-size:var(--fs-xs);color:var(--muted)}
+.hv-tecnico summary{cursor:pointer}
+.hv-tecnico pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0 0;font-size:11px}
+/* Color por tipo de evento */
+.t-transfer{--c:#2a78d6}.t-etapa{--c:var(--brand)}.t-cliente{--c:#d9a400}.t-alta{--c:var(--brand)}
+.t-cierre{--c:#c0504d}.t-baja{--c:var(--bad)}.t-lugar{--c:#8a6fd1}.t-bot{--c:#1baf9a}.t-monto{--c:#c9932c}.t-envio{--c:var(--g-gris,#8b8d90)}
+@media (prefers-reduced-motion:no-preference){.hv-momento{animation:hv-entra .35s ease-out both}}
+@keyframes hv-entra{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
