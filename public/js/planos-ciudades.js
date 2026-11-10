@@ -38,6 +38,29 @@ export function distritoDe({ nombre, lat, lon }) {
   return null;
 }
 
+/** Punto bien adentro del distrito: el centroide si cae dentro; si no, el centro del tramo más ancho que lo cruza. */
+function puntoInterior(rings) {
+  const r = rings.reduce((a, b) => b.length > a.length ? b : a, rings[0]);
+  let A = 0, cx = 0, cy = 0;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const f = r[j][0] * r[i][1] - r[i][0] * r[j][1]; A += f; cx += (r[j][0] + r[i][0]) * f; cy += (r[j][1] + r[i][1]) * f;
+  }
+  const c = A ? [cx / (3 * A), cy / (3 * A)] : r[0];
+  if (dentro(c, r)) return c;
+  let mejor = null, ancho = -1;
+  const ys = r.map(p => p[1]), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  for (let k = 1; k < 20; k++) {
+    const y = y0 + (y1 - y0) * k / 20, xs = [];
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+      const [xi, yi] = r[i], [xj, yj] = r[j];
+      if ((yi > y) !== (yj > y)) xs.push(xi + (y - yi) * (xj - xi) / (yj - yi));
+    }
+    xs.sort((a, b) => a - b);
+    for (let i = 0; i + 1 < xs.length; i += 2) if (xs[i + 1] - xs[i] > ancho) { ancho = xs[i + 1] - xs[i]; mejor = [(xs[i] + xs[i + 1]) / 2, y]; }
+  }
+  return mejor || c;
+}
+
 const kmEntre = (a, b) => { const r = Math.PI / 180, dl = (b[1] - a[1]) * r, dn = (b[0] - a[0]) * r;
   const h = Math.sin(dl / 2) ** 2 + Math.cos(a[1] * r) * Math.cos(b[1] * r) * Math.sin(dn / 2) ** 2; return 12742 * Math.asin(Math.sqrt(h)); };
 const f1 = v => v.toFixed(1);
@@ -84,12 +107,13 @@ export function planoCiudad(s, { W = 320, H = 190 } = {}) {
   const kmAncho = kmEntre([vista[0], cy], [vista[2], cy]);
   const largo = [0.5, 1, 2, 3, 5, 10, 20, 25, 50].reduce((a, x) => Math.abs(x - kmAncho / 4) < Math.abs(a - kmAncho / 4) ? x : a, 1);
   const px = largo / kmAncho * W;
-  const enVista = s.lat != null && s.lon != null && s.lon > vista[0] && s.lon < vista[2] && s.lat > vista[1] && s.lat < vista[3];
-  const pin = enVista ? P([s.lon, s.lat]) : null;
+  // El punto siempre cae dentro del distrito dibujado: si la ubicación cargada queda afuera (o no hay), va al centro del distrito.
+  const propio = s.lat != null && s.lon != null && anillos(clave).some(r => dentro([s.lon, s.lat], r));
+  const pin = P(propio ? [s.lon, s.lat] : puntoInterior(anillos(clave)));
   if (pin) vecinos.forEach(x => { if (x.rot && Math.abs(x.rot[0] - pin[0]) < x.nom.length * 3 + 14 && Math.abs(x.rot[1] - pin[1]) < 16) x.rot = null; });
 
   return `<svg class="plano" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img"
-      aria-label="Plano del distrito de ${d.n} (${d.d})${pin ? ' con la ubicación de la sucursal' : ''}">
+      aria-label="Plano del distrito de ${d.n} (${d.d}) con la ubicación de la sucursal">
     <defs><clipPath id="pl-${clave}"><rect width="${W}" height="${H}"/></clipPath>
       <pattern id="pl-tr-${clave}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V6" class="plano-trama"/></pattern></defs>
     <g clip-path="url(#pl-${clave})">
@@ -97,7 +121,7 @@ export function planoCiudad(s, { W = 320, H = 190 } = {}) {
       ${vecinos.map(x => `<path class="plano-vecino" d="${x.d}"/>`).join('')}
       <path class="plano-distrito" d="${ruta(anillos(clave))}"/>
       ${vecinos.filter(x => x.rot).map(x => `<text class="plano-rot-v" x="${f1(x.rot[0])}" y="${f1(x.rot[1])}" text-anchor="middle">${x.nom}</text>`).join('')}
-      ${pin ? `<g class="plano-pin" transform="translate(${f1(pin[0])} ${f1(pin[1])})"><g class="sala-ondas"></g>
+      ${pin ? `<g class="plano-pin${propio ? '' : ' aprox'}" transform="translate(${f1(pin[0])} ${f1(pin[1])})"><g class="sala-ondas"></g>
         <circle class="plano-pin-halo" r="9"/><circle class="plano-pin-c" r="4.2"/><path class="plano-pin-cruz" d="M-11 0H-6M6 0H11M0 -11V-6M0 6V11"/></g>` : ''}
     </g>
     <g class="plano-norte" transform="translate(${W - 16} 16)"><path d="M0 -10L4.5 4L0 1.5L-4.5 4Z"/><text y="15" text-anchor="middle">N</text></g>

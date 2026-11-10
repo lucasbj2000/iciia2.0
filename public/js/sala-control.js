@@ -61,14 +61,16 @@ function sucursalesConDatos(d) {
   const usadas = new Set();
   const lista = d.sucursales.map(s => {
     const k = norm(s.nombre), x = por.get(k) || {}; usadas.add(k);
-    return { nombre: s.nombre, k, lat: s.lat, lon: s.lon, abiertas: x.abiertas || 0, espera: x.espera || 0,
+    return { nombre: s.nombre, k, lat: s.lat, lon: s.lon, agentes: s.agentes, abiertas: x.abiertas || 0, espera: x.espera || 0,
       nuevos: x.nuevos || 0, ventas: x.ventas || 0, monto: x.monto || 0 };
   });
   const resto = d.porSucursal.filter(x => !usadas.has(norm(x.sucursal)));
   if (resto.length) lista.push(resto.reduce((a, x) => ({ ...a, abiertas: a.abiertas + x.abiertas, espera: a.espera + x.espera,
     nuevos: a.nuevos + x.nuevos, ventas: a.ventas + x.ventas, monto: a.monto + x.monto }),
     { nombre: 'Sin sucursal', k: '', sin: true, abiertas: 0, espera: 0, nuevos: 0, ventas: 0, monto: 0 }));
-  return lista;
+  // Sin personas asignadas y sin movimiento hoy (nuevos, esperando, ventas) la sucursal no se muestra.
+  const movimiento = s => s.nuevos || s.espera || s.ventas;
+  return lista.filter(s => s.sin ? movimiento(s) || s.abiertas : (s.agentes ?? 1) > 0 || movimiento(s));
 }
 function agrupar(lista) {
   const grupos = [];

@@ -25,6 +25,7 @@ try {
     CREATE TABLE negociaciones(id uuid PRIMARY KEY, empresa_id uuid, contacto_id uuid, etapa text, creado timestamptz DEFAULT now());
     CREATE TABLE historial(id bigserial PRIMARY KEY, empresa_id uuid, negociacion_id uuid, txt text, por text, ts timestamptz DEFAULT now());`);
   await admin.query(readFileSync(new URL('../src/migrations/033_campanas_impar.sql', import.meta.url), 'utf8'));
+  await admin.query('ALTER TABLE campana_destinos ADD COLUMN IF NOT EXISTS texto TEXT'); // de la 038
   await admin.query("INSERT INTO empresas VALUES($1,'impar')", [E]);
   await admin.query(`INSERT INTO usuarios(id,empresa_id,nombre,rol) VALUES ($1,$4,'Admin','admin'),($2,$4,'Gerente','gerente'),($3,$4,'Agente','agente')`, [ADM, GER, AG, E]);
   await admin.query("INSERT INTO canales VALUES($1,$2,'Verificado','whatsapp_api',true,'{\"phone_number_id\":\"1\"}')", [CANAL, E]);
@@ -74,6 +75,8 @@ try {
   await admin.query("UPDATE campanas SET estado='enviando',iniciado=now() WHERE id=$1", [id]);
   await C.procesarCampanas({ enviar });
   assert.equal(enviados.length, 2, 'límite diario de 2');
+  const textos = (await admin.query("SELECT texto FROM campana_destinos WHERE campana_id=$1 AND texto IS NOT NULL ORDER BY id", [id])).rows.map(x => x.texto);
+  assert.ok(textos.length === 2 && textos.every(t => /^Hola \S/.test(t) && !t.includes('{{')), 'Se guarda la plantilla tal como la recibió el cliente');
   await C.procesarCampanas({ enviar });
   r = await C.resumenCampana(id, E);
   assert.equal(enviados.length, 2);

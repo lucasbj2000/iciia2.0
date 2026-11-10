@@ -96,7 +96,10 @@ export async function fotoSala(req, consulta = q) {
   const promedios = tiemposRespuesta(consulta, { empresaId: eid, rango: rangoDesdeConsulta({ desde: hoy, hasta: hoy }),
     where: alc4.where, params: alc4.params, reglas: req.empresa?.reglas || {} }).catch(() => null);
   const [sucursales, porSucursal, cola, tiempos, ritmo, equipo, ubicados] = await Promise.all([
-    consulta(`SELECT nombre,ciudad,lat,lon FROM sucursales WHERE empresa_id=$1 AND activa ORDER BY nombre`, [eid]),
+    // Cada sucursal con la cantidad de personas activas asignadas: las que no tienen equipo ni movimiento no se muestran.
+    consulta(`SELECT s.nombre,s.ciudad,s.lat,s.lon,
+        (SELECT COUNT(*) FROM usuarios u WHERE u.empresa_id=s.empresa_id AND u.activo AND lower(u.sucursal)=lower(s.nombre))::int AS agentes
+       FROM sucursales s WHERE s.empresa_id=$1 AND s.activa ORDER BY s.nombre`, [eid]),
     consulta(`SELECT COALESCE(NULLIF(n.sucursal,''),'') AS sucursal,
         COUNT(*) FILTER (WHERE n.etapa NOT IN ('ganado','cerrado'))::int AS abiertas,
         COUNT(*) FILTER (WHERE n.etapa='espera')::int AS espera,
@@ -142,7 +145,7 @@ export async function fotoSala(req, consulta = q) {
     // Sucursales sin coordenadas cargadas toman la ubicación conocida de IMPAR.
     sucursales: sucursales.rows.map(s => {
       const g = s.lat == null || s.lon == null ? sucursalDe(s.nombre) : null;
-      return { nombre: s.nombre, ciudad: s.ciudad, lat: s.lat ?? g?.lat ?? null, lon: s.lon ?? g?.lon ?? null };
+      return { nombre: s.nombre, ciudad: s.ciudad, lat: s.lat ?? g?.lat ?? null, lon: s.lon ?? g?.lon ?? null, agentes: s.agentes ?? null };
     }),
     porSucursal: porSucursal.rows,
     cola: cola.rows.map(x => ({ id: x.id, cliente: nombreCorto(x.cliente), agente: x.agente ? nombreCorto(x.agente) : null,

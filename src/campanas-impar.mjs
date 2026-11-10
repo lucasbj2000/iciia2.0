@@ -11,6 +11,7 @@
 import { q, tx } from './db.mjs';
 import { resolverToken } from './meta-secretos-impar.mjs';
 import { historial } from './core.mjs';
+import { emitir } from './realtime.mjs';
 
 const WA_API = `https://graph.facebook.com/${process.env.WA_GRAPH_VERSION || 'v26.0'}`;
 export const LOTE = 20;               // mensajes por vuelta del motor (cada 4 s ≈ 5 por segundo)
@@ -155,6 +156,32 @@ export function textoFinal(plantilla, variables = {}, destino = {}) {
   };
 }
 
+/** Texto completo de la plantilla tal como la ve el cliente (encabezado, cuerpo, pie y botones). */
+export function textoPlantilla(plantilla, variables = {}, destino = {}) {
+  const t = textoFinal(plantilla, variables, destino);
+  const enc = plantilla.encabezado;
+  const adjunto = enc && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(enc.formato)
+    ? { IMAGE: '🖼️ Imagen', VIDEO: '🎬 Video', DOCUMENT: '📄 Documento' }[enc.formato] : '';
+  const botones = (plantilla.botones || []).map(b => `🔘 ${b.texto}`).join('\n');
+  return [adjunto, t.encabezado || '', t.cuerpo, t.pie || '', botones].filter(Boolean).join('\n\n');
+}
+
+/** Pone la plantilla enviada en la conversación del cliente (la abierta, o la indicada). Sin duplicar. */
+export async function plantillaEnChat({ empresaId, telefono, waId, texto, ts, canalId = null, negociacionId = null }) {
+  if (!waId || !texto) return null;
+  const neg = negociacionId || (await q(
+    `SELECT n.id FROM negociaciones n JOIN contactos c ON c.id=n.contacto_id
+      WHERE n.empresa_id=$1 AND (c.tel_norm=$2 OR c.tel=$2 OR c.externos->>'whatsapp'=$2)
+        AND n.etapa NOT IN ('ganado','cerrado') ORDER BY n.actualizado DESC LIMIT 1`, [empresaId, telefono])).rows[0]?.id;
+  if (!neg) return null;
+  const { rows } = await q(
+    `INSERT INTO mensajes (empresa_id,negociacion_id,dir,txt,msg_id,ts,canal_id,especial,estado)
+     VALUES ($1,$2,'out',$3,$4,$5,$6,'plantilla','ok') ON CONFLICT DO NOTHING RETURNING id`,
+    [empresaId, neg, texto, String(waId), ts || new Date(), canalId]);
+  if (rows[0]) emitir(empresaId, 'neg:patch', { id: neg });
+  return rows[0]?.id || null;
+}
+
 /** Revisa que todas las variables tengan de dónde salir antes de crear la campaña. */
 export function validarVariables(plantilla, variables = {}) {
   const faltan = [];
@@ -259,8 +286,12 @@ async function procesarCampana(c, enviar) {
     }
     try {
       const waId = await enviar(c, d);
-      await q("UPDATE campana_destinos SET estado='enviado',wa_id=$2,enviado=now(),error=NULL,actualizado=now() WHERE id=$1 AND estado='pendiente'",
-        [d.id, waId]);
+      const texto = textoPlantilla(c.plantilla, c.variables, d);
+      await q("UPDATE campana_destinos SET estado='enviado',wa_id=$2,enviado=now(),error=NULL,actualizado=now(),texto=$3 WHERE id=$1 AND estado='pendiente'",
+        [d.id, waId, texto]);
+      // Si el cliente ya tiene una conversación abierta, la plantilla aparece ahí enseguida.
+      await plantillaEnChat({ empresaId: c.empresa_id, telefono: d.telefono, waId, texto, canalId: c.canal_id })
+        .catch(e => console.warn('[campañas] plantilla en chat', e.name));
     } catch (e) {
       const accion = clasificarError(e.codigo);
       if (accion === 'pausar') return pausar(c, explicarError(e.codigo, e.message));
@@ -325,8 +356,13 @@ export async function registrarRespuestaCampana(empresa, remitente, texto, negoc
       WHERE d.id = (SELECT id FROM campana_destinos WHERE empresa_id=$1 AND telefono=$2 AND respondio IS NULL
                       AND enviado > now() - interval '7 days' ORDER BY enviado DESC LIMIT 1)
         AND c.id=d.campana_id
-      RETURNING c.nombre`, [empresa.id, tel]);
-  if (d && negociacionId) await historial(empresa.id, negociacionId, `Respondió a la campaña «${d.nombre}»`, 'Sistema');
+      RETURNING c.nombre, c.canal_id, d.wa_id, d.texto, d.enviado`, [empresa.id, tel]);
+  if (d && negociacionId) {
+    // La plantilla a la que respondió queda en la conversación, antes de su respuesta.
+    await plantillaEnChat({ empresaId: empresa.id, telefono: tel, waId: d.wa_id, texto: d.texto || `Plantilla de la campaña «${d.nombre}»`,
+      ts: d.enviado, canalId: d.canal_id, negociacionId }).catch(() => {});
+    await historial(empresa.id, negociacionId, `Respondió a la campaña «${d.nombre}»`, 'Sistema');
+  }
 }
 
 /* ================= Destinatarios ================= */

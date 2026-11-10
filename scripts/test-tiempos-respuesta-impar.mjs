@@ -51,10 +51,15 @@ const casos = [['Asunción', -25.2991778, -57.6356097, 'Asunción'], ['Lambaré'
 for (const [nombre, lat, lon, distrito] of casos) {
   assert.equal(DISTRITOS[distritoDe({ nombre, lat, lon })].n, distrito, nombre + ' cae en su distrito');
   const svg = planoCiudad({ nombre, lat, lon });
-  assert.ok(svg.includes('class="plano-distrito"') && svg.includes('class="plano-pin"') && svg.includes(' km</text>') && svg.includes('class="plano-norte"'), nombre + ': plano con ubicación, escala y norte');
+  assert.ok(svg.includes('class="plano-distrito"') && svg.includes('class="plano-pin') && svg.includes(' km</text>') && svg.includes('class="plano-norte"'), nombre + ': plano con ubicación, escala y norte');
 }
 assert.equal(DISTRITOS[distritoDe({ nombre: 'Sucursal nueva', lat: -25.3397, lon: -57.5088 })].n, 'San Lorenzo', 'una sucursal nueva se ubica por sus coordenadas');
 assert.equal(distritoDe({ nombre: 'Sin datos' }), null);
+// El punto siempre dentro del distrito: la ubicación cargada de Madame Lynch cae en Asunción, así que va al centro de Fernando de la Mora.
+const fdm = planoCiudad({ nombre: 'Fernando de la Mora', lat: -25.2892772, lon: -57.5488351 });
+assert.ok(fdm.includes('class="plano-pin aprox"'), 'Ubicación fuera del distrito: el punto va adentro');
+assert.ok(planoCiudad({ nombre: 'Lambaré', lat: -25.3526614, lon: -57.6023125 }).includes('class="plano-pin"'), 'Ubicación correcta: se respeta');
+assert.ok(sala.includes("(s.agentes ?? 1) > 0 || movimiento(s)") && salaSrv.includes('AS agentes'), 'Sucursales sin personas ni movimiento no se muestran');
 assert.ok(leer('public/js/distritos-py.js').includes('Cartografía Censal 2022'), 'límites oficiales del INE');
 assert.ok(sala.includes("kpiPromedio('agente', 'Respuesta de agentes'") && sala.includes("kpiPromedio('bot', 'Respuesta del bot'"), 'promedio de respuesta de agentes y bot por separado');
 assert.ok(salaSrv.includes('promedios: await promediosSala(promedios)'), 'el servidor manda los promedios de hoy');

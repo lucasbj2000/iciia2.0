@@ -20,6 +20,9 @@ export async function resolverCitaEntrante(q, empresaId, cita) {
          JOIN outbox o ON o.id=w.outbox_id AND o.empresa_id=w.empresa_id
          JOIN mensajes m ON m.id=o.mensaje_id AND m.empresa_id=o.empresa_id
         WHERE w.empresa_id=$1 AND w.wa_id=$2
+       UNION ALL
+       SELECT NULL,'out',d.texto,NULL,3 FROM campana_destinos d
+        WHERE d.empresa_id=$1 AND d.wa_id=$2 AND d.texto IS NOT NULL
      ) x ORDER BY orden LIMIT 1`, [empresaId, cita.ext]);
   const m = rows[0];
   if (m) return { id: m.id, ext: cita.ext, dir: m.dir, txt: vistaPrevia(m.txt, m.media_tipo) };

@@ -28,6 +28,7 @@ const P = {
   seleccionar: '<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="m8 12.3 2.8 2.7 5.5-5.7"/>',
   alerta: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5"/><circle class="lleno" cx="12" cy="17.2" r="1.1"/>',
   campana: '<path d="M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+  megafono: '<path d="M3 10v4h3l6 4V6L6 10z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
   ok: '<circle cx="12" cy="12" r="8.5"/><path d="m8.3 12.3 2.6 2.6 4.9-5.4"/>',
   prohibido: '<circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/>',
   imagen: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.7"/><path d="m20 16-4.5-4.5L6 19.5"/>',

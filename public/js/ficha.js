@@ -262,7 +262,7 @@ function mensajeHTML(m) {
           ${citaHTML(m.cita)}<div class="esp-txt">${esc(m.txt || '')}</div>
           <small>${lineaMensaje(m)}<time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time></small></div>`;
        return `<div class="msg ${m.dir} ${m.especial ? 'esp-' + m.especial : ''} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}"${tramo} data-linea="${esc(m.linea_id || '')}">
-          ${responder}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
+          ${responder}${m.especial === 'plantilla' ? `<span class="msg-plantilla">${ic('megafono')} Plantilla de WhatsApp · campaña</span>` : ''}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
           <small>${lineaMensaje(m)}${m.carga_historica ? `${ic('lapiz')} Carga histórica (admin) · ` : ''}${m.bot ? `${ic('bot')} Bot · ` : ''}<time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time>${otroNumero ? ` · <span class="msg-otro-num" title="Escribió desde otro número">${ic('celular')} ${esc(m.remitente_numero)}</span>` : ''}
           ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ` · ${ic('alerta')} no enviado` : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small></div>`;
 }
