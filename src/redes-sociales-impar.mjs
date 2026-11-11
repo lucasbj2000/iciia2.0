@@ -10,7 +10,7 @@ export function versionGraph(valor) {
   return n >= MINIMA ? String(valor) : VIGENTE;
 }
 export const API = `https://graph.facebook.com/${versionGraph(process.env.GRAPH_VERSION)}`;
-export const CAMPOS_PAGINA = ['messages', 'messaging_postbacks'];
+export const CAMPOS_PAGINA = ['messages', 'messaging_postbacks', 'message_reactions', 'messaging_referrals'];
 
 async function llamar(fetchFn, url, token, opciones = {}) {
   const r = await fetchFn(url, {
