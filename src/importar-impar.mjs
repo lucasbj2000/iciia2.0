@@ -49,9 +49,12 @@ export async function importarImpar(empresaId,data){
       const {rows:source}=await c.query('SELECT contacto_id FROM impar_clientes_fuente WHERE empresa_id=$1 AND clave=$2',[empresaId,clave]);
       let contact=source[0]?{id:source[0].contacto_id}:byDoc.get(sap)||byDoc.get(doc);
       const telephone=tn?byTel.get(tn):null;
-      if(!contact&&telephone&&normalizarNombre(telephone.nombre)===normalizarNombre(d.nombre))contact=telephone;
+      // Un número = una sola ficha: con otro nombre, la fila queda en la ficha que ya tiene ese número.
+      if(!contact&&telephone){
+        if(normalizarNombre(telephone.nombre)!==normalizarNombre(d.nombre))summary.telefonosCompartidos++;
+        contact=telephone;
+      }
       if(!contact){
-        if(telephone){tn='';summary.telefonosCompartidos++;}
         const {rows}=await c.query(`INSERT INTO contactos(empresa_id,nombre,tel,tel_norm,email,doc,sucursal,linea,responsable_id,notas,externos) VALUES($1,$2,$3,$4,$5,$6,$7,'Ventas',$8,$9,$10) RETURNING id`,[empresaId,d.nombre,tel,tn,d.email||'',doc,vendedor?.sucursal||'',vendedor?.id||null,`Tipo de cliente: ${d.tipo||''} · Vendedor SAP: ${d.vendedor||''}`,JSON.stringify({sap,tipo_cliente:d.tipo||'',vendedor_sap:d.vendedor||''})]);
         contact={id:rows[0].id,nombre:d.nombre};summary.contactosNuevos++;
         if(sap)byDoc.set(sap,contact);if(doc)byDoc.set(doc,contact);if(tn)byTel.set(tn,contact);

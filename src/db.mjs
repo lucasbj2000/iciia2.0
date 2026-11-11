@@ -66,7 +66,6 @@ export const FLAGS_DEF = [
   { k: 'marcadorRegestion', t: 'Marcador de re gestionado', d: 'Marca negociaciones por re contacto.', v: true },
   { k: 'cargaManual', t: 'Carga manual de negociación', d: 'El admin carga negociaciones que no ingresaron.', v: true },
   { k: 'montoObligatorio', t: 'Monto obligatorio en Cerrado Ganado', d: 'Exige el monto de cierre.', v: true },
-  { k: 'antiDuplicado', t: 'Anti duplicado en etapas activas', d: 'Un cliente no puede tener dos abiertas.', v: true },
   { k: 'eliminarNegociaciones', t: 'Eliminación de negociaciones', d: 'Borrado en lote o individual (admin).', v: true },
   { k: 'respuestasRapidas', t: 'Respuestas rápidas', d: 'Plantillas de mensaje con texto e imagen.', v: true },
   { k: 'adjuntos', t: 'Adjuntos en conversaciones', d: 'Enviar imágenes, videos, audios y documentos.', v: true },

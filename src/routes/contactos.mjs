@@ -129,7 +129,6 @@ r.get('/', requiere(), async (req, res) => {
 });
 
 r.get('/chequeo', requiere(), async (req, res) => {
-  if (!req.empresa.flags?.antiDuplicado) return res.json({ duplicado: false });
   const dup = await negActivaPorTel(req.empresa, req.query.tel);
   if (!dup) return res.json({ duplicado: false });
   const { where, params } = await alcanceSQL(req.user, req.empresaId, 'n', 3);
@@ -255,7 +254,7 @@ r.post('/', requiere(), async (req, res) => {
   if (!b.nombre || !b.tel) return res.status(422).json({ error: 'Nombre y teléfono son obligatorios.' });
   try { b.tel=normalizarNumero(b.tel).numero; }
   catch(e){return res.status(e.status||422).json({error:e.message});}
-  if (b.iniciarNegociacion && emp.flags?.antiDuplicado) {
+  if (b.iniciarNegociacion) {
     const dup = await negActivaPorTel(emp, b.tel);
     if (dup) return res.status(409).json({ error: 'duplicado', negociacionId: dup.id,
       mensaje: `Ese cliente ya tiene una negociación abierta en ${nombreEtapa(emp, dup.etapa)}.` });

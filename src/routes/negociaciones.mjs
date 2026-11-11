@@ -139,7 +139,7 @@ r.patch('/:id/etapa', requiere(), async (req, res) => {
     return res.status(422).json({ error: 'monto_requerido', mensaje: 'El monto de cierre es obligatorio.' });
   if (etapa === 'cerrado' && !motivo)
     return res.status(422).json({ error: 'motivo_requerido', mensaje: 'Indicá el motivo de cierre.' });
-  if (emp.flags?.antiDuplicado && etapaActiva(emp, etapa) && !etapaActiva(emp, n.etapa)) {
+  if (etapaActiva(emp, etapa) && !etapaActiva(emp, n.etapa)) {
     const dup = await negActivaDeContacto(emp, n.contacto_id, n.id);
     if (dup) return res.status(409).json({ error: 'duplicado', negociacionId: dup.id,
       mensaje: `${n.cliente} ya tiene una negociación abierta en ${nombreEtapa(emp, dup.etapa)}.` });
@@ -421,7 +421,7 @@ r.post('/:id/regestionar', requiere(), async (req, res) => {
 
   const o = await obtenerNegociacionVisible(req, req.params.id);
   if (!o) return res.status(404).json({ error: 'no encontrada' });
-  if (emp.flags?.antiDuplicado) {
+  { // Anti duplicado: siempre activo
     const dup = await negActivaDeContacto(emp, o.contacto_id, o.id);
     if (dup) return res.status(409).json({
       error: 'duplicado',
@@ -556,7 +556,7 @@ r.post('/manual', requiere('admin'), async (req, res) => {
   if (!b.nombre || !b.tel || !b.mensaje)
     return res.status(422).json({ error: 'Nombre, teléfono y mensaje del cliente son obligatorios.' });
   const etapa = b.etapa || 'contactado';
-  if (emp.flags?.antiDuplicado && etapaActiva(emp, etapa)) {
+  if (etapaActiva(emp, etapa)) {
     const dup = await negActivaPorTel(emp, b.tel);
     if (dup) return res.status(409).json({ error: 'duplicado', negociacionId: dup.id,
       mensaje: `Ese cliente ya tiene una negociación abierta en ${nombreEtapa(emp, dup.etapa)}.` });

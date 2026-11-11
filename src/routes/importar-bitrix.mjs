@@ -56,6 +56,7 @@ r.post('/aplicar',async(req,res,next)=>{
           'WHERE NOT EXISTS (SELECT 1 FROM contactos WHERE empresa_id=$1 AND '+ 
           "(tel_norm=$4 OR RIGHT(regexp_replace(tel,'[^0-9]','','g'),8)=$4 "+
           "OR RIGHT(regexp_replace(COALESCE(externos->>'whatsapp',''),'[^0-9]','','g'),8)=$4)) "+
+          'AND NOT EXISTS (SELECT 1 FROM contacto_telefonos WHERE empresa_id=$1 AND tel_norm=$4) '+
           'AND NOT EXISTS (SELECT 1 FROM contactos WHERE empresa_id=$1 AND '+
           "lower(regexp_replace(translate(nombre,'ÁÉÍÓÚáéíóúÑñ','AEIOUaeiounn'),'[^a-zA-Z0-9]+',' ','g')) = "+
           "lower(regexp_replace(translate($2,'ÁÉÍÓÚáéíóúÑñ','AEIOUaeiounn'),'[^a-zA-Z0-9]+',' ','g'))) "+

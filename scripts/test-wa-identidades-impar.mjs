@@ -28,7 +28,8 @@ const q=async(sql,args)=>{
   }
   throw Error('SQL no contemplada '+sql);
 };
-const context=vm.createContext({q,console,String,Boolean,Number,Date});
+const unificadas=[];
+const context=vm.createContext({q,console,String,Boolean,Number,Date,unificarPorPareja:async(...a)=>{unificadas.push(a);return null;}});
 const clean=mod.replace(/^import .*;$/gm,'').replace(/\bexport (const|async function|function)/g,'$1');
 vm.runInContext(clean+'\nglobalThis.metodos={parejaDesdeEventoWA,validarParejaWA,telefonoAStringJid,registrarParejaWA,rutaParaEnvioWA,estadoRutaWA,elegirRutaWA,decidirRutaWA,modoDesdeEventoWA};',context);
 const {
@@ -47,6 +48,7 @@ assert.equal(parejaDesdeEventoWA({remoteJid:'malicioso@evil.com',senderPn:pn}),n
 const canal={id:'canal-A',empresa_id:'impar'};
 assert.equal((await rutaParaEnvioWA(canal,pn)).destino,pn,'PN por defecto');
 assert.equal(await registrarParejaWA(canal,{pn,lid}),true);
+assert.equal(unificadas.length,1,'Al confirmar número y @lid se unifican las fichas de esa persona');
 assert.equal((await rutaParaEnvioWA(canal,pn)).destino,pn,'Con mapa pero sin saber cómo escribe el cliente: número');
 assert.equal((await estadoRutaWA('impar','canal-A',pn)).alternativa,true);
 assert.equal(await elegirRutaWA('impar','canal-A',pn,true),true);

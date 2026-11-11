@@ -165,6 +165,13 @@ export async function buscarContacto(empresa, { tel, externoTipo, externoId }) {
       `SELECT * FROM contactos WHERE empresa_id=$1 AND externos->>$2 = $3 LIMIT 1`,
       [empresa.id, externoTipo, externo]);
     if (rows[0]) return rows[0];
+    // Ficha unificada: el @lid quedó anotado aparte porque «whatsapp» guarda el número.
+    if (externoTipo === 'whatsapp' && externo.endsWith('@lid')) {
+      const { rows: unificadas } = await q(
+        `SELECT * FROM contactos WHERE empresa_id=$1 AND externos->>'whatsapp_lid' = $2 LIMIT 1`,
+        [empresa.id, externo]);
+      if (unificadas[0]) return unificadas[0];
+    }
 
     // Compatibilidad con contactos creados antes de preservar el sufijo @lid.
     if (externoTipo === 'whatsapp' && externo.endsWith('@lid')) {
@@ -202,6 +209,16 @@ export async function crearContacto(empresa,d,{devolverCreacion=false}={}) {
         throw Object.assign(new Error('Este teléfono coincide con varios contactos existentes. Revisar antes de crear otra ficha.'),{status:409});
       if(existentes.length===1)return resultado(existentes[0],false);
     }
+    // Sin teléfono (Messenger, Instagram, WhatsApp por @lid): una sola ficha por identidad,
+    // aunque lleguen dos mensajes al mismo tiempo.
+    const [tipoExt,idExt]=Object.entries(d.externos||{}).find(([,v])=>v)||[];
+    if(!clave && tipoExt){
+      await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[empresa.id+':ext:'+tipoExt+':'+idExt]);
+      const {rows:mismos}=await db.query(
+        'SELECT * FROM contactos WHERE empresa_id=$1 AND (externos->>$2=$3 OR ($2=$4 AND externos->>$5=$3)) LIMIT 1',
+        [empresa.id,tipoExt,String(idExt),'whatsapp','whatsapp_lid']);
+      if(mismos[0])return resultado(mismos[0],false);
+    }
     const {rows}=await db.query(
       `INSERT INTO contactos (empresa_id,nombre,tel,tel_norm,email,doc,ciudad,direccion,sucursal,linea,responsable_id,notas,externos)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
@@ -225,7 +242,15 @@ async function sucursalPorDefecto(empresa) {
 
 /* ================= INGESTA UNIFICADA ================= */
 /** Punto único por donde entra TODO mensaje externo (los 4 canales). */
-export async function ingresarMensaje(empresa, {
+export async function ingresarMensaje(empresa, datos) {
+  try { return await ingresarMensajeUnico(empresa, datos); }
+  catch (e) {
+    // Dos mensajes del mismo cliente al mismo tiempo: el segundo va a la negociación que abrió el primero.
+    if (e?.code === '23505' && /idx_neg_activa_unica/.test(String(e.constraint || e.message))) return ingresarMensajeUnico(empresa, datos);
+    throw e;
+  }
+}
+async function ingresarMensajeUnico(empresa, {
   canalId, canalSucursal, canalLinea, origen, extId, remitente, nombre, texto,
   mediaUrl, mediaTipo, mediaNombre, archivoId, ubicacion, ts, externoTipo, cita, editado,
   especial = null, anuncio = null
@@ -313,7 +338,7 @@ export async function ingresarMensaje(empresa, {
   }
 
   /* --- ¿ya tiene una negociación abierta? --- */
-  const abierta = empresa.flags?.antiDuplicado ? await negActivaDeContacto(empresa, contacto.id) : null;
+  const abierta = await negActivaDeContacto(empresa, contacto.id); // anti duplicado siempre activo
 
   if (abierta) {
     if (enlace && abierta.agente_id !== enlace.id) {

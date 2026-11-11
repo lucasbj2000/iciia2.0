@@ -169,7 +169,7 @@ async function ingresar({previo=false,responsable=null,concurrente=false,pausado
     return {rows:[],rowCount:1};
   };
   const fn=vm.runInNewContext(ingesta+';ingresarMensaje',{q:query,Date,
-    buscarContacto:async()=>previo?contacto:null,
+    buscarContacto:async()=>previo?contacto:null,negActivaDeContacto:async()=>null,
     crearContacto:async()=>({contacto,creado:!concurrente}),etiquetaAnonima:()=> 'Cliente',
     responsableUltimoCierre:async()=>null,asignarEquitativo:async()=> 'reparto',
     historial:async()=>{},notificar:async()=>{},emitir:()=>{},pulsoSala:()=>{},programarBot:()=>{},

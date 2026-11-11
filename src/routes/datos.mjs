@@ -308,7 +308,7 @@ r.post('/importar', requiere('admin', 'gerente'), async (req, res) => {
       if (!etapasValidas.includes(etapa)) etapa = etapaPorNombre.get(etapa) || opciones.etapaPorDefecto || 'contactado';
 
       /* --- anti duplicado --- */
-      if (emp.flags?.antiDuplicado && etapaActiva(emp, etapa)) {
+      if (etapaActiva(emp, etapa)) {
         const { rows: dup } = await q(
           `SELECT n.id FROM negociaciones n WHERE n.empresa_id=$1 AND n.contacto_id=$2
              AND n.etapa = ANY($3) LIMIT 1`,

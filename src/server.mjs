@@ -15,6 +15,7 @@ import { prepararRecepcionImpar } from './preparar-recepcion-impar.mjs';
 import { login, requiere, firmar } from './auth.mjs';
 import { sseHandler } from './realtime.mjs';
 import { motorSLA, avisarCumples, auditar, notificar } from './core.mjs';
+import { unificarDuplicadosExistentes, errorDuplicado } from './duplicados-impar.mjs';
 import { arrancarWorkers } from './worker.mjs';
 import rCampanas from './routes/campanas.mjs';
 import { MEDIA_DIR } from './archivos.mjs';
@@ -278,8 +279,12 @@ app.get(/^(?!\/api|\/webhook|\/media).*/, (_req, res) => {
 });
 
 app.use((err, _req, res, _next) => {
+  // Bloqueo de duplicados de la base: se responde con un aviso claro, no con error interno.
+  const dup = errorDuplicado(err);
+  if (dup) { if (!res.headersSent) res.status(409).json({ error: dup.message, codigo: dup.codigo }); return; }
   console.error('[error]', err);
   if (res.headersSent) return;
+  if (Number(err?.status) >= 400 && Number(err.status) < 500) return res.status(err.status).json({ error: err.message });
   res.status(500).json({ error: 'error interno del servidor' });
 });
 
@@ -289,6 +294,8 @@ app.use((err, _req, res, _next) => {
   await migrar();
   await seed();
   await prepararRecepcionImpar();
+  // Une fichas o negociaciones repetidas que hayan quedado de versiones anteriores.
+  await unificarDuplicadosExistentes();
   arrancarWorkers();
   await baileys.prelevantar();
   setInterval(() => motorSLA().catch(e => console.error('[sla]', e.message)), 60000);

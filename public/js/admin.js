@@ -1133,7 +1133,7 @@ async function aLimpieza() {
      <div class="kpi"><span>Duplicados activos detectados</span>
        <b style="color:${dupes.length ? 'var(--bad)' : 'var(--ok)'}">${dupes.length}</b></div>
      <div class="kpi"><span>Regla anti duplicado</span>
-       <b class="chico" style="color:${fx('antiDuplicado') ? 'var(--ok)' : 'var(--warn)'}">${fx('antiDuplicado') ? 'Activa' : 'Desactivada'}</b></div></div>
+       <b class="chico" style="color:var(--ok)">Siempre activa</b></div></div>
    ${dupes.length ? `<button class="btn danger sm" id="l-dup">${ic('papelera')} Eliminar ${dupes.length} duplicada(s)</button>
      <h3 style="margin-top:16px">Duplicados en etapas activas</h3>
      <table><thead><tr><th>Cliente</th><th>Etapa</th><th>Agente</th><th>Creada</th></tr></thead>

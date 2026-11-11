@@ -108,8 +108,10 @@ r.put('/contactos/:id', requiere('admin'), async (req, res) => {
   const tel = String(b.tel ?? c.tel).trim();
   const norm = telNorm(tel);
   if (norm && norm !== c.tel_norm) {
-    const { rows: d } = await q('SELECT nombre FROM contactos WHERE empresa_id=$1 AND tel_norm=$2 AND id<>$3',
-      [req.empresaId, norm, c.id]);
+    const { rows: d } = await q(
+      `SELECT c.nombre FROM contactos c WHERE c.empresa_id=$1 AND c.id<>$3
+          AND (c.tel_norm=$2 OR EXISTS (SELECT 1 FROM contacto_telefonos t WHERE t.contacto_id=c.id AND t.tel_norm=$2))
+        LIMIT 1`, [req.empresaId, norm, c.id]);
     if (d.length) return res.status(409).json({ error: `Ese teléfono ya pertenece a «${d[0].nombre}».` });
   }
   const resp = b.responsableId === undefined ? c.responsable_id : vacioANull(b.responsableId);

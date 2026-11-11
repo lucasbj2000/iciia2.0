@@ -2,6 +2,7 @@
  * Nunca inferir LID desde un número ni usar mapas de otra empresa/canal.
  */
 import {q} from './db.mjs';
+import {unificarPorPareja} from './duplicados-impar.mjs';
 
 const base = valor => String(valor||'').trim().toLowerCase()
   .replace(/:([0-9]+)@(s\.whatsapp\.net|lid)$/,'@$2');
@@ -71,6 +72,9 @@ export async function registrarParejaWA(canal,par,fuente='mensaje_entrante',modo
     'fallos_pn=CASE WHEN wa_identidades_impar.lid_jid=EXCLUDED.lid_jid THEN wa_identidades_impar.fallos_pn ELSE 0 END, '+
     'fallos_lid=CASE WHEN wa_identidades_impar.lid_jid=EXCLUDED.lid_jid THEN wa_identidades_impar.fallos_lid ELSE 0 END',
     [canal.empresa_id,canal.id,pareja.pn,pareja.lid,fuente,m]);
+  // Misma persona confirmada por WhatsApp: si tenía una ficha por @lid y otra por número, quedan en una.
+  await unificarPorPareja(canal.empresa_id,pareja.pn,pareja.lid)
+    .catch(e=>console.warn('[duplicados] Unificación por WhatsApp pendiente:',e.code||e.name));
   return true;
 }
 /** Resolver un @lid entrante contra un PN realmente observado, sin inferir números.
