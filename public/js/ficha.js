@@ -16,6 +16,7 @@ import { enlazarTexto } from './enlaces.js';
 import { formularioHistorico,botonAnclarHistorico,activarCargaHistorica } from './carga-historica-impar.js';
 import { conectarFicha } from './experiencia.js';
 import { bannerRedesHTML, conectarRedesWhatsApp } from './redes-whatsapp.js';
+import { plataforma, selloHTML, estamparSello } from './tarjeta-impar.js';
 
 let actual = null, usuarios = [], rapidas = { equipo: [], personales: [] }, adj = null;
 let historialVista = null;
@@ -42,6 +43,7 @@ const misRapidas = () => {
   return [...(rapidas.personales || []).map(q => ({ ...q, ambito: 'personal' })), ...eq];
 };
 
+const CANAL_FICHA = new Map();
 const TIPOS_CANAL = { whatsapp_qr: 'WhatsApp', whatsapp_api: 'WhatsApp', messenger: 'Messenger', instagram: 'Instagram', telefonia: 'Teléfono' };
 /** «principal» → «WhatsApp · principal»; si el nombre ya dice el tipo, se deja como está. */
 function etiquetaCanal(n) {
@@ -82,7 +84,7 @@ function pintar() {
     <div class="ficha-meta">
      ${!cerrada ? `<label class="meta-item meta-tel" title="Número del cliente al que responderá esta negociación">${ic('celular')}<span class="sr">Número del cliente al que responderá esta negociación</span>
        <select id="f-telefono-chat" aria-label="Número de destino del chat" disabled><option>Consultando números…</option></select></label>` : ''}
-     ${lineaFicha(n)}
+     <span class="tj-zona f-sello">${selloHTML(n)}</span>${lineaFicha(n)}
      <label class="meta-item meta-bot" title="Respuestas automáticas en esta conversación">${ic('bot')}Bot
        <span class="sw"><input type="checkbox" id="f-bot" ${n.bot_activo !== false ? 'checked' : ''} aria-label="Bot activo en esta conversación"><i></i></span></label>
      ${ubis.length && fx('detectarUbicacion') ? `<button type="button" class="meta-item meta-btn" data-abrir-info>${ic('pin')}${ubis.length} ${ubis.length === 1 ? 'dirección' : 'direcciones'}</button>` : ''}
@@ -242,6 +244,10 @@ function pintar() {
   }
   const cb = $('#chatbox'); if (cb) { cb.innerHTML = ''; actualizarMensajes(cb, historialVista?.mensajes || n.mensajes || [], mensajeHTML, true); activarVisor(cb); }
   conectar(n);
+  // Si la conversación cambió de plataforma o de línea desde la última vez, se estampa el sello nuevo.
+  const k = plataforma(n).k, previa = CANAL_FICHA.get(n.id);
+  CANAL_FICHA.set(n.id, { k, html: selloHTML(n) });
+  if (previa && previa.k !== k) estamparSello($('.conversation-modal .modal-h') || document, previa.html);
 }
 
 const ETIQUETA_MEDIA = { imagen: 'Imagen', video: 'Video', audio: 'Audio', documento: 'Documento' };

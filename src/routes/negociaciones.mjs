@@ -44,7 +44,15 @@ const SELECT_TABLERO = `
          c.nombre AS cliente,c.tel,c.frecuente,
          u.nombre AS agente_nombre,ca.tipo AS canal_tipo,ca.nombre AS canal_nombre,
          CASE WHEN EXISTS(SELECT 1 FROM ubicaciones ub WHERE ub.negociacion_id=n.id)
-           THEN 1 ELSE 0 END AS n_ubicaciones
+           THEN 1 ELSE 0 END AS n_ubicaciones,
+         -- Tarjeta: último mensaje del cliente y compras anteriores (solo negociaciones abiertas).
+         CASE WHEN n.etapa IN ('nuevo','contactado','espera') THEN (
+           SELECT json_build_object('txt', left(COALESCE(m.txt,''), 160), 'tipo', m.media_tipo, 'ts', m.ts)
+             FROM mensajes m WHERE m.negociacion_id=n.id AND m.dir='in'
+              AND COALESCE(m.especial,'') NOT IN ('reaccion','sistema') AND m.reemplazado_por IS NULL
+            ORDER BY m.ts DESC LIMIT 1) END AS ultimo_cliente,
+         CASE WHEN n.etapa IN ('nuevo','contactado','espera') THEN (
+           SELECT count(*)::int FROM negociaciones g WHERE g.contacto_id=n.contacto_id AND g.etapa='ganado') END AS compras
     FROM negociaciones n
     JOIN contactos c ON c.id=n.contacto_id
     LEFT JOIN usuarios u ON u.id=n.agente_id

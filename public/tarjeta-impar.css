@@ -1,0 +1,124 @@
+/* ============ IMPAR · Tarjeta del tablero: hoja verde, sello de plataforma, urgencia y bandeja ============ */
+.card.tj{
+  --tj-borde:color-mix(in srgb,var(--verde) 24%,var(--line));
+  --tj-lomo:color-mix(in srgb,var(--verde) 72%,var(--surface));
+  --tj-tinta:color-mix(in srgb,var(--verde) 45%,var(--muted));
+  --tj-glifo:color-mix(in srgb,var(--verde) 30%,var(--txt));
+  --tj-pliegue:color-mix(in srgb,var(--verde) 20%,var(--line));
+  --tj-urg:var(--muted);
+  position:relative;padding:10px 12px 0 15px;border:1px solid var(--tj-borde);border-radius:4px 12px 12px 12px;overflow:hidden;
+  background:var(--surface2);
+  background-image:repeating-linear-gradient(transparent 0 21px,color-mix(in srgb,var(--verde) 5%,transparent) 21px 22px);
+  background-position:0 38px;transition:border-color .4s,box-shadow .2s,transform .2s}
+.card.tj::after{background:linear-gradient(225deg,var(--bg) 0 50%,var(--tj-pliegue) 50% 100%);width:15px;height:15px;transition:background .4s}
+.card.tj .tj-lomo{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tj-lomo);transition:background .4s}
+.tj-cab{display:flex;align-items:center;gap:5px;min-width:0;padding-right:16px;margin-bottom:5px;font-size:10.5px;color:var(--muted)}
+.tj-cab b{font-family:var(--f-titulo);font-weight:700;font-size:10px;letter-spacing:.07em;color:var(--verde-texto)}
+.tj-mi{flex:none;width:5px;height:5px;border-radius:1px;background:var(--verde);transform:rotate(45deg)}
+.tj-linea{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tj-f{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.tj-f .ic{width:12px;height:12px}
+.card.tj .tj-cab .card-equipo{position:static;margin-left:auto;flex:none}
+.card.tj .tj-cab .card-equipo+.tj-f{margin-left:6px}
+.tj-cuerpo{display:grid;grid-template-columns:minmax(0,1fr) 58px;gap:0 6px}
+.tj-datos{min-width:0}
+.card.tj .nom{font-family:var(--f-titulo);font-weight:700;font-size:var(--fs-md);margin-bottom:1px;overflow-wrap:anywhere}
+.card.tj .linea{font-size:var(--fs-xs)}
+.tj-chips{margin-top:5px}
+.tj-et{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;line-height:1.5;padding:0 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.tj-et .ic{width:12px;height:12px;flex:none}
+.tj-fre{color:var(--txt)}.tj-fre .ic{color:var(--verde-texto)}
+.tj-msg{margin:7px 0 6px;padding:5px 9px;font-size:var(--fs-xs);line-height:1.4;color:var(--txt);background:color-mix(in srgb,var(--surface) 70%,var(--surface2));
+  border:1px solid var(--line);border-radius:3px 10px 10px 10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.tj-motivo{margin:2px 0 8px}
+.card.tj .tj-monto{color:var(--ok);font-weight:600}
+
+/* ---------- Sello de la plataforma ---------- */
+.tj-zona{position:relative;width:52px;height:68px;justify-self:end;margin-top:-2px}
+.tj-sello{position:absolute;left:0;top:0;width:52px;height:52px;transform:rotate(-7deg)}
+.tj-sello svg{width:52px;height:52px;display:block;overflow:visible}
+.tj-s1{fill:color-mix(in srgb,var(--verde) 7%,transparent);stroke:var(--tj-tinta);stroke-width:1.8}
+.tj-s2{fill:none;stroke:var(--tj-tinta);stroke-width:.9;stroke-dasharray:2 2.5;opacity:.75}
+.tj-sg{position:absolute;inset:0 0 3px;display:flex;align-items:center;justify-content:center;color:var(--tj-glifo)}
+.tj-sg .ic{width:17px;height:17px}
+.tj-ver{position:absolute;right:-3px;top:-2px;width:15px;height:15px;border-radius:50%;background:var(--verde);color:var(--sobre-verde);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--surface2)}
+.tj-ver .ic{width:10px;height:10px;stroke-width:2.6}
+.tj-sr{position:absolute;left:-12px;right:-12px;top:53px;text-align:center;font:700 7.5px/1.2 var(--f-titulo);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tj-entra{animation:tj-golpe .42s cubic-bezier(.5,0,.6,1) both}
+.tj-sale{animation:tj-sale .26s ease-in forwards;pointer-events:none}
+.tj-entra .tj-ver{animation:tj-ver .8s ease-out both}
+.tj-tinta{position:absolute;left:0;top:0;width:52px;height:52px;border-radius:50%;pointer-events:none;box-shadow:0 0 0 1.5px var(--verde);animation:tj-tinta .62s ease-out .26s both}
+@keyframes tj-golpe{0%{transform:rotate(-20deg) scale(2);opacity:0}70%{transform:rotate(-6deg) scale(.93);opacity:1}100%{transform:rotate(-7deg) scale(1)}}
+@keyframes tj-sale{to{transform:rotate(-12deg) translateY(-8px) scale(1.12);opacity:0}}
+@keyframes tj-tinta{0%{transform:scale(.6);opacity:0}60%{transform:scale(.9);opacity:.7}100%{transform:scale(1.45);opacity:0}}
+@keyframes tj-ver{0%,60%{transform:scale(0)}85%{transform:scale(1.3)}100%{transform:scale(1)}}
+
+/* ---------- Pie: espera, quién escribe, demora ---------- */
+.tj-pie{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px;padding:2px 0 6px;font-size:10.5px;color:var(--muted)}
+.tj-esp{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:var(--tj-urg)}
+.tj-esp .ic{width:12px;height:12px}
+.tj-pulso{width:6px;height:6px;border-radius:50%;background:currentColor}
+.tj-der{display:flex;align-items:center;justify-content:flex-end;min-width:0;text-align:right}
+.tj-txt{white-space:nowrap}
+.tj-dem{display:inline-block;margin:2px 3px 2px 0;padding:2px 7px 1px;border:1.5px solid var(--bad);border-radius:3px;color:var(--bad);
+  font:700 10px/1.2 var(--f-titulo);letter-spacing:.1em;transform:rotate(-4deg);white-space:nowrap}
+.tj-esc{display:inline-flex;align-items:center;gap:5px;color:var(--txt);white-space:nowrap}
+.tj-av{width:17px;height:17px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;background:var(--verde-suave);color:var(--verde-texto);box-shadow:0 0 0 1.5px var(--verde)}
+.tj-dots{display:inline-flex;gap:2px;margin-left:1px}.tj-dots i{width:4px;height:4px;border-radius:50%;background:var(--verde);animation:tj-tp 1.2s infinite}
+.tj-dots i:nth-child(2){animation-delay:.15s}.tj-dots i:nth-child(3){animation-delay:.3s}
+@keyframes tj-tp{0%,60%,100%{opacity:.25}30%{opacity:1}}
+.tj-sla{height:2px;margin:0 -12px 0 -15px;background:color-mix(in srgb,var(--txt) 6%,transparent)}
+.tj-sla i{display:block;height:100%;background:var(--tj-lomo);transition:width .5s,background .4s}
+.card.tj .pie-ganado{margin-top:0}
+
+/* Niveles de urgencia: solo lomo, pliegue, borde y texto de espera (sin resplandores). */
+.card.tj.tj-n0{--tj-lomo:#6f7fae;--tj-urg:color-mix(in srgb,#8b98c8 80%,var(--txt))}
+.card.tj.tj-n2{--tj-lomo:#c9a24a;--tj-pliegue:#c9a24a;--tj-urg:#c9a24a;--tj-borde:color-mix(in srgb,#c9a24a 38%,var(--line))}
+.card.tj.tj-n3{--tj-lomo:#d27a45;--tj-pliegue:#d27a45;--tj-urg:#d27a45;--tj-borde:color-mix(in srgb,#d27a45 45%,var(--line))}
+.card.tj.tj-n4{--tj-lomo:var(--bad);--tj-pliegue:var(--bad);--tj-urg:var(--bad);--tj-borde:color-mix(in srgb,var(--bad) 50%,var(--line))}
+.card.tj.tj-n3 .tj-pulso,.card.tj.tj-n4 .tj-pulso{animation:tj-lat 1.8s ease-in-out infinite}
+@keyframes tj-lat{0%,100%{opacity:.35}50%{opacity:1}}
+[data-tema="claro"] .card.tj.tj-n2{--tj-urg:#8a6512}
+[data-tema="claro"] .card.tj.tj-n3{--tj-urg:#a14d1a}
+
+/* ---------- Bandeja fija de respuesta rápida ---------- */
+.tj-bandeja{margin:0 -12px 0 -15px;padding:7px 9px 8px 15px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--surface) 55%,var(--surface2));cursor:default}
+.tj-caja{position:relative;display:flex;align-items:flex-end;gap:4px}
+.tj-caja textarea{flex:1;min-width:0;height:32px;min-height:32px;max-height:96px;resize:none;padding:6px 9px;font:inherit;font-size:var(--fs-xs);line-height:1.4;
+  color:var(--txt);background:var(--bg);border:1px solid var(--line);border-radius:8px}
+.tj-caja textarea:focus{outline:none;border-color:var(--verde);box-shadow:0 0 0 2px var(--verde-suave)}
+.tj-ib{flex:none;width:32px;height:32px;min-height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;
+  border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.tj-ib .ic{width:16px;height:16px}
+.tj-ib:hover,.tj-ib[aria-expanded="true"]{color:var(--txt);border-color:var(--verde-borde);background:var(--verde-suave)}
+.tj-ib:focus-visible{outline:2px solid var(--verde);outline-offset:1px}
+.tj-env{background:var(--verde);border-color:var(--verde);color:var(--sobre-verde)}
+.tj-env:hover{background:var(--brand2);border-color:var(--brand2);color:var(--sobre-verde)}
+.tj-env:disabled{opacity:.6;cursor:wait}
+.tj-atajo{position:absolute;left:2px;bottom:-13px;font-size:9.5px;color:var(--muted);opacity:0;transition:opacity .2s;pointer-events:none}
+.tj-caja:focus-within{margin-bottom:10px}.tj-caja:focus-within .tj-atajo{opacity:.85}
+.tj-err{font-size:11px;color:var(--bad);padding-top:4px}.tj-err:empty{display:none}
+.tj-panel{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);max-height:220px;overflow:auto}
+.tj-pt{font-size:10px;color:var(--muted);margin:2px 0 4px}
+.tj-buscar{width:100%;height:30px;padding:0 9px;margin-bottom:4px;font:inherit;font-size:var(--fs-xs);color:var(--txt);background:var(--bg);border:1px solid var(--line);border-radius:7px}
+.tj-lista{display:flex;flex-direction:column;gap:2px}
+.tj-rq{display:block;width:100%;text-align:left;padding:6px 8px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--txt);font:inherit;font-size:var(--fs-xs);line-height:1.4;cursor:pointer;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tj-rq:hover,.tj-rq:focus-visible{background:var(--verde-suave);border-color:var(--verde-borde);outline:none}
+.tj-emo{display:grid;grid-template-columns:repeat(10,1fr);gap:1px}
+.tj-emo button{height:28px;padding:0;border:0;border-radius:6px;background:transparent;font-size:16px;cursor:pointer}
+.tj-emo button:hover,.tj-emo button:focus-visible{background:var(--verde-suave);outline:none}
+
+@media (max-width:900px){.tj-emo{grid-template-columns:repeat(5,1fr)}.tj-emo button{height:36px;font-size:19px}.tj-ib,.tj-caja textarea{min-height:38px;height:38px}.tj-ib{width:38px}}
+@media (prefers-reduced-motion:reduce){.tj-dots i,.tj-pulso,.tj-entra,.tj-sale,.tj-tinta,.tj-entra .tj-ver{animation:none!important}}
+
+/* ---------- Sello en la cabecera de la ficha ---------- */
+.f-sello{display:inline-block;flex:none;width:38px;height:34px;margin:-9px 2px -9px 0;vertical-align:middle;justify-self:auto}
+.f-sello .tj-sello{transform:rotate(-7deg) scale(.68);transform-origin:0 0}
+.f-sello .tj-s1{stroke-width:2.4}.f-sello .tj-sg .ic{width:20px;height:20px}
+.f-sello .tj-sr,.f-sello .tj-ver{display:none}
+.f-sello .tj-entra{animation-name:tj-golpe-mini}
+.f-sello .tj-sale{animation-name:tj-sale-mini}
+.f-sello .tj-tinta{width:35px;height:35px}
+@keyframes tj-golpe-mini{0%{transform:rotate(-20deg) scale(1.2);opacity:0}70%{transform:rotate(-6deg) scale(.63);opacity:1}100%{transform:rotate(-7deg) scale(.68)}}
+@keyframes tj-sale-mini{to{transform:rotate(-12deg) translateY(-6px) scale(.66);opacity:0}}

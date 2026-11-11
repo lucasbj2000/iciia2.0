@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const leer = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const exp = leer('public/js/experiencia.js'), neg = leer('public/js/negociaciones.js'), app = leer('public/js/app.js'), ficha = leer('public/js/ficha.js'), css = leer('public/experiencia.css');
-assert.ok(neg.includes('card hoja-papel') && neg.includes('--urg:hsl(') && neg.includes('class="col-pila"'), 'Hojas, urgencia y pilas');
+assert.ok(neg.includes('card hoja-papel') && neg.includes('urgencia(n)') && neg.includes('class="col-pila"'), 'Hojas, urgencia y pilas');
 assert.ok(neg.includes('gestosTarjeta(el, id)') && neg.includes("if (destino === 'ganado') sellar("), 'Gestos y sello de venta');
 assert.ok(exp.includes("e.key.toLowerCase() === 'k'") && exp.includes("id = 'barra-movil'") && exp.includes('export async function siguienteEnEspera'), 'Ctrl+K, barra inferior y siguiente cliente');
 assert.ok(!exp.includes('import(' + "'./app" + '.js'), 'No crea una segunda copia de la app');

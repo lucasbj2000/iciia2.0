@@ -37,7 +37,7 @@ console.log('✔ Tiempo real: reconexión, señal de vida y resincronización de
   assert.equal(etiquetaLinea('whatsapp_api', 'WhatsApp API Impar Papeles').texto, 'WhatsApp verificado');
   assert.equal(etiquetaLinea('whatsapp_api', 'WhatsApp API Impar Papeles').corto, 'Impar Papeles');
   assert.equal(etiquetaLinea('whatsapp_qr', 'principal').texto, 'WhatsApp normal');
-  assert.ok(ficha.includes('lineaMensaje(m)') && ficha.includes('${lineaFicha(n)}') && neg.includes('${insigniaLinea(n)}'), 'Burbujas, ficha y tarjeta muestran la línea');
+  assert.ok(ficha.includes('lineaMensaje(m)') && ficha.includes('${lineaFicha(n)}') && neg.includes('${selloHTML(n)}'), 'Burbujas, ficha y tarjeta muestran la línea');
   assert.ok(chat.includes("(previo.dataset.linea || '') === (el.dataset.linea || '')"), 'Un cambio de línea corta el grupo de mensajes');
   // Una negociación que deja de ser visible (transferida, reasignada, borrada) no queda en pantalla.
 {

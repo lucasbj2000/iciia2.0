@@ -10,6 +10,7 @@ import {
 import { fichaNeg } from './ficha.js';
 import { conectarAdjuntos } from './adjuntos.js';
 import { gestosTarjeta, sellar, esqueletoTablero } from './experiencia.js';
+import { ABIERTAS, plataforma, llegoPor, selloHTML, estamparSello, urgencia, fmtMin, bandejaHTML, conectarBandeja, focoBandeja, restaurarFoco } from './tarjeta-impar.js';
 
 export const F = { q: '', origen: '', agente: '', marcador: '' };
 export let SEL = new Set(), MODO_SEL = false;
@@ -214,6 +215,10 @@ export async function patchTarjeta(id, opts = {}) {
   try {
     const n = await get(`/negociaciones/${id}/resumen`);
     const i = S.negociaciones.findIndex(x => x.id === id);
+    const previa = i >= 0 ? S.negociaciones[i] : null;
+    const cambioCanal = previa && plataforma(previa).k !== plataforma({ ...previa, ...n }).k;
+    const selloViejo = cambioCanal ? selloHTML(previa) : null;
+    const foco = focoBandeja(id);
     if (i >= 0) S.negociaciones[i] = { ...S.negociaciones[i], ...n };
     else S.negociaciones.push(n);
     if (!$('#kanban')) return;
@@ -241,6 +246,8 @@ export async function patchTarjeta(id, opts = {}) {
       if (desde) volarDesde(nueva, desde);
     }
     conectarTarjeta(nueva);
+    restaurarFoco(nueva, foco);
+    if (cambioCanal) estamparSello(nueva, selloViejo);
     if (opts.destacar) destacar(nueva);
     actualizarContadores();
   } catch (e) {
@@ -281,55 +288,89 @@ function insigniaLinea(n) {
   return `<span class="card-linea ${l.clase}" title="${esc(l.texto)}${n.canal_nombre ? ' · ' + esc(n.canal_nombre) : ''}">${ic(l.icono)}${breve}</span>`;
 }
 function tarjeta(n) {
-  const cls = { whatsapp: 'wa', facebook: 'fb', instagram: 'ig', telefonia: 'tel' }[n.origen] || 'otro';
   const marc = n.marcadores || [];
+  const abierta = ABIERTAS.includes(n.etapa);
   const chips = [];
-  if (marc.includes('frecuente') && fx('marcadorFrecuente')) chips.push(`<span class="tag t-frec">${ic('estrella')} Frecuente</span>`);
-  if (marc.includes('regestionado') && fx('marcadorRegestion')) chips.push(`<span class="tag t-re">${ic('regestion')} Re gestionado</span>`);
-  if (marc.includes('transferido') && fx('marcadorTransferido')) chips.push(`<span class="tag t-tr">${ic('transferir')} Transferido</span>`);
-  if (marc.includes('manual')) chips.push(`<span class="tag t-man">${ic('lapiz')} Manual</span>`);
-  if (Number(n.n_ubicaciones) > 0) chips.push(`<span class="tag t-ubi">${ic('pin')} Dirección</span>`);
-  if (n.bot_activo === false) chips.push(`<span class="tag t-bot">${ic('bot')} Bot apagado</span>`);
-  const fecha = fx('fechaCreacion') ? fd(n.creado) : '';
-
-  const visibles = chips.slice(0, 2), ocultos = chips.slice(2);
+  // Cliente frecuente: por sus compras ganadas (sin montos) o por la marca manual.
+  const compras = Number(n.compras) || 0;
+  if (compras >= 2) chips.push(`<span class="tj-et tj-fre">${ic('estrella')} Cliente frecuente · ${compras} compras</span>`);
+  else if (marc.includes('frecuente') && fx('marcadorFrecuente')) chips.push(`<span class="tj-et tj-fre">${ic('estrella')} Cliente frecuente</span>`);
+  if (marc.includes('regestionado') && fx('marcadorRegestion')) chips.push(`<span class="tj-et">${ic('regestion')} Re gestionado</span>`);
+  if (marc.includes('transferido') && fx('marcadorTransferido')) chips.push(`<span class="tj-et">${ic('transferir')} Transferido</span>`);
+  if (marc.includes('manual')) chips.push(`<span class="tj-et">${ic('lapiz')} Manual</span>`);
+  if (Number(n.n_ubicaciones) > 0) chips.push(`<span class="tj-et">${ic('pin')} Dirección</span>`);
+  if (n.bot_activo === false) chips.push(`<span class="tj-et">${ic('bot')} Bot apagado</span>`);
+  const u = abierta ? urgencia(n) : null;
+  if (u?.nivel === 0) chips.unshift(`<span class="tj-et tj-luna">${ic('luna')} Fuera de horario · se atiende ${esc(u.abre)}</span>`);
+  const visibles = chips.slice(0, 3), ocultos = chips.slice(3);
+  const fecha = fd(n.creado);
   const monto = n.etapa === 'ganado' && n.monto_cierre
-    ? `<b style="color:var(--ok)">${gs(n.monto_cierre)}</b>`
-    : (n.valor ? gs(n.valor) : '');
+    ? `<b class="tj-monto">${gs(n.monto_cierre)}</b>` : (n.valor ? gs(n.valor) : '');
+  const p = plataforma(n), origen = llegoPor(n);
+  const linea = n.canal_nombre ? `${esc(n.canal_nombre)}${p.verificado ? ' (verificado)' : ''}` : esc(p.nombre);
+  const ult = n.ultimo_cliente;
+  const vistaPrevia = abierta && ult ? `<div class="tj-msg" title="Último mensaje del cliente">${esc(ult.txt || ({ imagen: 'Imagen', video: 'Video', audio: 'Audio', documento: 'Documento' }[ult.tipo] || 'Mensaje'))}</div>` : '';
 
-  let sla = '', plazo = '', urg = '';
-  if (n.etapa === 'contactado' || n.etapa === 'espera') {
+  // Pie: cuánto espera el cliente, quién le está escribiendo, demora; o seguimiento / fecha.
+  let pie = '', barra = '', nivel = '';
+  const quien = (S.presencia?.[n.id] || []).find(x => x.id !== S.usuario?.id && x.redactando);
+  const escribe = quien ? `<span class="tj-esc"><span class="tj-av">${esc(String(quien.nombre || '?')[0])}</span>${esc(String(quien.nombre || '').split(' ')[0])} está escribiendo<span class="tj-dots"><i></i><i></i><i></i></span></span>` : '';
+  if (u) {
+    nivel = ` tj-n${u.nivel}`;
+    const izq = u.nivel === 0 ? `<span class="tj-esp">${ic('pausa')} Espera en pausa</span>`
+      : `<span class="tj-esp"><span class="tj-pulso"></span>${n.etapa === 'nuevo' ? 'Sin respuesta' : 'Espera'} ${fmtMin(u.minutos)}</span>`;
+    const der = escribe || (u.nivel === 4 ? '<span class="tj-dem">DEMORADA</span>'
+      : `<span class="tj-txt">${u.nivel === 0 ? 'Sucursal cerrada' : u.nivel === 3 ? 'Responder ahora' : n.etapa === 'nuevo' ? 'Nuevo' : 'Cliente espera'}</span>`);
+    pie = `<div class="tj-pie">${izq}<span class="tj-der">${der}</span></div>`;
+    barra = `<div class="tj-sla"><i style="width:${u.nivel === 0 ? 0 : Math.max(4, u.pct)}%"></i></div>`;
+  } else if (n.etapa === 'contactado') {
     const horas = (Date.now() - new Date(n.entrada_etapa)) / 3600000;
-    const limite = S.empresa.reglas?.slaHoras || 24;
-    const pct = Math.min(100, horas / limite * 100);
-    const nivel = pct >= 90 ? 'r' : pct >= 55 ? 'a' : 'v';
-    const color = nivel === 'r' ? 'var(--bad)' : nivel === 'a' ? 'var(--warn)' : 'var(--ok)';
-    // El cliente espera respuesta: respira en ámbar cerca del plazo; borde rojo si lo superó.
-    if (n.etapa === 'espera') plazo = pct >= 100 ? ' plazo-vencido' : pct >= 75 ? ' plazo-cerca' : '';
-    // La hoja se va «tostando»: de verde a ámbar y a rojo según el tiempo que espera el cliente.
-    if (n.etapa === 'espera') urg = `;--urg:hsl(${Math.round(120 * (1 - pct / 100))} 72% 44%);--urg-k:${(pct / 100).toFixed(2)}`;
-    sla = `<div class="sla ${nivel}"><i style="width:${pct}%"></i></div>
-      <div class="sla-txt card-pie"><span style="color:${color}">${ic('reloj')} ${n.etapa === 'espera' ? 'Esperando' : 'En seguimiento'} hace ${ago(n.entrada_etapa)}</span>${fecha ? `<span class="card-fecha" title="Creada">${fecha}</span>` : ''}</div>`;
+    const pct = Math.min(100, horas / (S.empresa.reglas?.slaHoras || 24) * 100);
+    nivel = pct >= 90 ? ' tj-n3' : '';
+    pie = `<div class="tj-pie"><span class="tj-esp">${ic('reloj')} En seguimiento hace ${ago(n.entrada_etapa)}</span><span class="tj-der">${escribe || ''}</span></div>`;
+    barra = `<div class="tj-sla tj-seg"><i style="width:${Math.max(4, pct)}%"></i></div>`;
   } else if (n.etapa === 'ganado') {
-    // El sello de venta tiene su propio lugar en el pie: nunca tapa nombre, monto ni datos.
-    sla = `<div class="card-pie pie-ganado"><span>${fecha ? `${ic('calendario')} <span class="card-fecha" title="Creada">${fecha}</span>` : ''}</span><span class="sello quieto">GANADO</span></div>`;
-  } else if (fecha) sla = `<div class="card-pie"><span>${ic('calendario')} Creada</span><span class="card-fecha">${fecha}</span></div>`;
+    pie = `<div class="tj-pie pie-ganado card-pie"><span class="tj-esp">${monto}</span><span class="sello quieto">GANADO</span></div>`;
+  }
 
-  return `<div class="card hoja-papel ${SEL.has(n.id) ? 'sel' : ''}${plazo}${urg ? ' urg' : ''}${n.etapa === 'ganado' ? ' ganada' : ''}" data-id="${n.id}"
-      style="--acc:${etapa(n.etapa).color}${urg}" draggable="${MODO_SEL ? 'false' : 'true'}">
+  return `<div class="card hoja-papel tj${nivel} ${SEL.has(n.id) ? 'sel' : ''}${n.etapa === 'ganado' ? ' ganada' : ''}" data-id="${n.id}" data-canal="${p.k}"
+      style="--acc:${etapa(n.etapa).color}" draggable="${MODO_SEL ? 'false' : 'true'}" data-arrastrable="${MODO_SEL ? 'no' : 'si'}">
     ${MODO_SEL ? `<input type="checkbox" class="chk" ${SEL.has(n.id) ? 'checked' : ''} data-chk="${n.id}">` : ''}
-    ${avataresEquipo(n.id)}<span class="nom">${esc(nombreLegible(n.cliente) || '—')}</span>
-    <div class="linea"><span class="card-canal canal-${cls}" role="img" aria-label="Canal ${esc(n.origen || 'otro')}" title="${esc(n.origen || 'otro')}">${ic(CANAL_IC[cls] || 'mensaje')}</span>${insigniaLinea(n)}
-      ${n.agente_nombre ? esc(n.agente_nombre) : '<span style="color:var(--warn)">Sin asignar</span>'}
-      ${monto ? '· ' + monto : ''}</div>
-    <div class="chips">${visibles.join('')}
-      ${ocultos.length ? `<span class="mas" data-mas="${n.id}">+${ocultos.length}</span>` : ''}</div>
-    ${ocultos.length ? `<div class="extra">${ocultos.join('')}</div>` : ''}
-    ${sla}
-    ${n.motivo ? `<div class="linea" style="margin-top:5px">Motivo: ${esc(n.motivo)}</div>` : ''}</div>`;
+    <span class="tj-lomo"></span>
+    <div class="tj-cab"><span class="tj-mi"></span><b>IMPAR</b><span class="tj-linea">· ${linea}</span>${avataresEquipo(n.id)}${fecha ? `<span class="tj-f card-fecha" title="Creada">${ic('calendario')} Creada ${fecha}</span>` : ''}</div>
+    <div class="tj-cuerpo"><div class="tj-datos">
+      <span class="nom">${esc(nombreLegible(n.cliente) || '—')}</span>
+      <div class="linea">${n.agente_nombre ? esc(n.agente_nombre) : '<span style="color:var(--warn)">Sin asignar</span>'}${monto && n.etapa !== 'ganado' ? ' · ' + monto : ''}${origen ? ` · Llegó por ${origen}` : ''}</div>
+      ${visibles.length ? `<div class="chips tj-chips">${visibles.join('')}${ocultos.length ? `<span class="mas" data-mas="${n.id}">+${ocultos.length}</span>` : ''}</div>` : ''}
+      ${ocultos.length ? `<div class="extra">${ocultos.join('')}</div>` : ''}
+      ${vistaPrevia}
+    </div><div class="tj-zona">${selloHTML(n)}</div></div>
+    ${pie}
+    ${n.motivo ? `<div class="linea tj-motivo">Motivo: ${esc(n.motivo)}</div>` : ''}
+    ${abierta && !MODO_SEL ? bandejaHTML(n) : ''}
+    ${barra}</div>`;
 }
 
-/* ---------- Drag & drop ---------- */
+/** Actualiza en el lugar el pie, la urgencia y la barra de una tarjeta (sin tocar su bandeja). */
+function actualizarPieTarjeta(id) {
+  const el = $(`.card[data-id="${id}"]`), n = S.negociaciones.find(x => x.id === id);
+  if (!el || !n || !ABIERTAS.includes(n.etapa)) return;
+  const tmp = document.createElement('div'); tmp.innerHTML = tarjeta(n);
+  const nueva = tmp.firstElementChild;
+  for (const sel of ['.tj-pie', '.tj-sla', '.tj-chips']) {
+    const a = el.querySelector(sel), b = nueva.querySelector(sel);
+    if (a && b) { if (a.innerHTML !== b.innerHTML || a.getAttribute('style') !== b.getAttribute('style')) a.replaceWith(b); }
+    else if (b && !a) { const ref = sel === '.tj-chips' ? el.querySelector('.tj-msg') : null; ref ? ref.before(b) : null; }
+  }
+  const niveles = [...el.classList].filter(c => /^tj-n\d$/.test(c));
+  const nuevos = [...nueva.classList].filter(c => /^tj-n\d$/.test(c));
+  if (niveles.join() !== nuevos.join()) { el.classList.remove(...niveles); el.classList.add(...nuevos); }
+}
+// El tiempo de espera avanza solo: cada minuto se recalcula la urgencia de las tarjetas abiertas.
+setInterval(() => { if ($('#kanban')) S.negociaciones.forEach(n => { if (n.etapa === 'nuevo' || n.etapa === 'espera') actualizarPieTarjeta(n.id); }); }, 60000);
+// Quién está escribiendo se ve en el pie de la tarjeta en tiempo real.
+window.addEventListener('impar:presencia', e => actualizarPieTarjeta(e.detail?.id));
+
 function conectarDrag() { $$('.card').forEach(conectarTarjeta); conectarColumnas(); }
 
 function conectarTarjeta(el) {
@@ -338,6 +379,7 @@ function conectarTarjeta(el) {
   el.ondragstart = e => { el.classList.add('drag'); e.dataTransfer.setData('id', id); e.dataTransfer.effectAllowed = 'move'; };
   el.ondragend = () => el.classList.remove('drag');
   el.onclick = e => {
+    if (e.target.closest('[data-bandeja]')) return; // la bandeja de respuesta no abre la ficha
     if (e.target.closest('[data-mas]')) { el.classList.toggle('abierta'); return; }
     if (e.target.closest('[data-chk]')) return;
     if (MODO_SEL) { toggleSel(id); return; }
@@ -348,6 +390,8 @@ function conectarTarjeta(el) {
   };
   const chk = el.querySelector('[data-chk]');
   if (chk) chk.onclick = e => { e.stopPropagation(); toggleSel(id); };
+  const n = S.negociaciones.find(x => x.id === id);
+  if (n) conectarBandeja(el, n, () => patchTarjeta(id));
 }
 
 function conectarColumnas() {

@@ -121,7 +121,7 @@ for (const n of ['calendario', 'pin', 'bot', 'clip', 'rayo', 'papelera', 'mas', 
 const pictos = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2B50}\u{23F0}-\u{23FA}]/u;
 for (const f of ['public/js/negociaciones.js', 'public/js/core.js', 'public/js/adjuntos.js', 'public/js/modulos.js', 'public/js/contactos.js'])
   assert.ok(!pictos.test(leer(f).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')), 'Sin emojis de interfaz en ' + f);
-assert.ok(!negJs.includes('>activa</span>') && negJs.includes('card-canal canal-') && negJs.includes('class="card-pie"'), 'Tarjetas limpias');
+assert.ok(!negJs.includes('>activa</span>') && negJs.includes('${selloHTML(n)}') && negJs.includes('class="tj-pie"'), 'Tarjetas limpias: sello de plataforma y pie propio');
 assert.ok(!/<header class="top">[\s\S]*id="btn-tema"[\s\S]*<\/header>/.test(index) && /class="me-herramientas"[\s\S]*id="btn-tema"/.test(index), 'Tema y aplicación en el área de usuario');
 assert.ok(css.includes('body:has(#kanban){background-image:var(--fondo-grano)'), 'Fondo tranquilo detrás del tablero');
 assert.ok(css.includes('header.top .wxa,header.top .wxa *{animation-iteration-count:3!important}') && css.includes('.sla.r i{animation:none!important}'), 'Solo lo urgente queda en bucle');

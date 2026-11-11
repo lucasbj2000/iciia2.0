@@ -3,6 +3,7 @@
 import { $, $$, S, esc, iniciales, get, post } from './core.js';
 
 S.presencia = S.presencia || {};
+let seguimiento = null;
 const otros = id => (S.presencia[id] || []).filter(p => p.id !== S.usuario?.id);
 const primerNombre = p => esc(String(p.nombre || '').split(' ')[0] || 'Alguien');
 const avatar = (p, cls = '') => `<span class="eq-av${p.redactando ? ' redacta' : ''} ${cls}" title="${esc(p.nombre)}${p.redactando ? ' está escribiendo' : ' está en esta conversación'}">${
@@ -25,7 +26,13 @@ function pintarTarjeta(id) {
   if (!html) { actual?.remove(); return; }
   const tmp = document.createElement('div'); tmp.innerHTML = html;
   const nuevo = tmp.firstElementChild;
-  if (actual) actual.replaceWith(nuevo); else { nuevo.classList.add('llega'); card.prepend(nuevo); }
+  if (actual) actual.replaceWith(nuevo);
+  else {
+    nuevo.classList.add('llega');
+    // En la tarjeta nueva los avatares van en la cabecera, antes de la fecha (no tapan datos).
+    const cab = card.querySelector('.tj-cab');
+    if (cab) cab.insertBefore(nuevo, cab.querySelector('.tj-f')); else card.prepend(nuevo);
+  }
 }
 
 function pintarFicha(id) {
@@ -59,6 +66,7 @@ export function recibirPresencia({ id, quienes }) {
   if (!id) return;
   if (quienes?.length) S.presencia[id] = quienes; else delete S.presencia[id];
   pintarTarjeta(id); pintarFicha(id);
+  window.dispatchEvent(new CustomEvent('impar:presencia', { detail: { id } }));
 }
 
 /** Al entrar al tablero: quién está en qué conversación ahora mismo. */
@@ -68,8 +76,14 @@ export async function cargarPresencias() {
   for (const id of new Set([...antes, ...Object.keys(S.presencia)])) pintarTarjeta(id);
 }
 
+/* ---------- Escribiendo desde la bandeja de la tarjeta ---------- */
+/** La bandeja rápida del tablero también avisa «estoy escribiendo», para que nadie responda dos veces. */
+export function avisarRedaccionTarjeta(id, escribe) {
+  if (seguimiento?.id === id) return; // la ficha abierta ya lo informa
+  enviar(id, escribe ? { redactando: true } : { salir: true });
+}
+
 /* ---------- Mi presencia en la conversación abierta ---------- */
-let seguimiento = null;
 function enviar(id, cuerpo, salida = false) {
   if (salida) {
     // Al cerrar la pestaña, fetch con keepalive llega aunque la página se descargue.

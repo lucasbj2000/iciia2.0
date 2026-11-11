@@ -22,6 +22,8 @@ try{
    "marcadores JSONB,bot_activo BOOLEAN,aviso_sla BOOLEAN,creado timestamptz,actualizado timestamptz,"+
    "entrada_etapa timestamptz,telefono_destino TEXT);");
  await c.query("CREATE TABLE ubicaciones(id UUID PRIMARY KEY,negociacion_id UUID,empresa_id UUID);");
+ await c.query("CREATE TABLE mensajes(id UUID PRIMARY KEY,negociacion_id UUID,dir TEXT,txt TEXT,media_tipo TEXT,ts timestamptz,especial TEXT,reemplazado_por UUID);");
+ await c.query("CREATE INDEX ON mensajes(negociacion_id,ts)");
  const mig=readFileSync(new URL('../src/migrations/024_indices_rendimiento_impar.sql',import.meta.url),'utf8');
  await c.query(mig);await c.query(mig);
  const emp=randomUUID(),contacto=randomUUID(),neg=randomUUID(),user=randomUUID(),canal=randomUUID();
@@ -38,6 +40,8 @@ try{
  assert.equal(r.rows[0].cliente,'Cliente de prueba');
  assert.equal(r.rows[0].bot_activo,false);
  assert.equal(Object.hasOwn(r.rows[0],'bot_recepcion'),false,'Sin JSON pesado por tarjeta');
+ assert.equal(r.rows[0].compras,0,'Compras anteriores del cliente para la tarjeta');
+ assert.equal(r.rows[0].ultimo_cliente,null,'Sin mensajes todavía, sin vista previa');
  await c.query('INSERT INTO ubicaciones VALUES($1,$2,$3)',[randomUUID(),neg,emp]);
  r=await c.query(query,[emp]);assert.equal(r.rows[0].n_ubicaciones,1);
  const auth=await c.query(
