@@ -122,3 +122,27 @@
 .f-sello .tj-tinta{width:35px;height:35px}
 @keyframes tj-golpe-mini{0%{transform:rotate(-20deg) scale(1.2);opacity:0}70%{transform:rotate(-6deg) scale(.63);opacity:1}100%{transform:rotate(-7deg) scale(.68)}}
 @keyframes tj-sale-mini{to{transform:rotate(-12deg) translateY(-6px) scale(.66);opacity:0}}
+
+/* ---------- Colores característicos de cada canal ---------- */
+.tj-sello{--tj-tinta:var(--muted);--tj-glifo:var(--muted);--tj-sello-txt:var(--muted);--tj-relleno:transparent}
+.tj-s1{fill:var(--tj-relleno);stroke:var(--tj-tinta)}
+.tj-s2{stroke:var(--tj-tinta)}
+.tj-sg{color:var(--tj-glifo)}
+.tj-sr{color:var(--tj-sello-txt)}
+/* WhatsApp verificado: verde WhatsApp brillante */
+.tj-sello[data-sello="wv"]{--tj-tinta:#25D366;--tj-glifo:#25D366;--tj-sello-txt:#25D366;--tj-relleno:rgba(37,211,102,.1)}
+.tj-sello[data-sello="wv"] .tj-ver{background:#25D366;color:#06301a}
+/* WhatsApp normal: verde petróleo (distinto del verificado) */
+.tj-sello[data-sello="wn"]{--tj-tinta:#1fa18f;--tj-glifo:#34b7a7;--tj-sello-txt:#34b7a7;--tj-relleno:rgba(18,140,126,.12)}
+/* Messenger: degradé azul, violeta y rosa */
+.tj-sello[data-sello="ms"]{--tj-tinta:url(#tj-g-ms);--tj-glifo:#5b8cff;--tj-sello-txt:#6f8dff;--tj-relleno:rgba(10,124,255,.08)}
+/* Instagram: degradé amarillo, naranja, magenta y violeta */
+.tj-sello[data-sello="ig"]{--tj-tinta:url(#tj-g-ig);--tj-glifo:#e1306c;--tj-sello-txt:#e4407a;--tj-relleno:rgba(214,41,118,.08)}
+.tj-sello[data-sello="tel"]{--tj-tinta:#d9a441;--tj-glifo:#d9a441;--tj-sello-txt:#d9a441;--tj-relleno:rgba(217,164,65,.1)}
+/* Modo claro: textos un poco más oscuros para que se lean bien */
+[data-tema="claro"] .tj-sello[data-sello="wv"]{--tj-tinta:#1faa52;--tj-glifo:#128a3f;--tj-sello-txt:#0f7a37}
+[data-tema="claro"] .tj-sello[data-sello="wn"]{--tj-tinta:#128C7E;--tj-glifo:#0e7468;--tj-sello-txt:#0b6358}
+[data-tema="claro"] .tj-sello[data-sello="ms"]{--tj-glifo:#2563d9;--tj-sello-txt:#2152b8}
+[data-tema="claro"] .tj-sello[data-sello="ig"]{--tj-glifo:#c2185b;--tj-sello-txt:#ad1457}
+[data-tema="claro"] .tj-sello[data-sello="tel"]{--tj-tinta:#b07d1c;--tj-glifo:#946812;--tj-sello-txt:#7d5810}
+.tj-tinta{box-shadow:0 0 0 1.5px var(--tj-glifo-tinta,var(--verde))}

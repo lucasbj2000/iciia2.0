@@ -29,6 +29,15 @@ const ORIGEN_RED = { instagram: 'Instagram', messenger: 'Messenger', facebook: '
 /** Si la conversación pasó de redes a WhatsApp, de dónde llegó el cliente. */
 export const llegoPor = n => String(n.canal_tipo || '').startsWith('whatsapp') ? ORIGEN_RED[n.origen] || '' : '';
 
+// Degradés de Messenger e Instagram, definidos una sola vez para todos los sellos.
+if (typeof document !== 'undefined' && !document.getElementById('tj-degrades')) {
+  const d = document.createElement('div');
+  d.innerHTML = `<svg id="tj-degrades" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+    <linearGradient id="tj-g-ms" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#0a7cff"/><stop offset=".6" stop-color="#7a5cff"/><stop offset="1" stop-color="#ff5c8a"/></linearGradient>
+    <linearGradient id="tj-g-ig" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#feda75"/><stop offset=".3" stop-color="#fa7e1e"/><stop offset=".6" stop-color="#d62976"/><stop offset="1" stop-color="#962fbf"/></linearGradient></defs></svg>`;
+  (document.body || document.documentElement).appendChild(d.firstElementChild);
+}
+
 export function selloHTML(n) {
   const p = plataforma(n), d = FORMAS[p.forma];
   return `<span class="tj-sello" data-sello="${p.k}" role="img" aria-label="${esc(p.nombre)}${p.detalle ? ' ' + esc(p.detalle.toLowerCase()) : ''}">
@@ -48,7 +57,9 @@ export function estamparSello(contenedor, selloViejoHTML) {
     viejo.addEventListener('animationend', () => viejo.remove(), { once: true });
   }
   nuevo?.classList.add('tj-entra');
-  const tinta = document.createElement('span'); tinta.className = 'tj-tinta'; zona.appendChild(tinta);
+  const tinta = document.createElement('span'); tinta.className = 'tj-tinta';
+  if (nuevo) tinta.style.setProperty('--tj-glifo-tinta', getComputedStyle(nuevo).getPropertyValue('--tj-glifo').trim() || 'var(--verde)');
+  zona.appendChild(tinta);
   tinta.addEventListener('animationend', () => tinta.remove(), { once: true });
   nuevo?.addEventListener('animationend', () => nuevo.classList.remove('tj-entra'), { once: true });
 }
