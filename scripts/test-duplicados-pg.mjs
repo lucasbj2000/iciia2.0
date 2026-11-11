@@ -123,7 +123,46 @@ try {
   /* 9) Ver revisión otra vez: el grupo ya no aparece. */
   assert.ok(!(await dup.buscarPosiblesDuplicados(E)).some(x => x.contactos.some(c => c.id === f1.id)));
 
-  /* 10) Datos de versiones anteriores: misma persona guardada dos veces con el número en otro formato. */
+  /* 10) Cliente de redes que pasa su número: misma ficha y negociación, sigue por WhatsApp. */
+  const redes = await import('../src/redes-a-whatsapp-impar.mjs');
+  assert.equal(redes.extraerCelular('mi número es 0981 700-001 gracias'), '595981700001');
+  assert.equal(redes.extraerCelular('+595 982 700 002'), '595982700002');
+  assert.equal(redes.extraerCelular('pedido 123456 por 150.000 Gs'), null, 'Montos y pedidos no son teléfonos');
+  assert.equal(redes.extraerCelular('0981700001 o 0982700002'), null, 'Con dos números distintos no adivina');
+  await q("UPDATE canales SET activo=FALSE WHERE empresa_id=$1", [E]);
+  const [wa] = (await q(`INSERT INTO canales (empresa_id,tipo,nombre,activo,config) VALUES ($1,'whatsapp_qr','Principal',TRUE,'{"principal_global":true}') RETURNING *`, [E])).rows;
+  const [ms] = (await q(`INSERT INTO canales (empresa_id,tipo,nombre,activo,config) VALUES ($1,'messenger','Página prueba',TRUE,'{"page_id":"p1"}') RETURNING *`, [E])).rows;
+  const deRedes = (txt, id) => core.ingresarMensaje(emp, { canalId: ms.id, origen: 'messenger', remitente: 'psid-900', nombre: 'Cliente Redes', texto: txt, extId: id });
+  const m1 = await deRedes('hola, precio de cartulinas?', 'r-1');
+  let [nm] = (await q('SELECT n.*, ca.tipo canal_tipo FROM negociaciones n JOIN canales ca ON ca.id=n.canal_id WHERE n.id=$1', [m1.negociacionId])).rows;
+  assert.equal(nm.canal_tipo, 'messenger');
+  const m2 = await deRedes('dale, mi whatsapp es 0981 700 001', 'r-2');
+  assert.equal(m2.pasoAWhatsApp, true, 'Detecta el número en el chat');
+  assert.equal(m2.negociacionId, m1.negociacionId, 'Misma negociación');
+  [nm] = (await q('SELECT n.*, ca.tipo canal_tipo FROM negociaciones n JOIN canales ca ON ca.id=n.canal_id WHERE n.id=$1', [m1.negociacionId])).rows;
+  assert.equal(nm.canal_id, wa.id, 'Las respuestas salen por WhatsApp');
+  assert.equal(nm.telefono_destino, '595981700001');
+  const [cr] = (await q('SELECT * FROM contactos WHERE id=$1', [nm.contacto_id])).rows;
+  assert.equal(cr.tel_norm, '81700001', 'La ficha de redes guarda el número');
+  assert.equal(cr.externos.messenger, 'psid-900', 'Y conserva su dato de Messenger');
+  const m3 = await core.ingresarMensaje(emp, { canalId: wa.id, origen: 'whatsapp', remitente: '595981700001', texto: 'acá estoy', extId: 'r-3' });
+  assert.equal(m3.negociacionId, m1.negociacionId, 'Cuando escribe por WhatsApp entra a la misma negociación');
+  await deRedes('te mando foto por acá', 'r-4');
+  [nm] = (await q('SELECT canal_id FROM negociaciones WHERE id=$1', [m1.negociacionId])).rows;
+  assert.equal(nm.canal_id, wa.id, 'Si vuelve a escribir por Messenger, sigue respondiéndose por WhatsApp');
+  // Número que ya era de otro cliente: queda una sola ficha (la del número) con los datos de Instagram.
+  const [ig] = (await q(`INSERT INTO canales (empresa_id,tipo,nombre,activo,config) VALUES ($1,'instagram','IG prueba',TRUE,'{"page_id":"p1","ig_id":"i1"}') RETURNING *`, [E])).rows;
+  const viejoCli = await contacto('Cliente de siempre', '595981700099');
+  const i1 = await core.ingresarMensaje(emp, { canalId: ig.id, origen: 'instagram', remitente: 'igsid-55', nombre: '@cliente.ig', texto: 'hola', extId: 'i-1' });
+  const pw = await redes.pasarAWhatsApp(emp, { negociacionId: i1.negociacionId, numero: '0981700099', por: 'Agente' });
+  assert.equal(pw.unificado, true); assert.equal(pw.contactoId, viejoCli.id);
+  const [vc] = (await q('SELECT * FROM contactos WHERE id=$1', [viejoCli.id])).rows;
+  assert.equal(vc.externos.instagram, 'igsid-55', 'La ficha del número guarda el dato de Instagram');
+  assert.equal(await cuenta("SELECT count(*) n FROM contactos WHERE externos->>'instagram'='igsid-55'"), 1);
+  const i2 = await core.ingresarMensaje(emp, { canalId: ig.id, origen: 'instagram', remitente: 'igsid-55', texto: 'sigo acá', extId: 'i-2' });
+  assert.equal(i2.negociacionId, pw.negociacionId, 'Instagram vuelve a la misma negociación');
+
+  /* 11) Datos de versiones anteriores: misma persona guardada dos veces con el número en otro formato. */
   await q('ALTER TABLE contactos DISABLE TRIGGER trg_impar_contacto_tel');
   await q('DROP INDEX idx_contacto_tel_unico');
   const viejo = (await q("INSERT INTO contactos (empresa_id,nombre,tel,tel_norm,creado) VALUES ($1,'Ficha antigua','0981500001','981500001',now()-interval '1 year') RETURNING *", [E])).rows[0];

@@ -15,6 +15,7 @@ import { combinarHistorial } from './historial-chat.js';
 import { enlazarTexto } from './enlaces.js';
 import { formularioHistorico,botonAnclarHistorico,activarCargaHistorica } from './carga-historica-impar.js';
 import { conectarFicha } from './experiencia.js';
+import { bannerRedesHTML, conectarRedesWhatsApp } from './redes-whatsapp.js';
 
 let actual = null, usuarios = [], rapidas = { equipo: [], personales: [] }, adj = null;
 let historialVista = null;
@@ -157,7 +158,7 @@ function pintar() {
          ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj-re" type="button" title="Adjuntar" aria-label="Adjuntar">${ic('clip')}</button>` : ''}
          <textarea id="remsg" rows="1" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje al cliente…"></textarea>
          <button class="btn" style="flex:none" id="f-rege">Enviar y re gestionar</button></div></div>`
-     : `<div class="chat-compose">${herramientasHTML('msg')}
+     : `${bannerRedesHTML(n)}<div class="chat-compose">${herramientasHTML('msg')}
         <div id="adj-barra" hidden></div>
         <div id="f-cita" class="cita-barra" hidden></div>
         ${chipsTeclado('msg')}
@@ -573,6 +574,7 @@ function rapidasHTML(campo) {
 }
 
 function conectar(n) {
+  conectarRedesWhatsApp(n, id => fichaNeg(id)); // se vuelve a abrir: cabecera, teléfono y línea quedan al día
   if($('#f-telefono-chat'))cargarTelefonosChat(n.id);
   if($('#f-mas-mensajes'))$('#f-mas-mensajes').onclick=()=>cargarMensajesAnteriores(n.id);
   if(esAdmin())activarCargaHistorica(n.id,refrescarFicha);

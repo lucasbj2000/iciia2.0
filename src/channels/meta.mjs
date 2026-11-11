@@ -248,17 +248,42 @@ async function bajarMediaMeta(adjuntos, canal) {
   } catch (e) { console.error('[meta] adjunto no descargado:', e.message); return null; }
 }
 
+// Nombre del cliente de Messenger/Instagram. Primero el perfil; si Meta no lo entrega
+// (permisos de la app), se toma de los participantes de la conversación de la página.
 // Messenger no tiene «username» (pedirlo hace fallar toda la consulta); Instagram sí.
+const nombresCache = new Map();
+const avisosPerfil = new Set();
+function avisarPerfil(clave, j) {
+  // Solo el código de Meta, nunca datos del cliente; una vez por tipo de error.
+  const k = clave + ':' + (j?.error?.code || '?') + ':' + (j?.error?.error_subcode || '');
+  if (avisosPerfil.has(k)) return;
+  avisosPerfil.add(k);
+  console.warn(`[meta] Nombre del cliente no disponible por ${clave}: código ${j?.error?.code || '?'}${j?.error?.error_subcode ? '/' + j.error.error_subcode : ''} ${j?.error?.type || ''}`.trim());
+}
 async function nombrePerfil(id, canal, tipo) {
+  const ck = canal.id + ':' + id, previo = nombresCache.get(ck);
+  if (previo && Date.now() - previo.ts < 6 * 3600e3) return previo.nombre;
+  let nombre = '';
   try {
     const token = resolverToken(canal.config?.token);
     if (!token) return '';
+    const auth = { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) };
     const campos = tipo === 'instagram' ? 'name,username' : 'first_name,last_name,name';
-    const r = await fetch(`${API}/${encodeURIComponent(id)}?fields=${campos}`,
-      { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
-    const j = await r.json();
-    return j.name || [j.first_name, j.last_name].filter(Boolean).join(' ') || (j.username ? '@' + j.username : '');
-  } catch (e) { return ''; }
+    const j = await fetch(`${API}/${encodeURIComponent(id)}?fields=${campos}`, auth).then(r => r.json()).catch(() => ({}));
+    nombre = j.name || [j.first_name, j.last_name].filter(Boolean).join(' ') || (j.username ? '@' + j.username : '');
+    if (!nombre && j.error) avisarPerfil('perfil', j);
+    const pagina = canal.config?.page_id;
+    if (!nombre && pagina) {
+      const plataforma = tipo === 'instagram' ? 'instagram' : 'messenger';
+      const c = await fetch(`${API}/${encodeURIComponent(pagina)}/conversations?platform=${plataforma}&user_id=${encodeURIComponent(id)}&fields=participants`, auth)
+        .then(r => r.json()).catch(() => ({}));
+      const p = (c.data?.[0]?.participants?.data || []).find(x => String(x.id) === String(id));
+      nombre = p?.name || (p?.username ? '@' + p.username : '');
+      if (!nombre && c.error) avisarPerfil('conversación', c);
+    }
+  } catch { nombre = ''; }
+  if (nombre) nombresCache.set(ck, { nombre, ts: Date.now() });
+  return nombre;
 }
 
 /* ---------- ENVÍO ---------- */

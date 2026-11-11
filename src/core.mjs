@@ -6,6 +6,7 @@ import * as ubi from './ubicaciones.mjs';
 import { programarBot } from './bot.mjs';
 import { resolverCitaEntrante } from './citas-impar.mjs';
 import { leerEnlace } from './enlaces-agentes-impar.mjs';
+import { detectarNumeroEnRedes } from './redes-a-whatsapp-impar.mjs';
 
 /* ================= NOTIFICACIONES ================= */
 export async function destinatarios(empresa, dest, base = []) {
@@ -243,12 +244,20 @@ async function sucursalPorDefecto(empresa) {
 /* ================= INGESTA UNIFICADA ================= */
 /** Punto único por donde entra TODO mensaje externo (los 4 canales). */
 export async function ingresarMensaje(empresa, datos) {
-  try { return await ingresarMensajeUnico(empresa, datos); }
+  let r;
+  try { r = await ingresarMensajeUnico(empresa, datos); }
   catch (e) {
     // Dos mensajes del mismo cliente al mismo tiempo: el segundo va a la negociación que abrió el primero.
-    if (e?.code === '23505' && /idx_neg_activa_unica/.test(String(e.constraint || e.message))) return ingresarMensajeUnico(empresa, datos);
-    throw e;
+    if (e?.code === '23505' && /idx_neg_activa_unica/.test(String(e.constraint || e.message))) r = await ingresarMensajeUnico(empresa, datos);
+    else throw e;
   }
+  // Cliente de Messenger/Instagram que pasó su número: la conversación sigue por WhatsApp en la misma ficha.
+  if (r?.negociacionId && !r.informativo && datos?.texto && (datos.origen === 'messenger' || datos.origen === 'instagram')) {
+    const v = await detectarNumeroEnRedes(empresa, { origen: datos.origen, texto: datos.texto, negociacionId: r.negociacionId })
+      .catch(e => { console.warn('[redes→whatsapp] No se pudo vincular el número:', e.status ? e.message : (e.code || e.name)); return null; });
+    if (v) r = { ...r, negociacionId: v.negociacionId, pasoAWhatsApp: true };
+  }
+  return r;
 }
 async function ingresarMensajeUnico(empresa, {
   canalId, canalSucursal, canalLinea, origen, extId, remitente, nombre, texto,
@@ -360,7 +369,11 @@ async function ingresarMensajeUnico(empresa, {
     if (anuncio) await historial(empresa.id, abierta.id, anuncio, 'Sistema');
     // Si el cliente escribió por otra línea (otro número de WhatsApp, Cloud API, Messenger…),
     // la negociación pasa a ese canal: el agente responde desde el mismo número al que le escribieron.
-    if (canalId && abierta.canal_id !== canalId) {
+    // Excepción: si la conversación ya pasó a WhatsApp y el cliente vuelve a escribir por redes,
+    // el mensaje queda en el chat pero las respuestas siguen saliendo por WhatsApp.
+    const sigueEnWhatsApp = (origen === 'messenger' || origen === 'instagram') && contacto.tel_norm && abierta.canal_id
+      && (await q('SELECT tipo FROM canales WHERE id=$1', [abierta.canal_id])).rows[0]?.tipo?.startsWith('whatsapp');
+    if (canalId && abierta.canal_id !== canalId && !sigueEnWhatsApp) {
       const { rows: [nuevo] } = await q('SELECT nombre FROM canales WHERE id=$1 AND empresa_id=$2', [canalId, empresa.id]);
       if (nuevo) {
         await q('UPDATE negociaciones SET canal_id=$3 WHERE id=$1 AND empresa_id=$2', [abierta.id, empresa.id, canalId]);

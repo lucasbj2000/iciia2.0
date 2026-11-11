@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { pasarAWhatsApp } from '../redes-a-whatsapp-impar.mjs';
 import { q, telNorm } from '../db.mjs';
 import { requiere, alcanceSQL } from '../auth.mjs';
 import {
@@ -356,6 +357,36 @@ r.post('/:id/mensajes', requiere(), async (req, res) => {
   emitir(req.empresaId, 'neg:patch', { id: n.id, mensajeId: mensaje.id, clienteId });
   pulsoSala(req.empresaId, n.id, 'respuesta');
   res.json({ ok: true, mensaje });
+});
+
+/** Cliente de Messenger/Instagram que pasó su número: la misma negociación sigue por WhatsApp. */
+r.post('/:id/pasar-whatsapp', requiere(), async (req, res) => {
+  const n = await obtenerNegociacionVisible(req, req.params.id);
+  if (!n) return res.status(404).json({ error: 'no encontrada' });
+  const mensaje = String(req.body?.mensaje || '').trim().slice(0, 4000);
+  let r2;
+  try {
+    r2 = await pasarAWhatsApp(req.empresa, { negociacionId: n.id, numero: req.body?.numero,
+      por: req.user.nombre, sucursal: req.user.sucursal || '' });
+  } catch (e) { return res.status(e.status || 500).json({ error: e.status ? e.message : 'No se pudo pasar la conversación a WhatsApp.' }); }
+  let enviado = false, aviso = '';
+  if (mensaje) {
+    const n2 = await obtenerNegociacionVisible(req, r2.negociacionId);
+    if (!n2) aviso = 'Ese número ya tenía una negociación con otro responsable: la conversación quedó unificada allí y no se envió el saludo.';
+    else {
+      try {
+        if (n2.etapa === 'nuevo' || n2.etapa === 'espera') {
+          await q(`UPDATE negociaciones SET etapa='contactado', entrada_etapa=now(), aviso_sla=FALSE,
+                     agente_id=COALESCE(agente_id,$2) WHERE id=$1 AND empresa_id=$3`, [n2.id, req.user.id, req.empresaId]);
+          await historial(req.empresaId, n2.id, `${nombreEtapa(req.empresa, n2.etapa)} → Contactado (primer mensaje por WhatsApp)`, req.user.nombre);
+        }
+        await encolarSalida(req, n2, mensaje, null);
+        enviado = true;
+      } catch (e) { aviso = e.status ? e.message : 'La conversación pasó a WhatsApp, pero el saludo no se pudo enviar.'; }
+    }
+  }
+  emitir(req.empresaId, 'neg:patch', { id: r2.negociacionId });
+  res.json({ ok: true, ...r2, enviado, aviso });
 });
 
 /** Presencia del equipo: «estoy en esta conversación» / «estoy escribiendo». Solo en memoria. */
