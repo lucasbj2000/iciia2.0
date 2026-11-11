@@ -5,7 +5,7 @@ import { auditar } from '../core.mjs';
 import * as baileys from '../channels/baileys.mjs';
 import * as meta from '../channels/meta.mjs';
 import { cifrarToken, tokenConfigurado, resolverToken } from '../meta-secretos-impar.mjs';
-import { resolverCuentaSocial, suscribirPagina } from '../redes-sociales-impar.mjs';
+import { resolverCuentaSocial, suscribirPagina, cuentaInstagramDirecta } from '../redes-sociales-impar.mjs';
 
 const r = Router();
 const TIPOS = ['whatsapp_qr', 'whatsapp_api', 'messenger', 'instagram'];
@@ -145,6 +145,15 @@ r.post('/', requiere('admin'), async (req, res) => {
   let suscripcion = null;
   if (['messenger', 'instagram'].includes(b.tipo)) {
     suscripcion = await suscribirPagina(config.page_id, resolverToken(config.token));
+    if (!suscripcion.ok && b.tipo === 'instagram') {
+      const d = await cuentaInstagramDirecta(b.token, config.ig_id || b.ig_id);
+      if (d?.ok) {
+        Object.assign(config, { token: cifrarToken(d.cuenta.token_pagina), page_id: '', api: d.cuenta.api, ig_id: d.cuenta.ig_id });
+        await q('UPDATE canales SET config=$3, estado=$4, ultimo_error=NULL WHERE id=$1 AND empresa_id=$2',
+          [rows[0].id, req.empresaId, JSON.stringify(config), 'conectado']);
+        suscripcion = { ok: true, directa: true };
+      }
+    }
     if (!suscripcion.ok) await q('UPDATE canales SET estado=$3, ultimo_error=$4 WHERE id=$1 AND empresa_id=$2',
       [rows[0].id, req.empresaId, 'error', 'No se pudo suscribir la página al webhook: ' + suscripcion.error]);
   }
@@ -203,9 +212,19 @@ r.patch('/:id', requiere('admin'), async (req, res) => {
     if (!r.ok) return res.status(422).json({ error: r.error || 'El token no tiene acceso a la página de este canal.' });
     try { config.token = cifrarToken(r.cuenta.token_pagina); } catch (e) { return res.status(503).json({ error: e.message }); }
     Object.assign(config, { page_nombre: r.cuenta.page_nombre, ig_usuario: r.cuenta.ig_usuario, ig_id: r.cuenta.ig_id || config.ig_id });
-    if (r.cuenta.api) config.page_id = r.cuenta.page_id || config.page_id || '';
+    // Cuenta de Instagram directa (token sin la página): ya no se usa la página guardada antes.
+    if (r.cuenta.api) config.page_id = r.cuenta.page_id || '';
     if (r.cuenta.api) config.api = r.cuenta.api; else delete config.api;
-    const sus = await suscribirPagina(config.page_id, r.cuenta.token_pagina);
+    let sus = await suscribirPagina(config.page_id, r.cuenta.token_pagina);
+    if (!sus.ok && c.tipo === 'instagram') {
+      // La página no se pudo suscribir con este token, pero la cuenta de Instagram sí es accesible: se conecta directa.
+      const d = await cuentaInstagramDirecta(b.token, igNuevo);
+      if (d?.ok) {
+        try { config.token = cifrarToken(d.cuenta.token_pagina); } catch (e) { return res.status(503).json({ error: e.message }); }
+        Object.assign(config, { page_id: '', api: d.cuenta.api, ig_id: d.cuenta.ig_id, ig_usuario: d.cuenta.ig_usuario || config.ig_usuario });
+        sus = { ok: true };
+      }
+    }
     if (!sus.ok) return res.status(409).json({ error: 'Token válido, pero no se pudo suscribir la página: ' + sus.error });
   }
   for (const k of social ? ['prefijoPais'] : ['token', 'phone_number_id', 'waba_id', 'page_id', 'ig_id', 'prefijoPais']) {

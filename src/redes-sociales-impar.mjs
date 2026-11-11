@@ -43,6 +43,15 @@ export const IG_API = `https://graph.instagram.com/${process.env.IG_GRAPH_VERSIO
 /** Token de Instagram con inicio de sesión de Instagram (los generados en la app de Meta empiezan con «IG»). */
 export const esTokenInstagram = t => /^IG/.test(String(t || '').trim());
 
+/** Cuenta de Instagram por su ID con un token del sistema (sin pasar por la página). */
+export async function cuentaInstagramDirecta(token, ig_id, fetchFn = fetch) {
+  if (!/^\d{6,}$/.test(String(ig_id || ''))) return null;
+  const r = await llamar(fetchFn, `${API}/${ig_id}?fields=id,username,name`, String(token || '').trim());
+  if (!r.ok) return { ok: false, error: traducirError(r.j.error) };
+  return { ok: true, cuenta: { token_pagina: String(token).trim(), page_id: '', ig_id: String(r.j.id || ig_id), page_nombre: '',
+    ig_usuario: r.j.username || '', api: 'facebook_ig' } };
+}
+
 export async function resolverCuentaSocial({ tipo, token, page_id = '', ig_id = '' }, fetchFn = fetch) {
   token = String(token || '').trim();
   if (!token) return { ok: false, error: 'Falta el token.' };
@@ -55,13 +64,7 @@ export async function resolverCuentaSocial({ tipo, token, page_id = '', ig_id = 
       ig_usuario: r.j.username || '', api: 'instagram' } };
   }
   // Instagram con token del sistema que solo tiene permisos de Instagram (sin páginas): se usa la cuenta directa.
-  const directaInstagram = async () => {
-    if (tipo !== 'instagram' || !/^\d{6,}$/.test(String(ig_id || ''))) return null;
-    const r = await llamar(fetchFn, `${API}/${ig_id}?fields=id,username,name`, token);
-    if (!r.ok) return { ok: false, error: traducirError(r.j.error) };
-    return { ok: true, cuenta: { token_pagina: token, page_id: '', ig_id: String(r.j.id || ig_id), page_nombre: '',
-      ig_usuario: r.j.username || '', api: 'facebook_ig' } };
-  };
+  const directaInstagram = async () => tipo === 'instagram' ? cuentaInstagramDirecta(token, ig_id, fetchFn) : null;
   // 1) Token de usuario (del sistema o personal): lista las páginas a las que tiene acceso.
   const cuentas = await listarPaginas(token, fetchFn);
   if (!cuentas.ok || !cuentas.paginas.some(p => tipo !== 'instagram' || p.ig_id)) {
