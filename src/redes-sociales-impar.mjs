@@ -39,9 +39,21 @@ export async function listarPaginas(tokenUsuario, fetchFn = fetch) {
  * Resuelve página, Instagram y token de página.
  * Devuelve { ok, cuenta } o { ok:false, error } o { ok:false, elegir:[páginas] } cuando hay varias.
  */
+export const IG_API = `https://graph.instagram.com/${process.env.IG_GRAPH_VERSION || 'v24.0'}`;
+/** Token de Instagram con inicio de sesión de Instagram (los generados en la app de Meta empiezan con «IG»). */
+export const esTokenInstagram = t => /^IG/.test(String(t || '').trim());
+
 export async function resolverCuentaSocial({ tipo, token, page_id = '', ig_id = '' }, fetchFn = fetch) {
   token = String(token || '').trim();
   if (!token) return { ok: false, error: 'Falta el token.' };
+  if (tipo === 'instagram' && esTokenInstagram(token)) {
+    // Inicio de sesión de Instagram: el token es de la cuenta; no hace falta la página.
+    const r = await llamar(fetchFn, `${IG_API}/me?fields=user_id,username,name`, token);
+    if (!r.ok) return { ok: false, error: traducirError(r.j.error) };
+    if (ig_id && String(r.j.user_id) !== String(ig_id)) return { ok: false, error: 'Ese token es de otra cuenta de Instagram.' };
+    return { ok: true, cuenta: { token_pagina: token, page_id: '', ig_id: String(r.j.user_id || ''), page_nombre: '',
+      ig_usuario: r.j.username || '', api: 'instagram' } };
+  }
   // 1) Token de usuario (del sistema o personal): lista las páginas a las que tiene acceso.
   const cuentas = await listarPaginas(token, fetchFn);
   let paginas;
@@ -73,6 +85,11 @@ export async function resolverCuentaSocial({ tipo, token, page_id = '', ig_id = 
 
 /** Suscribe la página a la app (necesario también para Instagram vinculado a esa página). */
 export async function suscribirPagina(pageId, tokenPagina, fetchFn = fetch) {
+  if (esTokenInstagram(tokenPagina)) {
+    // Inicio de sesión de Instagram: se suscribe la cuenta (equivale al interruptor «Suscripción a webhooks»).
+    const r = await llamar(fetchFn, `${IG_API}/me/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_reactions`, tokenPagina, { method: 'POST' });
+    return r.ok ? { ok: true } : { ok: false, error: traducirError(r.j.error) };
+  }
   const r = await llamar(fetchFn, `${API}/${pageId}/subscribed_apps`, tokenPagina, {
     method: 'POST', body: JSON.stringify({ subscribed_fields: CAMPOS_PAGINA })
   });

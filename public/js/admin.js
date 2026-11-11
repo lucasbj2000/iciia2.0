@@ -317,7 +317,7 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
            La sesión queda guardada en el servidor y se reconecta sola, incluso si nadie tiene el CRM abierto.</div></div>`
     : tipo === 'whatsapp_api'
     ? `<div class="field"><label>Token de acceso permanente *</label>
-         <input id="c-token" type="password" autocomplete="off" placeholder="${c ? 'Dejá vacío para conservar el actual' : 'EAAG...'}"></div>
+         <input id="c-token" type="password" autocomplete="off" placeholder="${c ? 'Dejá vacío para conservar el actual' : 'EAAG… o IGAA… (Instagram)'}"></div>
        <div class="row"><div class="field"><label>Phone Number ID *</label>
          <input id="c-phone" value="${esc(cfg.phone_number_id || '')}" placeholder="1234567890"></div>
         <div class="field"><label>WABA ID</label><input id="c-waba" value="${esc(cfg.waba_id || '')}"></div>
@@ -333,7 +333,7 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
     : `${c ? `<div class="card-box" style="background:var(--surface2);margin-bottom:12px;font-size:var(--fs-sm)">
            Conectado a <b>${esc(cfg.page_nombre || 'página ' + (cfg.page_id || ''))}</b>${tipo === 'instagram' && cfg.ig_usuario ? ` · Instagram <b>@${esc(cfg.ig_usuario)}</b>` : ''}</div>` : ''}
        <div class="field"><label for="c-token">Token del usuario del sistema ${c ? '' : '*'}</label>
-         <input id="c-token" type="password" autocomplete="off" placeholder="${c ? 'Dejá vacío para conservar el actual' : 'EAAG...'}">
+         <input id="c-token" type="password" autocomplete="off" placeholder="${c ? 'Dejá vacío para conservar el actual' : 'EAAG… o IGAA… (Instagram)'}">
          <small class="sub">Sirve el mismo token permanente del usuario del sistema, si tiene asignadas la página${tipo === 'instagram' ? ' y la cuenta de Instagram' : ''}. El CRM busca la página, obtiene su token y la suscribe sola.</small></div>
        <div class="field" id="c-pag-caja" hidden><label for="c-page">Página a conectar</label><select id="c-page"></select></div>
        <div class="card-box" style="background:var(--surface2);margin-top:12px">

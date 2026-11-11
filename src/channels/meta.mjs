@@ -14,6 +14,14 @@ import { encolarWebhookMeta, drenarWebhooksMeta } from '../meta-webhooks-impar.m
 // Messenger e Instagram: versión vigente (las anteriores a v24 se ignoran porque Meta las retira).
 const WA_API = `https://graph.facebook.com/${process.env.WA_GRAPH_VERSION || 'v26.0'}`;
 
+// Instagram con inicio de sesión de Instagram (configuración recomendada por Meta): token propio
+// de Instagram («IG…») y llamadas a graph.instagram.com. Con inicio de sesión de Facebook se usa
+// el token de la página en graph.facebook.com, como siempre.
+const IG_API = `https://graph.instagram.com/${process.env.IG_GRAPH_VERSION || 'v24.0'}`;
+export function usaLoginInstagram(canal, token) {
+  return canal?.tipo === 'instagram' && (canal.config?.api === 'instagram' || /^IG/.test(String(token || '')));
+}
+
 /* ---------- Verificación (GET) ---------- */
 export function verificarWebhook(req, res) {
   const modo = req.query['hub.mode'];
@@ -269,10 +277,11 @@ async function nombrePerfil(id, canal, tipo) {
     if (!token) return '';
     const auth = { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) };
     const campos = tipo === 'instagram' ? 'name,username' : 'first_name,last_name,name';
-    const j = await fetch(`${API}/${encodeURIComponent(id)}?fields=${campos}`, auth).then(r => r.json()).catch(() => ({}));
+    const base = usaLoginInstagram(canal, token) ? IG_API : API;
+    const j = await fetch(`${base}/${encodeURIComponent(id)}?fields=${campos}`, auth).then(r => r.json()).catch(() => ({}));
     nombre = j.name || [j.first_name, j.last_name].filter(Boolean).join(' ') || (j.username ? '@' + j.username : '');
     if (!nombre && j.error) avisarPerfil('perfil', j);
-    const pagina = canal.config?.page_id;
+    const pagina = usaLoginInstagram(canal, token) ? null : canal.config?.page_id;
     if (!nombre && pagina) {
       const plataforma = tipo === 'instagram' ? 'instagram' : 'messenger';
       const c = await fetch(`${API}/${encodeURIComponent(pagina)}/conversations?platform=${plataforma}&user_id=${encodeURIComponent(id)}&fields=participants`, auth)
@@ -325,11 +334,12 @@ export async function enviarWhatsAppAPI(canal, destino, texto, adjunto, opciones
 }
 
 export async function enviarMeta(canal, destino, texto, adjunto) {
-  const { page_id } = canal.config || {};
+  const { page_id, ig_id } = canal.config || {};
   const token = resolverToken(canal.config?.token);
   if (!token) throw new Error('canal sin token');
+  const destinoApi = usaLoginInstagram(canal, token) ? `${IG_API}/${ig_id || 'me'}/messages` : `${API}/${page_id || 'me'}/messages`;
   const post = async mensaje => {
-    const r = await fetch(`${API}/${page_id || 'me'}/messages`, {
+    const r = await fetch(destinoApi, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ recipient: { id: String(destino) }, message: mensaje, messaging_type: 'RESPONSE' })
@@ -356,12 +366,13 @@ export async function probarCanal(canal) {
   if (!token) return { ok: false, error: 'Falta el token de acceso.' };
   const destino = canal.tipo === 'whatsapp_api'
     ? `${WA_API}/${phone_number_id}?fields=display_phone_number,verified_name,quality_rating`
+    : usaLoginInstagram(canal, token) ? `${IG_API}/me?fields=user_id,username,name`
     : `${API}/${canal.tipo === 'instagram' ? (ig_id || page_id) : (page_id || ig_id)}?fields=name,username`;
   try {
     const r = await fetch(destino, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10000) });
     const j = await r.json();
     if (!r.ok) return { ok: false, error: j.error?.message || 'Credenciales inválidas.' };
-    return { ok: true, info: j,
+    return { ok: true, info: j, igUserId: j.user_id || '',
       numero: j.display_phone_number || '', nombre: j.verified_name || j.name || j.username || '' };
   } catch (e) { return { ok: false, error: e.message }; }
 }

@@ -98,7 +98,7 @@ r.post('/', requiere('admin'), async (req, res) => {
     if (!r.ok) return res.status(422).json({ error: r.error });
     try {
       Object.assign(config, { token: cifrarToken(r.cuenta.token_pagina), page_id: r.cuenta.page_id, ig_id: r.cuenta.ig_id,
-        page_nombre: r.cuenta.page_nombre, ig_usuario: r.cuenta.ig_usuario });
+        page_nombre: r.cuenta.page_nombre, ig_usuario: r.cuenta.ig_usuario, ...(r.cuenta.api ? { api: r.cuenta.api } : {}) });
     } catch (e) { return res.status(503).json({ error: e.message }); }
   }
 
@@ -201,7 +201,8 @@ r.patch('/:id', requiere('admin'), async (req, res) => {
     const r = await resolverCuentaSocial({ tipo: c.tipo, token: b.token, page_id: config.page_id, ig_id: config.ig_id });
     if (!r.ok) return res.status(422).json({ error: r.error || 'El token no tiene acceso a la página de este canal.' });
     try { config.token = cifrarToken(r.cuenta.token_pagina); } catch (e) { return res.status(503).json({ error: e.message }); }
-    Object.assign(config, { page_nombre: r.cuenta.page_nombre, ig_usuario: r.cuenta.ig_usuario });
+    Object.assign(config, { page_nombre: r.cuenta.page_nombre, ig_usuario: r.cuenta.ig_usuario, ig_id: r.cuenta.ig_id || config.ig_id });
+    if (r.cuenta.api) config.api = r.cuenta.api; else delete config.api;
     const sus = await suscribirPagina(config.page_id, r.cuenta.token_pagina);
     if (!sus.ok) return res.status(409).json({ error: 'Token válido, pero no se pudo suscribir la página: ' + sus.error });
   }
