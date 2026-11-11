@@ -201,9 +201,11 @@ export function conectarFicha(id) {
 /* ================= Sello de venta ================= */
 export function sellar(el) {
   if (!el) return;
-  el.querySelector('.sello')?.remove();
+  // Se estampa en su lugar del pie de la tarjeta (sin tapar contenido).
+  const previo = el.querySelector('.sello');
   const s = document.createElement('span'); s.className = 'sello'; s.textContent = 'GANADO';
-  el.append(s);
+  if (previo) previo.replaceWith(s);
+  else (el.querySelector('.card-pie') || el).append(s);
 }
 
 /* ================= Esqueleto del tablero ================= */

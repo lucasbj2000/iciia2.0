@@ -19,15 +19,16 @@
   border-color:color-mix(in srgb,var(--urg) calc(var(--urg-k) * 55%),var(--line))}
 
 /* ---------- Sello de venta ---------- */
-.sello{position:absolute;right:12px;bottom:10px;z-index:2;pointer-events:none;
-  font:900 13px/1 var(--f-titulo);letter-spacing:.16em;color:#2f8a2a;padding:5px 8px 4px;border:2.5px solid currentColor;border-radius:5px;
-  transform:rotate(-11deg);mix-blend-mode:multiply;opacity:.82;
+.sello{position:relative;display:inline-block;flex:none;margin:3px 4px 2px 0;pointer-events:none;
+  font:900 12px/1 var(--f-titulo);letter-spacing:.14em;color:#2f8a2a;padding:4px 7px 3px;border:2px solid currentColor;border-radius:5px;
+  transform:rotate(-6deg);mix-blend-mode:multiply;opacity:.85;
   -webkit-mask:radial-gradient(circle at 30% 40%,#000 62%,transparent 63%) 0 0/7px 7px,linear-gradient(#000,#000);mask-composite:intersect}
 :root:not([data-tema="claro"]) .sello{color:#8fdc6a;mix-blend-mode:screen}
 @media (prefers-reduced-motion:no-preference){
   .sello:not(.quieto){animation:sello-golpe .55s cubic-bezier(.2,1.6,.4,1) both}
 }
-@keyframes sello-golpe{0%{transform:rotate(-11deg) scale(2.6);opacity:0}60%{transform:rotate(-11deg) scale(.92);opacity:.95}100%{transform:rotate(-11deg) scale(1);opacity:.82}}
+@keyframes sello-golpe{0%{transform:rotate(-6deg) scale(2.4);opacity:0}60%{transform:rotate(-6deg) scale(.92);opacity:.95}100%{transform:rotate(-6deg) scale(1);opacity:.85}}
+.pie-ganado{align-items:flex-end}
 
 /* ---------- 3. Columnas como pilas de hojas ---------- */
 .col-pila{display:inline-block;width:18px;height:calc(3px + var(--hojas) * 2px);max-height:28px;margin-left:2px;align-self:flex-end;

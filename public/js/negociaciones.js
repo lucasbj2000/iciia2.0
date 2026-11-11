@@ -310,6 +310,9 @@ function tarjeta(n) {
     if (n.etapa === 'espera') urg = `;--urg:hsl(${Math.round(120 * (1 - pct / 100))} 72% 44%);--urg-k:${(pct / 100).toFixed(2)}`;
     sla = `<div class="sla ${nivel}"><i style="width:${pct}%"></i></div>
       <div class="sla-txt card-pie"><span style="color:${color}">${ic('reloj')} ${n.etapa === 'espera' ? 'Esperando' : 'En seguimiento'} hace ${ago(n.entrada_etapa)}</span>${fecha ? `<span class="card-fecha" title="Creada">${fecha}</span>` : ''}</div>`;
+  } else if (n.etapa === 'ganado') {
+    // El sello de venta tiene su propio lugar en el pie: nunca tapa nombre, monto ni datos.
+    sla = `<div class="card-pie pie-ganado"><span>${fecha ? `${ic('calendario')} <span class="card-fecha" title="Creada">${fecha}</span>` : ''}</span><span class="sello quieto">GANADO</span></div>`;
   } else if (fecha) sla = `<div class="card-pie"><span>${ic('calendario')} Creada</span><span class="card-fecha">${fecha}</span></div>`;
 
   return `<div class="card hoja-papel ${SEL.has(n.id) ? 'sel' : ''}${plazo}${urg ? ' urg' : ''}${n.etapa === 'ganado' ? ' ganada' : ''}" data-id="${n.id}"
@@ -323,8 +326,7 @@ function tarjeta(n) {
       ${ocultos.length ? `<span class="mas" data-mas="${n.id}">+${ocultos.length}</span>` : ''}</div>
     ${ocultos.length ? `<div class="extra">${ocultos.join('')}</div>` : ''}
     ${sla}
-    ${n.motivo ? `<div class="linea" style="margin-top:5px">Motivo: ${esc(n.motivo)}</div>` : ''}
-    ${n.etapa === 'ganado' ? '<span class="sello quieto">GANADO</span>' : ''}</div>`;
+    ${n.motivo ? `<div class="linea" style="margin-top:5px">Motivo: ${esc(n.motivo)}</div>` : ''}</div>`;
 }
 
 /* ---------- Drag & drop ---------- */
