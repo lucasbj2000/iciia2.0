@@ -289,7 +289,6 @@ function conectarRealtime() {
       const campana = $('#noti-btn');
       if (campana) { campana.classList.remove('sonando'); void campana.offsetWidth; campana.classList.add('sonando'); }
     }
-    if (n.tipo === 'ganado') confeti(40);
     cargarNotificaciones();
   });
   es.addEventListener('com', e => { if (S.vista === 'com') refrescarChat(JSON.parse(e.data)); else cargarNotificaciones(); });

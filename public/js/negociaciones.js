@@ -4,7 +4,7 @@ import { avataresEquipo, cargarPresencias } from './presencia-equipo.js';
 import { ic } from './iconos.js';
 import {
   $, $$, esc, nombreLegible, S, get, post, patch, gs, fd, ago, toast, modal, cerrar, confirmar,
-  fx, esAdmin, etapa, etapaActiva, ORIGENES, vacio, skeleton, confeti, vibrar,
+  fx, esAdmin, etapa, etapaActiva, ORIGENES, vacio, skeleton, vibrar,
   destacar, animarContador, esMovil, etiquetaLinea
 } from './core.js';
 import { fichaNeg } from './ficha.js';
@@ -394,7 +394,7 @@ export async function mover(id, destino, extra = {}) {
     bloqueadas.delete(id);
     // Al cerrar ganado, la tarjeta recibe el sello de tinta con un golpe seco.
     setTimeout(() => Promise.resolve(patchTarjeta(id)).then(() => { if (destino === 'ganado') sellar($(`[data-id="${id}"]`)); }), 80);
-    if (destino === 'ganado') { confeti(); vibrar([18, 50, 18]); toast(`Cerrado ganado por ${gs(extra.monto)}`, 'ok', '¡Venta cerrada!'); }
+    if (destino === 'ganado') { vibrar([18, 50, 18]); toast(`Cerrado ganado por ${gs(extra.monto)}`, 'ok', '¡Venta cerrada!'); }
     else toast(`Movido a ${etapa(destino).nombre}`, 'ok', 'Negociación');
   } catch (e) {
     bloqueadas.delete(id);
