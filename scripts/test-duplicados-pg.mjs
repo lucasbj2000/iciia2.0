@@ -94,7 +94,36 @@ try {
   await Promise.all([0, 1, 2].map(msj));
   assert.equal(await cuenta("SELECT count(*) n FROM contactos WHERE externos->>'messenger'='psid-777'"), 1, 'Messenger: una ficha aunque lleguen juntos');
 
-  /* 8) Datos de versiones anteriores: misma persona guardada dos veces con el número en otro formato. */
+  /* 8) Revisión del administrador: mismo nombre o documento, unificación con un único responsable. */
+  const usr = async (nombre) => (await q("INSERT INTO usuarios (empresa_id,nombre,usuario,pass_hash,rol,sucursal) VALUES ($1,$2,$3,'x','agente','Central') RETURNING *",
+    [E, nombre, nombre.toLowerCase().replace(/ /g, '.') + Date.now()])).rows[0];
+  const ag1 = await usr('Agente Uno'), ag2 = await usr('Agente Dos');
+  const f1 = await contacto('Librería Ficticia Centro', '595981600001');
+  const f2 = await contacto('Libreria ficticia  centro', '595981600002');
+  await q('UPDATE contactos SET responsable_id=$2 WHERE id=$1', [f1.id, ag1.id]);
+  await q('UPDATE contactos SET responsable_id=$2 WHERE id=$1', [f2.id, ag2.id]);
+  const nf1 = await negociacion(f1, 'contactado'), nf2 = await negociacion(f2, 'espera');
+  await q('UPDATE negociaciones SET agente_id=$2 WHERE id=$1', [nf1.id, ag1.id]);
+  await q('UPDATE negociaciones SET agente_id=$2 WHERE id=$1', [nf2.id, ag2.id]);
+  const grupos = await dup.buscarPosiblesDuplicados(E);
+  const g = grupos.find(x => x.contactos.some(c => c.id === f1.id));
+  assert.ok(g && g.contactos.some(c => c.id === f2.id), 'Detecta el mismo nombre aunque cambien acentos y espacios');
+  assert.ok(g.motivos.includes('Mismo nombre'));
+  await assert.rejects(() => dup.unificarManual(E, { principalId: f1.id, otrosIds: [], responsableId: ag2.id }, { nombre: 'Admin' }), e => e.status === 422);
+  const um = await dup.unificarManual(E, { principalId: f1.id, otrosIds: [f2.id], responsableId: ag2.id }, { nombre: 'Admin' });
+  assert.equal(um.unidas, 1); assert.equal(um.responsable, 'Agente Dos');
+  const [fq] = (await q('SELECT * FROM contactos WHERE id=$1', [f1.id])).rows;
+  assert.equal(fq.responsable_id, ag2.id, 'La ficha queda con el responsable elegido');
+  const abiertasF = (await q("SELECT * FROM negociaciones WHERE contacto_id=$1 AND etapa IN ('nuevo','contactado','espera')", [f1.id])).rows;
+  assert.equal(abiertasF.length, 1); assert.equal(abiertasF[0].agente_id, ag2.id, 'La negociación abierta queda con el mismo responsable');
+  assert.equal(await cuenta("SELECT count(*) n FROM contacto_telefonos WHERE contacto_id=$1 AND tel_norm='81600002'", [f1.id]), 1, 'El otro número queda como secundario');
+  const llega = await core.ingresarMensaje(emp, { origen: 'whatsapp', remitente: '595981600002', texto: 'hola', extId: 'unif-1' });
+  assert.equal(llega.negociacionId, abiertasF[0].id, 'Si escribe por el otro número, entra a la misma negociación');
+
+  /* 9) Ver revisión otra vez: el grupo ya no aparece. */
+  assert.ok(!(await dup.buscarPosiblesDuplicados(E)).some(x => x.contactos.some(c => c.id === f1.id)));
+
+  /* 10) Datos de versiones anteriores: misma persona guardada dos veces con el número en otro formato. */
   await q('ALTER TABLE contactos DISABLE TRIGGER trg_impar_contacto_tel');
   await q('DROP INDEX idx_contacto_tel_unico');
   const viejo = (await q("INSERT INTO contactos (empresa_id,nombre,tel,tel_norm,creado) VALUES ($1,'Ficha antigua','0981500001','981500001',now()-interval '1 year') RETURNING *", [E])).rows[0];

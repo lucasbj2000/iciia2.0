@@ -1,7 +1,7 @@
 /* ============ Contactos y ficha 360° ============ */
 import {
   $, $$, esc, S, api, get, post, patch, del, gs, fd, fdate, toast, modal, cerrar,
-  fx, esAdmin, etapa, bajar, vacio, skeleton, nombreLegible } from './core.js';
+  fx, esAdmin, etapa, bajar, vacio, skeleton, nombreLegible, confirmar } from './core.js';
 import { fichaNeg } from './ficha.js';
 import { chequearDuplicado } from './negociaciones.js';
 import { activarVisor } from './adjuntos.js';
@@ -69,6 +69,7 @@ export async function vistaContactos() {
      <div class="contactos-acciones">
        <button class="btn sm" id="c-nuevo">+ Nuevo contacto</button>
        <button class="btn ghost sm" id="c-buscar-registrado" title="Buscar cliente de cualquier sucursal para iniciar conversación">Buscar registrado en IMPAR</button>
+       ${esAdmin() ? `<button class="btn ghost sm" id="c-duplicados" title="Buscar fichas del mismo cliente y unificarlas">${ic('usuarios')} Verificar duplicados</button>` : ''}
        ${(esAdmin() || S.usuario.rol === 'gerente') && fx('exportar') ? `<button class="btn ghost sm" id="c-export">⭳ Exportar</button>` : ''}
        ${(esAdmin() || S.usuario.rol === 'gerente') && fx('importar') ? `<button class="btn ghost sm" id="c-import">⭱ Importar</button>
        <input id="c-file" type="file" accept=".csv" class="hidden">` : ''}</div></div>
@@ -88,7 +89,7 @@ export async function vistaContactos() {
      <td>${c.etapa_abierta ? `<span class="c-etapa" style="--etapa:${etapa(c.etapa_abierta).color}" title="Negociación abierta">${esc(etapa(c.etapa_abierta).nombre)}</span>`
        : `<span class="c-cerradas">${n ? `${n} ${n === 1 ? 'cerrada' : 'cerradas'}` : 'Sin negociaciones'}</span>`}</td>
      <td class="hide-m c-alta">${fd(c.creado)}</td>
-     <td><div class="c-acc"><button class="btn sm" data-conversacion="${c.id}">Conversación</button><button class="btn ghost sm c-ico" data-360="${c.id}" aria-label="Ficha 360° de ${esc(nombreLegible(c.nombre))}" title="Ficha 360°">${ic('usuarios')}</button></div></td></tr>`; }).join('')
+     <td><div class="c-acc"><button class="btn sm" data-conversacion="${c.id}">Conversación</button><button class="btn ghost sm c-ico" data-360="${c.id}" aria-label="Ficha 360° de ${esc(nombreLegible(c.nombre))}" title="Ficha 360°">${ic('usuarios')}</button>${esAdmin() ? `<button class="btn ghost sm c-ico c-borrar" data-eliminar-contacto="${c.id}" aria-label="Eliminar ${esc(nombreLegible(c.nombre))}" title="Eliminar contacto">${ic('papelera')}</button>` : ''}</div></td></tr>`; }).join('')
      || `<tr><td colspan="6">${vacio('usuarios', 'Sin contactos', 'Los que ingresen por los canales aparecerán acá')}</td></tr>`}
    </tbody></table></div></div>`;
 
@@ -106,6 +107,8 @@ export async function vistaContactos() {
   };
   $('#c-nuevo').onclick = modalNuevo;
   $('#c-buscar-registrado').onclick=buscarContactoImpar;
+  if($('#c-duplicados'))$('#c-duplicados').onclick=verificarDuplicados;
+  $$('[data-eliminar-contacto]').forEach(b=>b.onclick=()=>eliminarContacto(cs.find(c=>c.id===b.dataset.eliminarContacto)));
   $$('[data-360]').forEach(b => b.onclick = () => ficha360(b.dataset['360']));
   $$('[data-cambiar-responsable]').forEach(b=>b.onclick=()=>cambiarResponsableContacto(
     b.dataset.cambiarResponsable,cs.find(c=>c.id===b.dataset.cambiarResponsable)));
@@ -148,6 +151,72 @@ export async function vistaContactos() {
 }
 
 /** Transferir el contacto y sus negociaciones abiertas sin alterar historial cerrado. */
+/* ---------- Duplicados (solo administración) ---------- */
+async function verificarDuplicados() {
+  modal(`<div class="modal-h"><h3>Verificar duplicados</h3><button class="x" data-cerrar>✕</button></div>
+    <div class="modal-b">${skeleton(4)}</div>`, true);
+  $$('[data-cerrar]').forEach(x => x.onclick = cerrar);
+  let grupos, personas;
+  try { [grupos, personas] = await Promise.all([get('/contactos/duplicados/revision'), get('/contactos/responsables/disponibles')]); }
+  catch (e) { cerrar(); return toast(e.message, 'bad', 'Duplicados'); }
+  const opciones = (actual) => `<option value="">Elegí el responsable…</option>` + personas.map(u =>
+    `<option value="${esc(u.id)}" ${u.id === actual ? 'selected' : ''}>${esc(u.nombre)} · ${esc(u.sucursal || 'Sin sucursal')}</option>`).join('');
+  const fila = (g, c, i) => `<label class="dup-ficha">
+      <input type="radio" name="dup-p-${g.id}" value="${esc(c.id)}" ${i === 0 ? 'checked' : ''} aria-label="Dejar la ficha de ${esc(nombreLegible(c.nombre))}">
+      <span class="dup-datos"><b>${esc(nombreLegible(c.nombre))}</b>
+        <small>${esc(c.tel || 'Sin teléfono')}${c.doc ? ' · Doc. ' + esc(c.doc) : ''} · Alta ${fd(c.creado)}</small>
+        <small>${c.responsable ? 'Responsable: ' + esc(c.responsable) : 'Sin responsable'} · ${c.negociaciones} negociación(es)${c.abierta ? ' · abierta en ' + esc(etapa(c.abierta).nombre) : ''}</small></span>
+      <input type="checkbox" class="dup-unir" value="${esc(c.id)}" checked title="Incluir en la unificación" aria-label="Incluir ${esc(nombreLegible(c.nombre))}">
+    </label>`;
+  const respInicial = g => (g.contactos.find(c => c.abierta && c.responsableId) || g.contactos.find(c => c.responsableId) || {}).responsableId;
+  modal(`<div class="modal-h"><h3>Verificar duplicados</h3><button class="x" data-cerrar>✕</button></div>
+    <div class="modal-b dup-lista">
+      ${grupos.length ? `<p class="sub" style="margin-top:0">${grupos.length} grupo(s) para revisar. En cada grupo marcá la ficha que queda (●) y destildá las que no son el mismo cliente.
+        Todo lo de las demás (mensajes, historial y negociaciones) pasa a la ficha elegida, con un único responsable.</p>
+      ${grupos.map(g => `<section class="dup-grupo" data-grupo="${esc(g.id)}">
+        <div class="dup-motivos">${g.motivos.map(m => `<span class="tag">${esc(m)}</span>`).join(' ')}</div>
+        ${g.contactos.map((c, i) => fila(g, c, i)).join('')}
+        <div class="dup-pie"><label class="field"><span>Responsable único</span>
+          <select class="dup-resp">${opciones(respInicial(g))}</select></label>
+          <button class="btn sm" data-unificar="${esc(g.id)}">Unificar</button></div>
+        <div class="err" data-error-grupo="${esc(g.id)}"></div></section>`).join('')}`
+      : vacio('usuarios', 'Sin duplicados', 'No hay fichas con el mismo teléfono, documento o nombre.')}
+    </div>
+    <div class="modal-f"><button class="btn ghost" data-cerrar>Cerrar</button></div>`, true);
+  $$('[data-cerrar]').forEach(x => x.onclick = () => { cerrar(); vistaContactos(); });
+  $$('[data-unificar]').forEach(b => b.onclick = async () => {
+    const sec = b.closest('.dup-grupo'), g = grupos.find(x => x.id === b.dataset.unificar), err = sec.querySelector('.err');
+    const principalId = sec.querySelector(`input[type=radio]:checked`)?.value;
+    const otrosIds = [...sec.querySelectorAll('.dup-unir:checked')].map(x => x.value).filter(id => id !== principalId);
+    const responsableId = sec.querySelector('.dup-resp').value;
+    err.textContent = '';
+    if (!otrosIds.length) return err.textContent = 'Dejá tildada al menos otra ficha para unir.';
+    if (!responsableId) return err.textContent = 'Elegí el responsable único del cliente.';
+    const queda = g.contactos.find(c => c.id === principalId);
+    if (!await confirmar('Unificar fichas', `Quedará la ficha de <b>${esc(nombreLegible(queda?.nombre))}</b> y se unirán ${otrosIds.length} ficha(s) en ella. No se puede deshacer.`, 'Unificar', false))
+      return verificarDuplicados();
+    try {
+      const r = await post('/contactos/duplicados/unificar', { principalId, otrosIds, responsableId });
+      toast(`${r.unidas} ficha(s) unificada(s) · responsable ${r.responsable}`, 'ok', 'Duplicados');
+    } catch (e) { toast(e.message, 'bad', 'Duplicados'); }
+    verificarDuplicados();
+  });
+}
+
+async function eliminarContacto(c) {
+  if (!c) return;
+  const n = Number(c.n_negociaciones) || 0;
+  const ok = await confirmar('Eliminar contacto',
+    `Se eliminará <b>${esc(nombreLegible(c.nombre))}</b>${c.tel ? ' (' + esc(c.tel) + ')' : ''}` +
+    (n ? ` junto con sus <b>${n} negociación(es)</b> y todos sus mensajes` : '') + '. No se puede deshacer.', 'Eliminar contacto');
+  if (!ok) return;
+  try {
+    await del(`/contactos/${c.id}`);
+    toast(`${nombreLegible(c.nombre)} eliminado`, 'ok', 'Contactos');
+  } catch (e) { toast(e.message, 'bad', 'Contactos'); }
+  vistaContactos();
+}
+
 async function cambiarResponsableContacto(id,contacto) {
   let disponibles;
   try { disponibles=await get('/contactos/responsables/disponibles'); }

@@ -79,6 +79,10 @@ export async function fusionarContactos(db, empresaId, principalId, duplicadoId,
   // cuando la duplicada ya no exista (el bloqueo impide un número en dos fichas).
   const { rows: telsDup } = await db.query(
     'DELETE FROM contacto_telefonos WHERE contacto_id=$1 RETURNING numero,tel_norm,etiqueta', [d.id]);
+  // Fichas antiguas sin su número principal en la tabla de teléfonos: tampoco se pierde.
+  const claveDup = String(d.tel || '').replace(/\D/g, '').slice(-8);
+  if (claveDup.length === 8 && !telsDup.some(t => t.tel_norm === claveDup))
+    telsDup.push({ numero: d.tel, tel_norm: claveDup, etiqueta: 'Principal' });
 
   // 3) Datos de la ficha: se completan los vacíos, nunca se pisa lo cargado.
   const externos = { ...(d.externos || {}), ...(p.externos || {}) };
@@ -249,4 +253,98 @@ export function errorDuplicado(e) {
   if (/idx_contacto_tel_unico|uq_impar_telefono_secundario|telefono_duplicado|idx_contacto_externo/.test(c))
     return Object.assign(new Error('Este número ya pertenece a otro cliente de IMPAR. Abrí la ficha existente; no se creó otra.'), { status: 409, codigo: 'contacto_duplicado' });
   return null;
+}
+
+/* ================= Revisión manual (solo administración) ================= */
+const sinAcentos = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const nombreClave = t => {
+  const n = sinAcentos(t).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return n.length >= 6 && !GENERICO.test(String(t || '')) && /[a-z]/.test(n) ? n : '';
+};
+
+/** Grupos de fichas que podrían ser el mismo cliente: mismo teléfono (en cualquier formato,
+ * principal o secundario), mismo documento o código SAP, o mismo nombre. */
+export async function buscarPosiblesDuplicados(empresaId, limite = 200) {
+  const { rows } = await q(
+    `SELECT c.id, c.nombre, c.tel, c.doc, c.externos->>'sap' AS sap, c.creado, c.responsable_id,
+            u.nombre AS responsable, c.sucursal,
+            (SELECT string_agg(t.tel_norm, ',') FROM contacto_telefonos t WHERE t.contacto_id=c.id) AS otros,
+            (SELECT count(*)::int FROM negociaciones n WHERE n.contacto_id=c.id) AS negociaciones,
+            (SELECT n.etapa FROM negociaciones n WHERE n.contacto_id=c.id AND n.etapa = ANY($2) LIMIT 1) AS abierta
+       FROM contactos c LEFT JOIN usuarios u ON u.id=c.responsable_id
+      WHERE c.empresa_id=$1 ORDER BY c.creado, c.id`, [empresaId, ETAPAS_ABIERTAS]);
+  const padre = new Map(), duenos = new Map(), motivos = new Map();
+  const raiz = x => { while (padre.get(x) !== x) { padre.set(x, padre.get(padre.get(x))); x = padre.get(x); } return x; };
+  const unir = (llave, id, motivo) => {
+    if (!duenos.has(llave)) { duenos.set(llave, id); return; }
+    const a = raiz(duenos.get(llave)), b = raiz(id);
+    if (a !== b) padre.set(b, a);
+    motivos.set(llave, motivo);
+  };
+  for (const c of rows) {
+    padre.set(c.id, c.id);
+    const tels = new Set([claveTel(c.tel), ...String(c.otros || '').split(',').filter(x => x.length === 8)]);
+    for (const t of tels) if (t) unir('tel:' + t, c.id, 'Mismo teléfono');
+    const doc = String(c.doc || '').replace(/[^0-9a-z]/gi, '').toLowerCase();
+    if (doc.length >= 5) unir('doc:' + doc, c.id, 'Mismo documento');
+    if (c.sap) unir('sap:' + String(c.sap).trim().toLowerCase(), c.id, 'Mismo código SAP');
+    const n = nombreClave(c.nombre);
+    if (n) unir('nom:' + n, c.id, 'Mismo nombre');
+  }
+  const grupos = new Map();
+  for (const c of rows) { const g = raiz(c.id); if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(c); }
+  // Motivos de cada grupo: las llaves repetidas cuyo primer dueño quedó en ese grupo.
+  const motivosGrupo = new Map();
+  for (const [llave, motivo] of motivos) {
+    const g = raiz(duenos.get(llave));
+    if (!motivosGrupo.has(g)) motivosGrupo.set(g, new Set());
+    motivosGrupo.get(g).add(motivo);
+  }
+  const peso = m => m.has('Mismo teléfono') ? 0 : m.has('Mismo documento') || m.has('Mismo código SAP') ? 1 : 2;
+  return [...grupos.entries()].filter(([, l]) => l.length > 1)
+    .map(([g, lista]) => ({
+      id: g,
+      motivos: [...(motivosGrupo.get(g) || [])],
+      contactos: lista.map(c => ({ id: c.id, nombre: c.nombre, tel: c.tel, doc: c.doc, creado: c.creado,
+        responsableId: c.responsable_id, responsable: c.responsable, sucursal: c.sucursal,
+        negociaciones: c.negociaciones, abierta: c.abierta }))
+    }))
+    .sort((a, b) => peso(new Set(a.motivos)) - peso(new Set(b.motivos)) || b.contactos.length - a.contactos.length)
+    .slice(0, limite);
+}
+
+/** El administrador unifica varias fichas en una y elige el único responsable. */
+export async function unificarManual(empresaId, { principalId, otrosIds, responsableId }, usuario) {
+  const fallo = (status, message) => { throw Object.assign(new Error(message), { status }); };
+  const uuid = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || ''));
+  const otros = [...new Set((Array.isArray(otrosIds) ? otrosIds : []).filter(x => x !== principalId))];
+  if (!uuid(principalId) || !otros.length || !otros.every(uuid)) fallo(422, 'Elegí la ficha que queda y al menos otra para unir.');
+  if (otros.length > 50) fallo(422, 'Se pueden unir hasta 50 fichas por vez.');
+  if (!uuid(responsableId)) fallo(422, 'Elegí el responsable del cliente.');
+  const r = await tx(async db => {
+    const { rows: [resp] } = await db.query(
+      'SELECT id,nombre FROM usuarios WHERE id=$1 AND empresa_id=$2 AND activo AND NOT oculto', [responsableId, empresaId]);
+    if (!resp) fallo(422, 'El responsable elegido no está activo.');
+    const { rows: cs } = await db.query('SELECT id,nombre FROM contactos WHERE empresa_id=$1 AND id = ANY($2) FOR UPDATE',
+      [empresaId, [principalId, ...otros]]);
+    if (cs.length !== otros.length + 1) fallo(404, 'Alguna de las fichas ya no existe. Volvé a verificar los duplicados.');
+    let negId = null;
+    for (const id of otros) {
+      const f = await fusionarContactos(db, empresaId, principalId, id, { motivo: 'unificado por administración', por: usuario.nombre });
+      negId = f?.negociacionId || negId;
+    }
+    // Un solo responsable: la ficha y su negociación abierta quedan a cargo de la misma persona.
+    await db.query('UPDATE contactos SET responsable_id=$3 WHERE id=$1 AND empresa_id=$2', [principalId, empresaId, resp.id]);
+    const { rows: movidas } = await db.query(
+      `UPDATE negociaciones SET agente_id=$3, actualizado=now() WHERE empresa_id=$1 AND contacto_id=$2
+          AND etapa = ANY($4) AND agente_id IS DISTINCT FROM $3 RETURNING id`, [empresaId, principalId, resp.id, ETAPAS_ABIERTAS]);
+    const abierta = (await db.query('SELECT id FROM negociaciones WHERE empresa_id=$1 AND contacto_id=$2 AND etapa = ANY($3) LIMIT 1',
+      [empresaId, principalId, ETAPAS_ABIERTAS])).rows[0]?.id;
+    if (abierta && movidas.length) await db.query('INSERT INTO historial (empresa_id,negociacion_id,txt,por) VALUES ($1,$2,$3,$4)',
+      [empresaId, abierta, `Responsable único tras unificar fichas: ${resp.nombre}`, usuario.nombre]);
+    return { contactoId: principalId, unidas: otros.length, responsable: resp.nombre, negociacionId: abierta || negId,
+      nombres: cs.filter(c => c.id !== principalId).map(c => c.nombre) };
+  });
+  emitir(empresaId, 'neg:recargar', {});
+  return r;
 }

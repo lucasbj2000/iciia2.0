@@ -7,6 +7,7 @@ import { emitir } from '../realtime.mjs';
 import * as ubi from '../ubicaciones.mjs';
 import { conversacionContacto } from '../conversacion-contacto.mjs';
 import {consultarDestinos,cambiarResponsable} from '../responsable-contacto-impar.mjs';
+import { buscarPosiblesDuplicados, unificarManual } from '../duplicados-impar.mjs';
 
 const r = Router();
 
@@ -140,6 +141,37 @@ r.get('/chequeo', requiere(), async (req, res) => {
     return res.json({ duplicado: true, mensaje: 'Ese cliente ya tiene una negociación abierta.' });
   }
   res.json({ duplicado: true, ...rows[0], etapaNombre: nombreEtapa(req.empresa, rows[0].etapa) });
+});
+
+/* ---------- Duplicados y eliminación (solo administración) ---------- */
+r.get('/duplicados/revision', requiere('admin'), async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(await buscarPosiblesDuplicados(req.empresaId));
+});
+r.post('/duplicados/unificar', requiere('admin'), async (req, res) => {
+  try {
+    const r2 = await unificarManual(req.empresaId, req.body || {}, req.user);
+    await auditar(req.empresaId, req.user.nombre, 'Contactos unificados',
+      `${r2.unidas} ficha(s) unidas · responsable ${r2.responsable}`, req.ip);
+    res.json({ ok: true, ...r2 });
+  } catch (e) { res.status(e.status || 500).json({ error: e.status ? e.message : 'No se pudieron unificar las fichas.' }); }
+});
+r.delete('/:id', requiere('admin'), async (req, res) => {
+  if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(req.params.id)) return res.status(422).json({ error: 'Contacto inválido.' });
+  const borrado = await tx(async db => {
+    const { rows: [c] } = await db.query('SELECT id,nombre FROM contactos WHERE id=$1 AND empresa_id=$2 FOR UPDATE',
+      [req.params.id, req.empresaId]);
+    if (!c) return null;
+    const { rows: ns } = await db.query('SELECT id FROM negociaciones WHERE contacto_id=$1 AND empresa_id=$2', [c.id, req.empresaId]);
+    // Las negociaciones, mensajes, teléfonos y ubicaciones del contacto se borran con él.
+    await db.query('DELETE FROM contactos WHERE id=$1 AND empresa_id=$2', [c.id, req.empresaId]);
+    return { nombre: c.nombre, negociaciones: ns.map(n => n.id) };
+  });
+  if (!borrado) return res.status(404).json({ error: 'El contacto ya no existe.' });
+  if (borrado.negociaciones.length) emitir(req.empresaId, 'neg:borradas', { ids: borrado.negociaciones });
+  await auditar(req.empresaId, req.user.nombre, 'Contacto eliminado',
+    `${borrado.nombre} · ${borrado.negociaciones.length} negociación(es)`, req.ip);
+  res.json({ ok: true, negociaciones: borrado.negociaciones.length });
 });
 
 r.get('/solicitudes/pendientes', requiere(), async (req, res) => {
