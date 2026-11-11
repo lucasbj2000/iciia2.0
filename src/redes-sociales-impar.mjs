@@ -54,8 +54,20 @@ export async function resolverCuentaSocial({ tipo, token, page_id = '', ig_id = 
     return { ok: true, cuenta: { token_pagina: token, page_id: '', ig_id: String(r.j.user_id || ''), page_nombre: '',
       ig_usuario: r.j.username || '', api: 'instagram' } };
   }
+  // Instagram con token del sistema que solo tiene permisos de Instagram (sin páginas): se usa la cuenta directa.
+  const directaInstagram = async () => {
+    if (tipo !== 'instagram' || !/^\d{6,}$/.test(String(ig_id || ''))) return null;
+    const r = await llamar(fetchFn, `${API}/${ig_id}?fields=id,username,name`, token);
+    if (!r.ok) return { ok: false, error: traducirError(r.j.error) };
+    return { ok: true, cuenta: { token_pagina: token, page_id: '', ig_id: String(r.j.id || ig_id), page_nombre: '',
+      ig_usuario: r.j.username || '', api: 'facebook_ig' } };
+  };
   // 1) Token de usuario (del sistema o personal): lista las páginas a las que tiene acceso.
   const cuentas = await listarPaginas(token, fetchFn);
+  if (!cuentas.ok || !cuentas.paginas.some(p => tipo !== 'instagram' || p.ig_id)) {
+    const d = await directaInstagram();
+    if (d?.ok) return d;
+  }
   let paginas;
   if (cuentas.ok) paginas = cuentas.paginas;
   else {
@@ -85,6 +97,7 @@ export async function resolverCuentaSocial({ tipo, token, page_id = '', ig_id = 
 
 /** Suscribe la página a la app (necesario también para Instagram vinculado a esa página). */
 export async function suscribirPagina(pageId, tokenPagina, fetchFn = fetch) {
+  if (!pageId && !esTokenInstagram(tokenPagina)) return { ok: true, sinPagina: true }; // cuenta de Instagram directa: se suscribe en la app de Meta
   if (esTokenInstagram(tokenPagina)) {
     // Inicio de sesión de Instagram: se suscribe la cuenta (equivale al interruptor «Suscripción a webhooks»).
     const r = await llamar(fetchFn, `${IG_API}/me/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_reactions`, tokenPagina, { method: 'POST' });

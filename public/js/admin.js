@@ -336,6 +336,9 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
          <input id="c-token" type="password" autocomplete="off" placeholder="${c ? 'Dejá vacío para conservar el actual' : 'EAAG… o IGAA… (Instagram)'}">
          <small class="sub">Sirve el mismo token permanente del usuario del sistema, si tiene asignadas la página${tipo === 'instagram' ? ' y la cuenta de Instagram' : ''}. El CRM busca la página, obtiene su token y la suscribe sola.</small></div>
        <div class="field" id="c-pag-caja" hidden><label for="c-page">Página a conectar</label><select id="c-page"></select></div>
+       ${tipo === 'instagram' ? `<div class="field"><label for="c-igid">ID de la cuenta de Instagram (opcional)</label>
+         <input id="c-igid" inputmode="numeric" autocomplete="off" placeholder="17841…" value="${esc(cfg.ig_id || '')}">
+         <small class="sub">Solo hace falta si el token tiene permisos de Instagram pero no de la página. Está en Meta, al lado del nombre de la cuenta.</small></div>` : ''}
        <div class="card-box" style="background:var(--surface2);margin-top:12px">
          <b style="font-size:var(--fs-sm)">${ic(tipo === 'messenger' ? 'mensaje' : 'camara')} Requisitos</b>
          <div style="color:var(--muted);font-size:var(--fs-sm);margin-top:6px;line-height:1.7">
@@ -369,6 +372,7 @@ function modalCanal(c, tipoNuevo, sucursalPre) {
     if ($('#c-phone')) body.phone_number_id = $('#c-phone').value.trim();
     if ($('#c-waba')) body.waba_id = $('#c-waba').value.trim();
     if ($('#c-page') && $('#c-page').value) body.page_id = $('#c-page').value;
+    if ($('#c-igid') && $('#c-igid').value.trim()) body.ig_id = $('#c-igid').value.trim();
     if ($('#c-pref')) body.prefijoPais = $('#c-pref').value.trim();
     if ($('#c-activo')) body.activo = $('#c-activo').checked;
     const btn = $('#c-ok'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Verificando…';

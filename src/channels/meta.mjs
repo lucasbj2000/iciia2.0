@@ -337,17 +337,31 @@ export async function enviarMeta(canal, destino, texto, adjunto) {
   const { page_id, ig_id } = canal.config || {};
   const token = resolverToken(canal.config?.token);
   if (!token) throw new Error('canal sin token');
-  const destinoApi = usaLoginInstagram(canal, token) ? `${IG_API}/${ig_id || 'me'}/messages` : `${API}/${page_id || 'me'}/messages`;
+  const directa = canal.tipo === 'instagram' && !page_id && ig_id;
+  let destinoApi = usaLoginInstagram(canal, token) ? `${IG_API}/${ig_id || 'me'}/messages`
+    : directa ? `${API}/${ig_id}/messages` : `${API}/${page_id || 'me'}/messages`;
   const post = async mensaje => {
-    const r = await fetch(destinoApi, {
+    let r = await fetch(destinoApi, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ recipient: { id: String(destino) }, message: mensaje, messaging_type: 'RESPONSE' })
     });
+    if (directa && !r.ok && !destinoApi.endsWith('/me/messages')) {
+      // Algunas cuentas solo aceptan el envío por /me/messages con el token del sistema.
+      destinoApi = `${API}/me/messages`;
+    } else return terminar(r);
+    r = await fetch(destinoApi, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipient: { id: String(destino) }, message: mensaje, messaging_type: 'RESPONSE' })
+    });
+    return terminar(r);
+  };
+  async function terminar(r) {
     const j = await r.json().catch(() => ({}));
     if (!r.ok || j.error) throw new Error(traducirError(j.error));
     return j;
-  };
+  }
   if (adjunto) {
     const link = urlPublica(adjunto.url);
     if (!/^https:/.test(link)) throw new Error('PUBLIC_URL debe ser HTTPS para enviar adjuntos por Meta');

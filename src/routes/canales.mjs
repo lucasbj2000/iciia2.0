@@ -198,10 +198,12 @@ r.patch('/:id', requiere('admin'), async (req, res) => {
   const tokenNuevo = b.token !== undefined && b.token !== '' && !String(b.token).startsWith('••••');
   if (social && tokenNuevo) {
     // Token nuevo de red social: se vuelve a resolver la misma página y se guarda el token de página cifrado.
-    const r = await resolverCuentaSocial({ tipo: c.tipo, token: b.token, page_id: config.page_id, ig_id: config.ig_id });
+    const igNuevo = /^\d{6,}$/.test(String(b.ig_id || '')) ? String(b.ig_id) : config.ig_id;
+    const r = await resolverCuentaSocial({ tipo: c.tipo, token: b.token, page_id: config.page_id, ig_id: igNuevo });
     if (!r.ok) return res.status(422).json({ error: r.error || 'El token no tiene acceso a la página de este canal.' });
     try { config.token = cifrarToken(r.cuenta.token_pagina); } catch (e) { return res.status(503).json({ error: e.message }); }
     Object.assign(config, { page_nombre: r.cuenta.page_nombre, ig_usuario: r.cuenta.ig_usuario, ig_id: r.cuenta.ig_id || config.ig_id });
+    if (r.cuenta.api) config.page_id = r.cuenta.page_id || config.page_id || '';
     if (r.cuenta.api) config.api = r.cuenta.api; else delete config.api;
     const sus = await suscribirPagina(config.page_id, r.cuenta.token_pagina);
     if (!sus.ok) return res.status(409).json({ error: 'Token válido, pero no se pudo suscribir la página: ' + sus.error });
