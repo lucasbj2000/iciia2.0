@@ -68,9 +68,9 @@ function sucursalesConDatos(d) {
   if (resto.length) lista.push(resto.reduce((a, x) => ({ ...a, abiertas: a.abiertas + x.abiertas, espera: a.espera + x.espera,
     nuevos: a.nuevos + x.nuevos, ventas: a.ventas + x.ventas, monto: a.monto + x.monto }),
     { nombre: 'Sin sucursal', k: '', sin: true, abiertas: 0, espera: 0, nuevos: 0, ventas: 0, monto: 0 }));
-  // Sin personas asignadas y sin movimiento hoy (nuevos, esperando, ventas) la sucursal no se muestra.
   const movimiento = s => s.nuevos || s.espera || s.ventas;
-  return lista.filter(s => s.sin ? movimiento(s) || s.abiertas : (s.agentes ?? 1) > 0 || movimiento(s));
+  // Las sucursales sin agentes (como Central, que es administración) no se muestran nunca, aunque registren una venta.
+  return lista.filter(s => s.sin ? movimiento(s) || s.abiertas : (s.agentes ?? 1) > 0);
 }
 function agrupar(lista) {
   const grupos = [];

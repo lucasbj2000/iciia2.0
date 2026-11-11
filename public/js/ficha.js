@@ -182,6 +182,7 @@ function pintar() {
        ${n.motivo ? `<dt>${ic('portapapeles')} Motivo</dt><dd>${esc(n.motivo)}</dd>` : ''}
      </dl>
      <button class="btn ghost sm block" type="button" data-hoja-360>${ic('usuarios')} Ficha 360° del cliente</button>
+     ${cerrada ? '' : hojaAccionesHTML(n)}
    </aside>
 
    <div id="t-det" class="hidden">
@@ -225,6 +226,7 @@ function pintar() {
   $('.modal').dataset.negociacionId = n.id;
   conectarFicha(n.id);
   $('[data-hoja-360]')?.addEventListener('click', () => $('#f-360')?.click());
+  conectarHojaAcciones(n);
   // Escuchar si el cliente está escribiendo (WhatsApp); se renueva mientras la conversación siga abierta.
   const suscribir = () => { if ($('.conversation-modal')?.dataset.negociacionId === n.id) post(`/negociaciones/${n.id}/presencia`, {}).catch(() => {}); else clearInterval(window._presenciaTimer); };
   clearInterval(window._presenciaTimer); suscribir(); window._presenciaTimer = setInterval(suscribir, 8 * 60000);
@@ -498,6 +500,51 @@ function botonesHTML(campo) {
     `<button class="bpers" data-bpers="${i}" data-campo="${campo}" style="--bc:${esc(b.color || 'var(--brand)')}">
       <span class="em">${esc(b.icono || '⚡')}</span><span>${esc(b.texto)}</span></button>`).join('')}
     ${esAdmin() ? `<button class="bpers" data-config-btn style="--bc:var(--muted)"><span class="em">${ic('ajustes')}</span><span>Configurar</span></button>` : ''}</div>`;
+}
+
+/* Hoja del cliente: transferir a una persona o a un departamento, y cerrar la negociación. */
+function hojaAccionesHTML(n) {
+  const activos = usuarios.filter(u => u.activo !== false && u.id !== n.agente_id);
+  const deps = [...new Map(usuarios.filter(u => u.activo !== false && u.rol === 'agente' && u.sucursal)
+    .flatMap(u => [[u.sucursal, { sucursal: u.sucursal, linea: '' }], ...(u.linea ? [[`${u.sucursal}|${u.linea}`, { sucursal: u.sucursal, linea: u.linea }]] : [])])).values()]
+    .sort((a, b) => (a.sucursal + a.linea).localeCompare(b.sucursal + b.linea, 'es'));
+  return `<section class="fh-acc" aria-label="Transferir">
+      <h4>${ic('transferir')} Transferir</h4>
+      <div class="fh-seg" role="tablist"><button type="button" role="tab" aria-selected="true" data-fh-modo="persona">A una persona</button>
+        <button type="button" role="tab" aria-selected="false" data-fh-modo="dep">A un departamento</button></div>
+      <select id="fh-persona" aria-label="Persona"><option value="">Elegí una persona…</option>
+        ${activos.map(u => `<option value="${u.id}">${esc(u.nombre)}${u.sucursal ? ' · ' + esc(u.sucursal) : ''}</option>`).join('')}</select>
+      <select id="fh-dep" aria-label="Departamento" hidden><option value="">Elegí sucursal o línea…</option>
+        ${deps.map(d => `<option value="${esc(JSON.stringify(d))}">${esc(d.sucursal)}${d.linea ? ' · ' + esc(d.linea) : ' · cualquier línea'}</option>`).join('')}</select>
+      <small class="fh-ayuda" id="fh-dep-ayuda" hidden>Se asigna al agente disponible de ese sector con menos negociaciones abiertas.</small>
+      <input id="fh-nota" placeholder="Nota para quien la recibe (opcional)" maxlength="300">
+      <button type="button" class="btn sm block" id="fh-transferir">Transferir</button>
+    </section>
+    <section class="fh-acc" aria-label="Cerrar negociación">
+      <h4>${ic('portapapeles')} Cerrar negociación</h4>
+      <div class="fh-cierre"><button type="button" class="btn sm ok" data-fh-cierre="ganado">${ic('dinero')} Ganada</button>
+        <button type="button" class="btn sm ghost" data-fh-cierre="cerrado">Sin venta</button></div>
+    </section>`;
+}
+function conectarHojaAcciones(n) {
+  const btn = $('#fh-transferir'); if (!btn) return;
+  let modo = 'persona';
+  $$('[data-fh-modo]').forEach(b => b.onclick = () => {
+    modo = b.dataset.fhModo;
+    $$('[data-fh-modo]').forEach(x => x.setAttribute('aria-selected', x === b));
+    $('#fh-persona').hidden = modo !== 'persona'; $('#fh-dep').hidden = modo !== 'dep'; $('#fh-dep-ayuda').hidden = modo !== 'dep';
+  });
+  btn.onclick = async () => {
+    const cuerpo = { nota: $('#fh-nota').value.trim() };
+    if (modo === 'persona') { if (!$('#fh-persona').value) return toast('Elegí a quién transferir', 'warn'); cuerpo.destinoId = $('#fh-persona').value; }
+    else { if (!$('#fh-dep').value) return toast('Elegí el departamento', 'warn'); cuerpo.departamento = JSON.parse($('#fh-dep').value); }
+    btn.disabled = true;
+    try {
+      const r = await post(`/negociaciones/${n.id}/transferir`, cuerpo);
+      cerrar(); patchTarjeta(n.id); toast(`Transferida a ${r.destino || 'la persona elegida'}`, 'ok', 'Transferencia');
+    } catch (e) { toast(e.message, 'bad'); btn.disabled = false; }
+  };
+  $$('[data-fh-cierre]').forEach(b => b.onclick = () => { cerrar(); mover(n.id, b.dataset.fhCierre); });
 }
 
 /* Celular: las respuestas rápidas de texto quedan como fichas encima del teclado. */

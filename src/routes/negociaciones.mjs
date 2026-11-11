@@ -191,12 +191,25 @@ r.patch('/:id', requiere(), async (req, res) => {
 });
 
 r.post('/:id/transferir', requiere(), async (req, res) => {
-  const { destinoId, nota } = req.body || {};
+  const { destinoId, nota, departamento } = req.body || {};
   const emp = req.empresa;
   const n = await obtenerNegociacionVisible(req, req.params.id);
   if (!n) return res.status(404).json({ error: 'no encontrada' });
-  const { rows: us } = await q('SELECT * FROM usuarios WHERE id=$1 AND empresa_id=$2 AND activo', [destinoId, req.empresaId]);
-  const dest = us[0];
+  let dest;
+  if (destinoId) {
+    ({ rows: [dest] } = await q('SELECT * FROM usuarios WHERE id=$1 AND empresa_id=$2 AND activo', [destinoId, req.empresaId]));
+  } else if (departamento?.sucursal) {
+    // A un departamento: el agente de esa sucursal (y línea, si se eligió) disponible y con menos negociaciones abiertas.
+    const params = [req.empresaId, String(departamento.sucursal), etapasActivas(emp), n.agente_id || null];
+    let cond = "u.empresa_id=$1 AND u.rol='agente' AND u.activo AND NOT u.oculto AND lower(u.sucursal)=lower($2) AND u.id IS DISTINCT FROM $4";
+    if (departamento.linea) { params.push(String(departamento.linea)); cond += ` AND lower(u.linea)=lower($${params.length})`; }
+    ({ rows: [dest] } = await q(
+      `SELECT u.*, COUNT(x.id) FILTER (WHERE x.etapa = ANY($3))::int AS carga FROM usuarios u
+         LEFT JOIN negociaciones x ON x.empresa_id=u.empresa_id AND x.agente_id=u.id
+        WHERE ${cond} GROUP BY u.id
+        ORDER BY (u.disponibilidad = 'disponible') DESC, carga ASC, u.nombre LIMIT 1`, params));
+    if (!dest) return res.status(404).json({ error: 'No hay otro agente activo en ese departamento.' });
+  }
   if (!dest) return res.status(404).json({ error: 'usuario destino inválido' });
 
   const { rows: ant } = await q('SELECT nombre FROM usuarios WHERE id=$1', [n.agente_id]);
@@ -215,7 +228,7 @@ r.post('/:id/transferir', requiere(), async (req, res) => {
   await notificar(emp, 'transfer', { origenUsr: req.user.nombre, cliente: n.cliente }, [dest.id], n.id);
   await auditar(req.empresaId, req.user.nombre, 'Transferencia', `→ ${dest.nombre}`, req.ip);
   emitir(req.empresaId, 'neg:patch', { id: n.id });
-  res.json({ ok: true });
+  res.json({ ok: true, destino: dest.nombre });
 });
 
 r.patch('/:id/bot', requiere(), async (req, res) => {

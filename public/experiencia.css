@@ -187,3 +187,13 @@ body.modo-foco .conversation-modal #t-chat{max-width:980px;width:100%;margin:0 a
 #sala[data-momento="atardecer"]{background:radial-gradient(120% 70% at 85% 0%,rgba(232,140,60,.14),transparent 60%),var(--bg)}
 #sala[data-momento="noche"]{background:radial-gradient(120% 80% at 50% -20%,rgba(80,110,190,.16),transparent 60%),var(--bg)}
 .nav-i[data-nav="inicio"]{--ico:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 11 12 4l8 7%22/%3E%3Cpath d=%22M6 9.5V20h12V9.5M10 20v-5h4v5%22/%3E%3C/svg%3E")}
+/* Hoja del cliente: transferir y cerrar */
+.fh-acc{display:flex;flex-direction:column;gap:7px;padding-top:12px;border-top:1px dashed var(--line)}
+.fh-acc h4{margin:0;display:flex;align-items:center;gap:6px;font:700 var(--fs-sm) var(--f-titulo)}
+.fh-acc h4 svg{width:14px;height:14px}
+.fh-acc select,.fh-acc input{width:100%;font-size:var(--fs-sm)}
+.fh-seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.fh-seg button{border:0;background:none;padding:6px 4px;font:600 12px var(--f-texto);color:var(--muted);cursor:pointer}
+.fh-seg button[aria-selected="true"]{background:color-mix(in srgb,var(--brand) 16%,transparent);color:var(--txt)}
+.fh-ayuda{color:var(--muted);font-size:var(--fs-xs)}
+.fh-cierre{display:grid;grid-template-columns:1fr 1fr;gap:6px}

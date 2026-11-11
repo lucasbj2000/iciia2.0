@@ -12,4 +12,5 @@ assert.ok(app.includes("S.vista = 'inicio'") && app.includes("new Event('impar:c
 assert.ok(ficha.includes('id="f-foco"') && ficha.includes('class="ficha-hoja"') && ficha.includes("chipsTeclado('msg')"), 'Modo foco, hoja del cliente y fichas sobre el teclado');
 assert.ok(leer('public/js/sala-control.js').includes('raiz.dataset.momento'), 'Sala con la hora del día');
 assert.ok(css.includes('prefers-reduced-motion') && css.includes('body.modal-open #barra-movil') && leer('public/index.html').includes('/experiencia.css?v='), 'Estilos cargados y movimiento reducido respetado');
+assert.ok(ficha.includes('hojaAccionesHTML(n)') && ficha.includes('cuerpo.departamento = JSON.parse') && leer('src/routes/negociaciones.mjs').includes('departamento?.sucursal'), 'Transferir a persona o departamento y cerrar desde la hoja');
 console.log('✔ IMPAR: experiencia visual (papel, urgencia, Ctrl+K, móvil de pulgar, foco, Inicio y sala día/noche).');

@@ -59,7 +59,7 @@ assert.equal(distritoDe({ nombre: 'Sin datos' }), null);
 const fdm = planoCiudad({ nombre: 'Fernando de la Mora', lat: -25.2892772, lon: -57.5488351 });
 assert.ok(fdm.includes('class="plano-pin aprox"'), 'Ubicación fuera del distrito: el punto va adentro');
 assert.ok(planoCiudad({ nombre: 'Lambaré', lat: -25.3526614, lon: -57.6023125 }).includes('class="plano-pin"'), 'Ubicación correcta: se respeta');
-assert.ok(sala.includes("(s.agentes ?? 1) > 0 || movimiento(s)") && salaSrv.includes("u.rol='agente'") && salaSrv.includes('AS agentes'), 'Sucursales sin personas ni movimiento no se muestran');
+assert.ok(sala.includes("s.sin ? movimiento(s) || s.abiertas : (s.agentes ?? 1) > 0)") && salaSrv.includes("u.rol='agente'") && salaSrv.includes('AS agentes'), 'Sucursales sin personas ni movimiento no se muestran');
 assert.ok(leer('public/js/distritos-py.js').includes('Cartografía Censal 2022'), 'límites oficiales del INE');
 assert.ok(sala.includes("kpiPromedio('agente', 'Respuesta de agentes'") && sala.includes("kpiPromedio('bot', 'Respuesta del bot'"), 'promedio de respuesta de agentes y bot por separado');
 assert.ok(salaSrv.includes('promedios: await promediosSala(promedios)'), 'el servidor manda los promedios de hoy');
