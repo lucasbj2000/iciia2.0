@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { q, telNorm } from '../db.mjs';
 import { requiere } from '../auth.mjs';
 import { auditar, historial } from '../core.mjs';
+import { problemaClave } from '../seguridad-impar.mjs';
 import { emitir } from '../realtime.mjs';
 
 const r = Router();
@@ -73,7 +74,8 @@ r.put('/usuarios/:id', requiere('admin'), async (req, res) => {
     liberados = r3.rowCount;
   }
   if (b.password) {
-    if (String(b.password).length < 4) return res.status(422).json({ error: 'La contraseña necesita al menos 4 caracteres.' });
+    const motivo = problemaClave(b.password, u);
+    if (motivo) return res.status(422).json({ error: motivo });
     await q('UPDATE usuarios SET pass_hash=$3 WHERE id=$1 AND empresa_id=$2',
       [u.id, req.empresaId, await bcrypt.hash(String(b.password), 12)]);
   }

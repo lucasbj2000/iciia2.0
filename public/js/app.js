@@ -56,13 +56,24 @@ $('#form-login').onsubmit = async e => {
   btn.innerHTML = '<span class="spin"></span> Ingresando…';
   let accesoAceptado = false;
   try {
-    const r = await api('/login', { method: 'POST', body: {
-      usuario: $('#l-usr').value.trim(), password: $('#l-pwd').value } });
+    const clave = $('#l-pwd').value;
+    let r = await api('/login', { method: 'POST', body: {
+      usuario: $('#l-usr').value.trim(), password: clave } });
+    // Verificación en dos pasos: se pide el código de la app antes de entrar.
+    if (r?.requiere2fa) {
+      btn.disabled = false; btn.textContent = 'Verificar código';
+      const seg = await import('./seguridad.js');
+      r = await seg.pedirCodigoLogin(r.desafio);
+      btn.disabled = true;
+    }
     if (!r || typeof r.token !== 'string' || !r.token || !r.usuario)
       throw new Error('La respuesta del servidor de IMPAR está incompleta. No se cambió tu sesión.');
     S.token = r.token; localStorage.setItem('iciia_token', r.token);
     accesoAceptado = true;
     S.usuario = r.usuario; S.empresa = r.empresa;
+    // Contraseña débil o elegida por otra persona: se cambia antes de ver el CRM.
+    if (r.usuario.debeCambiarClave) { const seg = await import('./seguridad.js'); await seg.forzarCambioClave(clave); r.token = S.token; }
+    $('#l-pwd').value = '';
     await arrancar(true,r);
     document.documentElement.classList.remove('sesion-verificando');
   } catch (ex) {

@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { q } from '../db.mjs';
-import { requiere, hash, alcanceSQL } from '../auth.mjs';
-import { notificar, horasLaborales } from '../core.mjs';
+import { requiere, hash, alcanceSQL, firmar } from '../auth.mjs';
+import { notificar, horasLaborales, auditar } from '../core.mjs';
+import { problemaClave, nuevoSecretoTOTP, uriTOTP, verificarTOTP, cifrarSecreto, descifrarSecreto } from '../seguridad-impar.mjs';
+import QRCode from 'qrcode';
 import { rangoDesdeConsulta, tiemposRespuesta } from '../tiempos-respuesta-impar.mjs';
 import { emitir } from '../realtime.mjs';
 import { fotoSala, climaSucursales, ROLES_SALA } from '../sala-control-impar.mjs';
@@ -31,13 +33,50 @@ r.patch('/perfil', requiere(), async (req, res) => {
   res.json({ ok: true });
 });
 
+/* ---------- Verificación en dos pasos (opcional, recomendada para administración) ---------- */
+r.post('/perfil/2fa/preparar', requiere(), async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (req.user.totp_activo) return res.status(409).json({ error: 'La verificación en dos pasos ya está activa.' });
+  const secreto = nuevoSecretoTOTP();
+  await q('UPDATE usuarios SET totp_secreto=$2 WHERE id=$1', [req.user.id, cifrarSecreto(secreto)]);
+  const uri = uriTOTP(secreto, req.user.usuario);
+  const qr = await QRCode.toString(uri, { type: 'svg', margin: 1, width: 220 });
+  res.json({ qr, secreto: secreto.replace(/(.{4})/g, '$1 ').trim() });
+});
+r.post('/perfil/2fa/activar', requiere(), async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  let secreto = null; try { secreto = descifrarSecreto(req.user.totp_secreto); } catch { secreto = null; }
+  if (!secreto || req.user.totp_activo) return res.status(409).json({ error: 'Volvé a empezar la activación.' });
+  const paso = verificarTOTP(secreto, req.body?.codigo);
+  if (paso == null) return res.status(422).json({ error: 'El código no coincide. Revisá que la hora del celular esté en automático y probá con el código nuevo.' });
+  const { rows: [u] } = await q('UPDATE usuarios SET totp_activo=TRUE, totp_ultimo_paso=$2 WHERE id=$1 RETURNING *', [req.user.id, paso]);
+  await auditar(req.empresaId, req.user.nombre, 'Seguridad', 'Activó la verificación en dos pasos', req.ip);
+  res.json({ ok: true, token: firmar(u) });
+});
+r.post('/perfil/2fa/desactivar', requiere(), async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (!req.user.totp_activo) return res.json({ ok: true });
+  if (!await bcrypt.compare(String(req.body?.clave || ''), req.user.pass_hash)) return res.status(403).json({ error: 'La contraseña no es correcta.' });
+  let secreto = null; try { secreto = descifrarSecreto(req.user.totp_secreto); } catch { secreto = null; }
+  if (verificarTOTP(secreto, req.body?.codigo, { ultimoPaso: Number(req.user.totp_ultimo_paso) || 0 }) == null)
+    return res.status(422).json({ error: 'El código de la app no es correcto.' });
+  const { rows: [u] } = await q('UPDATE usuarios SET totp_activo=FALSE, totp_secreto=NULL WHERE id=$1 RETURNING *', [req.user.id]);
+  await auditar(req.empresaId, req.user.nombre, 'Seguridad', 'Desactivó la verificación en dos pasos', req.ip);
+  res.json({ ok: true, token: firmar(u) });
+});
+
 r.post('/perfil/password', requiere(), async (req, res) => {
   const { actual, nueva } = req.body || {};
   if (!await bcrypt.compare(String(actual || ''), req.user.pass_hash))
     return res.status(403).json({ error: 'La contraseña actual es incorrecta.' });
-  if (String(nueva || '').length < 4) return res.status(422).json({ error: 'Mínimo 4 caracteres.' });
-  await q('UPDATE usuarios SET pass_hash=$2 WHERE id=$1', [req.user.id, await hash(nueva)]);
-  res.json({ ok: true });
+  const motivo = problemaClave(nueva, req.user);
+  if (motivo) return res.status(422).json({ error: motivo });
+  if (await bcrypt.compare(String(nueva), req.user.pass_hash)) return res.status(422).json({ error: 'La contraseña nueva tiene que ser distinta de la actual.' });
+  // El cambio cierra las otras sesiones (versión nueva); este dispositivo recibe su sesión nueva.
+  const { rows } = await q('UPDATE usuarios SET pass_hash=$2 WHERE id=$1 RETURNING *', [req.user.id, await hash(nueva)]);
+  const { rows: [u] } = await q('UPDATE usuarios SET debe_cambiar_clave=FALSE WHERE id=$1 RETURNING *', [rows[0].id]);
+  await auditar(req.empresaId, req.user.nombre, 'Seguridad', 'Cambió su contraseña', req.ip);
+  res.json({ ok: true, token: firmar(u) });
 });
 
 /** Resumen del día del usuario para el cierre de jornada (zona horaria de Paraguay). */

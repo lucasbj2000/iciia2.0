@@ -90,6 +90,7 @@ export const NOTI_DEF = [
   { k: 'retorno', t: 'Cliente respondió', msg: '{cliente} está esperando respuesta', dest: 'agente', v: true, tono: 'warn' },
   { k: 'sla', t: 'SLA por vencer', msg: '{cliente} lleva {tiempo} sin retorno', dest: 'agente+jefe', v: true, tono: 'warn' },
   { k: 'autocierre', t: 'Cierre automático', msg: '{cliente} se cerró por falta de retorno', dest: 'agente+jefe', v: true, tono: 'bad' },
+  { k: 'seguridad', t: 'Alerta de seguridad', msg: '{cliente}', dest: 'admin', v: true, tono: 'bad' },
   { k: 'transfer', t: 'Negociación transferida', msg: '{origenUsr} te transfirió {cliente}', dest: 'agente', v: true, tono: 'ok' },
   { k: 'ganado', t: 'Cierre ganado', msg: '{agente} cerró ganado a {cliente} por {monto}', dest: 'jefe+gerente', v: true, tono: 'ok' },
   { k: 'solicitud', t: 'Solicitud de contacto', msg: '{origenUsr} solicita el contacto {cliente}', dest: 'agente', v: true, tono: 'warn' },

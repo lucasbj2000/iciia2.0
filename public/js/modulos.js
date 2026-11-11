@@ -353,7 +353,7 @@ export async function vistaConfig() {
 
     <div class="card-box"><h3>Seguridad, apariencia y disponibilidad</h3>
       <div class="field"><label for="p-p0">Contraseña actual</label><input id="p-p0" type="password" autocomplete="current-password"></div>
-      <div class="field"><label for="p-p1">Nueva contraseña</label><input id="p-p1" type="password" autocomplete="new-password"></div>
+      <div class="field"><label for="p-p1">Nueva contraseña</label><input id="p-p1" type="password" autocomplete="new-password" minlength="10"><small class="sub">Mínimo 10 caracteres, con letras y números.</small></div>
       <button class="btn sm" id="p-pass">Cambiar contraseña</button>
       <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
       <div class="row"><div class="field"><label>Tema</label><select id="p-tema">
@@ -380,6 +380,7 @@ export async function vistaConfig() {
      <a class="btn sm" href="${esc(S.empresa.stock.link)}" target="_blank" rel="noopener">Abrir catálogo</a></div>` : ''}</div>`;
 
   mejorarContrasenas($('#view'));
+  import('./seguridad.js').then(m => { $('#p-pass')?.closest('.card-box')?.insertAdjacentHTML('afterend', m.tarjetaSeguridad()); m.activarTarjetaSeguridad(); });
   $('#p-foto').onclick = () => $('#p-file').click();
   $('#p-file').onchange = e => {
     const f = e.target.files[0]; if (!f) return;
@@ -398,8 +399,9 @@ export async function vistaConfig() {
   };
   $('#p-pass').onclick = async () => {
     try {
-      await post('/perfil/password', { actual: $('#p-p0').value, nueva: $('#p-p1').value });
-      toast('Contraseña actualizada', 'ok'); $('#p-p0').value = ''; $('#p-p1').value = '';
+      const r = await post('/perfil/password', { actual: $('#p-p0').value, nueva: $('#p-p1').value });
+      if (r?.token) { S.token = r.token; try { localStorage.setItem('iciia_token', r.token); } catch (_) {} }
+      toast('Contraseña actualizada. Se cerraron tus otras sesiones.', 'ok'); $('#p-p0').value = ''; $('#p-p1').value = '';
     } catch (e) { toast(e.message, 'bad'); }
   };
   $('#p-tema').onchange = e => { S.tema = e.target.value; localStorage.setItem('iciia_tema', S.tema); aplicarTema(); };

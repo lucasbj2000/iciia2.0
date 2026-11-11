@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { q, tx, telNorm } from '../db.mjs';
 import { requiere, hash } from '../auth.mjs';
 import { auditar } from '../core.mjs';
+import { problemaClave } from '../seguridad-impar.mjs';
 import { emitir } from '../realtime.mjs';
 import { importarImpar } from '../importar-impar.mjs';
 import { vistaPreviaTransferencia, eliminarConTransferencia } from '../eliminar-usuario-impar.mjs';
@@ -34,9 +35,11 @@ async function guardar(req,res){
   const b=req.body || {}, id=req.params.id || null;
   if(!String(b.nombre||'').trim() || !/^[a-z0-9._-]{3,80}$/i.test(b.usuario||'') || !roles.has(b.rol))
     return res.status(422).json({error:'Nombre, usuario válido y rol son obligatorios.'});
-  if(!id && String(b.password||'').length<8) return res.status(422).json({error:'Contraseña de al menos 8 caracteres.'});
+  if(!id || b.password){
+    const motivo=problemaClave(b.password,{usuario:b.usuario,nombre:b.nombre});
+    if(motivo) return res.status(422).json({error:motivo});
+  }
   const pass=b.password?await hash(b.password):null;
-  if(b.password && String(b.password).length<8) return res.status(422).json({error:'Contraseña de al menos 8 caracteres.'});
   try {
     const result=await tx(async c=>{
       await c.query('SELECT pg_advisory_xact_lock(hashtext($1))',[req.empresaId]);

@@ -97,6 +97,8 @@ jobs:
         run: node scripts/test-mensajes-especiales-impar.mjs
       - name: Historial de la negociación en línea de tiempo
         run: node scripts/test-historial-visual-impar.mjs
+      - name: Seguridad de acceso (contraseñas, dos pasos, sesiones, cabeceras)
+        run: node scripts/test-seguridad-impar.mjs
       - name: Rescate automático de mensajes no descifrados
         run: node scripts/test-rescate-impar.mjs
       - name: Diseño, logo adaptable y respuestas rápidas sin pérdidas
@@ -196,6 +198,10 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
         run: node scripts/test-cierre-sin-retorno-pg.mjs
+      - name: Seguridad de acceso en PostgreSQL
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
+        run: node scripts/test-seguridad-pg.mjs
       - name: Conectar con Facebook en PostgreSQL real
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
