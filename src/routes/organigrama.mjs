@@ -36,7 +36,7 @@ async function guardar(req,res){
   if(!String(b.nombre||'').trim() || !/^[a-z0-9._-]{3,80}$/i.test(b.usuario||'') || !roles.has(b.rol))
     return res.status(422).json({error:'Nombre, usuario válido y rol son obligatorios.'});
   if(!id || b.password){
-    const motivo=problemaClave(b.password,{usuario:b.usuario,nombre:b.nombre});
+    const motivo=problemaClave(b.password,{min:8});
     if(motivo) return res.status(422).json({error:motivo});
   }
   const pass=b.password?await hash(b.password):null;

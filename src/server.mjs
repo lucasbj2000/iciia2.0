@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 
 import { q, migrar, seed } from './db.mjs';
 import { prepararRecepcionImpar } from './preparar-recepcion-impar.mjs';
-import { login, login2fa, requiere, firmar } from './auth.mjs';
+import { login, requiere, firmar } from './auth.mjs';
 import { sseHandler } from './realtime.mjs';
 import { motorSLA, avisarCumples, auditar, notificar } from './core.mjs';
 import { arrancarWorkers } from './worker.mjs';
@@ -126,14 +126,13 @@ async function avisarBloqueo(usuario, ip) {
   if (!emp) return;
   await auditar(emp.id, 'Sistema', 'Seguridad', `Cuenta pausada 15 min por intentos fallidos: ${usuario}`, ip);
   const { rows: admins } = await q("SELECT id FROM usuarios WHERE empresa_id=$1 AND rol='admin' AND activo", [emp.id]);
-  if (admins.length) await notificar(emp, 'seguridad', { mensajeCompleto: `Se pausó el acceso de «${usuario}» por 5 intentos fallidos de contraseña o código. Si no fue esa persona, cambiale la contraseña.` }, admins.map(a => a.id), null);
+  if (admins.length) await notificar(emp, 'seguridad', { mensajeCompleto: `Se pausó el acceso de «${usuario}» por 5 intentos fallidos de contraseña. Si no fue esa persona, cambiale la contraseña.` }, admins.map(a => a.id), null);
 }
 
 async function responderLogin(req, res, r) {
   if (r.recienBloqueada) avisarBloqueo(r.usuario, req.ip).catch(e => console.warn('[login] aviso de bloqueo:', e.name));
   if (r.bloqueada) return res.status(429).json({ error: r.error });
-  if (r.error) return res.status(401).json({ error: r.error, ...(r.reiniciar ? { reiniciar: true } : {}) });
-  if (r.requiere2fa) return res.json({ requiere2fa: true, desafio: r.desafio });
+  if (r.error) return res.status(401).json({ error: r.error });
   const { user, empresa } = r;
   // Un error al guardar auditoría NO debe impedir un login válido.
   auditar(empresa?.id || null, user.nombre, 'Ingreso', 'Login correcto', req.ip)
@@ -146,14 +145,6 @@ app.post('/api/login', limiteLogin, async (req, res) => {
   try { await responderLogin(req, res, await login(req.body || {}, req.ip)); }
   catch (e) {
     console.error('[login] Error operativo:',e.message);
-    res.status(503).json({ error: 'El servicio de acceso está temporalmente indisponible. Intentá nuevamente.' });
-  }
-});
-app.post('/api/login/2fa', limiteLogin, async (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  try { await responderLogin(req, res, await login2fa(req.body || {}, req.ip)); }
-  catch (e) {
-    console.error('[login] Error operativo 2FA:', e.message);
     res.status(503).json({ error: 'El servicio de acceso está temporalmente indisponible. Intentá nuevamente.' });
   }
 });
@@ -173,8 +164,7 @@ app.get('/api/login/health', async (_req,res) => {
 const publicoUsuario = u => ({
   id: u.id, nombre: u.nombre, usuario: u.usuario, rol: u.rol, sucursal: u.sucursal, linea: u.linea,
   foto: u.foto, nacimiento: u.nacimiento, disponibilidad: u.disponibilidad, email: u.email, tel: u.tel,
-  prefs: u.prefs || {}, esAdminGlobal: u.rol === 'admin' && !u.empresa_id,
-  debeCambiarClave: !!u.debe_cambiar_clave, dosPasos: !!u.totp_activo
+  prefs: u.prefs || {}, esAdminGlobal: u.rol === 'admin' && !u.empresa_id
 });
 const publica = e => ({
   id: e.id, codigo: e.codigo, nombre: e.nombre, color: e.color, logo: e.logo, ciudad: e.ciudad,

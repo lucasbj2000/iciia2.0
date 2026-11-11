@@ -196,24 +196,22 @@ r.get('/geocodificar', requiere('admin'), async (req, res) => {
 /* ================= USUARIOS ================= */
 r.get('/usuarios', requiere(), async (req, res) => {
   const { rows } = await q(
-    `SELECT id,nombre,usuario,rol,sucursal,linea,equipo,email,tel,foto,nacimiento,disponibilidad,activo,ultimo_login,rapidas,
-            CASE WHEN $2 THEN totp_activo END AS dos_pasos
-       FROM usuarios WHERE empresa_id=$1 AND NOT oculto ORDER BY nombre`, [req.empresaId, req.user.rol === 'admin']);
+    `SELECT id,nombre,usuario,rol,sucursal,linea,equipo,email,tel,foto,nacimiento,disponibilidad,activo,ultimo_login,rapidas
+       FROM usuarios WHERE empresa_id=$1 AND NOT oculto ORDER BY nombre`, [req.empresaId]);
   res.json(rows);
 });
 
 r.post('/usuarios', requiere('admin'), async (req, res) => {
   const b = req.body || {};
   if (!b.nombre || !b.usuario) return res.status(422).json({ error: 'Nombre y usuario son obligatorios.' });
-  // Sin contraseña por defecto: la persona la cambia igual en su primer ingreso.
-  const motivo = problemaClave(b.password, { usuario: b.usuario, nombre: b.nombre });
+  const motivo = b.password ? problemaClave(b.password) : null;
   if (motivo) return res.status(422).json({ error: motivo });
   const { rows } = await q('SELECT 1 FROM usuarios WHERE empresa_id=$1 AND lower(usuario)=lower($2)', [req.empresaId, b.usuario]);
   if (rows.length) return res.status(409).json({ error: 'Ese usuario ya existe en la empresa.' });
   const { rows: ns } = await q(
     `INSERT INTO usuarios (empresa_id,nombre,usuario,pass_hash,rol,sucursal,linea,equipo,email,nacimiento,disponibilidad)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'fuera') RETURNING id`,
-    [req.empresaId, b.nombre, b.usuario.toLowerCase(), await hash(b.password), b.rol || 'agente',
+    [req.empresaId, b.nombre, b.usuario.toLowerCase(), await hash(b.password || '1234'), b.rol || 'agente',
      b.sucursal || '', b.linea || '', b.equipo || null, b.email || '', b.nacimiento || null]);
   await auditar(req.empresaId, req.user.nombre, 'Usuario', `Alta ${b.nombre}`, req.ip);
   res.json({ ok: true, id: ns[0].id });
@@ -230,21 +228,13 @@ r.patch('/usuarios/:id', requiere('admin'), async (req, res) => {
   res.json({ ok: true });
 });
 
-// Quitar la verificación en dos pasos de alguien que perdió el celular (luego la vuelve a activar).
-r.post('/usuarios/:id/2fa/quitar', requiere('admin'), async (req, res) => {
-  const { rows: [u] } = await q('UPDATE usuarios SET totp_activo=FALSE, totp_secreto=NULL WHERE id=$1 AND empresa_id=$2 RETURNING nombre', [req.params.id, req.empresaId]);
-  if (!u) return res.status(404).json({ error: 'Usuario no encontrado.' });
-  await auditar(req.empresaId, req.user.nombre, 'Seguridad', `Quitó la verificación en dos pasos de ${u.nombre}`, req.ip);
-  res.json({ ok: true });
-});
-
 r.post('/usuarios/:id/password', requiere('admin'), async (req, res) => {
   const p = String(req.body?.password || '');
   const { rows: [obj] } = await q('SELECT usuario,nombre FROM usuarios WHERE id=$1 AND empresa_id=$2', [req.params.id, req.empresaId]);
   if (!obj) return res.status(404).json({ error: 'Usuario no encontrado.' });
-  const motivo = problemaClave(p, obj);
+  const motivo = problemaClave(p);
   if (motivo) return res.status(422).json({ error: motivo });
-  // Cierra sus sesiones abiertas, le pide cambiarla al entrar y le quita una pausa por intentos fallidos.
+  // Cierra sus sesiones abiertas y le quita una pausa por intentos fallidos.
   await q('UPDATE usuarios SET pass_hash=$3 WHERE id=$1 AND empresa_id=$2', [req.params.id, req.empresaId, await hash(p)]);
   await q('DELETE FROM login_intentos WHERE usuario=lower($1) AND NOT ok', [obj.usuario]);
   await auditar(req.empresaId, req.user.nombre, 'Seguridad', 'Reset de contraseña', req.ip);

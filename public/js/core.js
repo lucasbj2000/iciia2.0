@@ -43,8 +43,6 @@ export async function api(ruta, opts = {}) {
   const data = ct.includes('json') ? await r.json() : await r.text();
   if (!r.ok) {
     const e = new Error(data?.mensaje || data?.error || 'Error inesperado'); e.data = data; e.status = r.status;
-    // Una sesión restaurada con la contraseña vencida: se pide el cambio en vez de fallar en cada pantalla.
-    if (data?.debeCambiarClave) import('./seguridad.js').then(m => m.forzarCambioClave()).catch(() => {});
     throw e;
   }
   return data;

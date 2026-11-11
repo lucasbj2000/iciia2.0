@@ -74,7 +74,7 @@ r.put('/usuarios/:id', requiere('admin'), async (req, res) => {
     liberados = r3.rowCount;
   }
   if (b.password) {
-    const motivo = problemaClave(b.password, u);
+    const motivo = problemaClave(b.password);
     if (motivo) return res.status(422).json({ error: motivo });
     await q('UPDATE usuarios SET pass_hash=$3 WHERE id=$1 AND empresa_id=$2',
       [u.id, req.empresaId, await bcrypt.hash(String(b.password), 12)]);

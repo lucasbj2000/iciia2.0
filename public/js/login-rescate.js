@@ -45,7 +45,6 @@
         var tipo=resp.headers.get('content-type')||'';
         if (!tipo.includes('application/json')) throw new Error('El servidor devolvió una página en lugar de una respuesta de acceso.');
         var data=await resp.json();
-        if (data.requiere2fa) throw new Error('Tu cuenta pide el código de verificación. Recargá la página (F5) para ingresarlo.');
         if (!resp.ok || !data.token) throw new Error(data.error||data.mensaje||'No se pudo validar el acceso.');
         try { localStorage.setItem('iciia_token',data.token); }
         catch (_) { throw new Error('El navegador bloquea guardar la sesión. Habilitá el almacenamiento de este sitio.'); }

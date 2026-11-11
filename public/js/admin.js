@@ -855,12 +855,12 @@ async function aUsuarios() {
      <td class="hide-m">${u.nacimiento ? fd(u.nacimiento) : '<span style="color:var(--warn)">falta</span>'}</td>
      <td>${u.activo ? '<span style="color:var(--ok)">Activo</span>' : '<span style="color:var(--bad)">Inactivo</span>'}</td>
      <td style="text-align:right"><button class="btn ghost sm" data-act="${u.id}" data-v="${u.activo ? 0 : 1}">${u.activo ? 'Bloquear' : 'Activar'}</button>
-       <button class="btn ghost sm" data-pass="${u.id}">Clave</button>${u.dos_pasos ? `<button class="btn ghost sm" data-2fa-quitar="${u.id}" title="Tiene verificación en dos pasos. Quitala si perdió el celular.">Quitar 2 pasos</button>` : ''}${u.rol!=='admin'?`<button class="btn ghost sm" data-usr-eliminar="${u.id}">Eliminar</button>`:''} </td></tr>`).join('')}
+       <button class="btn ghost sm" data-pass="${u.id}">Clave</button>${u.rol!=='admin'?`<button class="btn ghost sm" data-usr-eliminar="${u.id}">Eliminar</button>`:''} </td></tr>`).join('')}
    </tbody></table>
    <hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><h3>Alta de usuario</h3>
    <div class="row"><div class="field"><label>Nombre</label><input id="u-nom"></div>
      <div class="field"><label>Usuario</label><input id="u-usr"></div>
-     <div class="field"><label>Contraseña inicial</label><input id="u-pwd" type="password" autocomplete="new-password" minlength="10" placeholder="Mín. 10, letras y números"></div>
+     <div class="field"><label>Contraseña inicial</label><input id="u-pwd" type="password" value="1234"></div>
      <div class="field"><label>Nacimiento</label><input id="u-nac" type="date"></div></div>
    <div class="row"><div class="field"><label>Rol</label><select id="u-rol">${ROLES.map(r => `<option>${r}</option>`).join('')}</select></div>
      <div class="field"><label>Sucursal</label><select id="u-suc">${sucs.map(s => `<option>${esc(s)}</option>`).join('')}</select></div>
@@ -879,8 +879,8 @@ async function aUsuarios() {
   });
   $$('[data-pass]').forEach(b => b.onclick = () => {
     modal(`<div class="modal-h"><h3>Nueva contraseña</h3><button class="x" data-cerrar>✕</button></div>
-      <div class="modal-b"><div class="field"><label>Contraseña</label><input id="np" type="password" autocomplete="new-password" minlength="10">
-        <small class="sub">Mínimo 10 caracteres, con letras y números. La persona la va a tener que cambiar al ingresar y se cierran sus sesiones abiertas.</small></div>
+      <div class="modal-b"><div class="field"><label>Contraseña</label><input id="np" type="password" autocomplete="new-password">
+        <small class="sub">Al guardarla se cierran las sesiones abiertas de esa persona.</small></div>
       <div class="err" id="np-e"></div></div>
       <div class="modal-f"><button class="btn ghost" data-cerrar>Cancelar</button><button class="btn" id="np-ok">Guardar</button></div>`);
     $$('[data-cerrar]').forEach(x => x.onclick = cerrar);
@@ -889,11 +889,6 @@ async function aUsuarios() {
         cerrar(); toast('Contraseña actualizada', 'ok');
       } catch (e) { $('#np-e').textContent = e.data?.error || e.message; }
     };
-  });
-  $$('[data-2fa-quitar]').forEach(b => b.onclick = async () => {
-    if (!confirm('¿Quitar la verificación en dos pasos? La persona va a poder entrar solo con su contraseña hasta que la vuelva a activar.')) return;
-    try { await post(`/admin/usuarios/${b.dataset['2faQuitar']}/2fa/quitar`, {}); toast('Verificación en dos pasos quitada', 'ok'); aUsuarios(); }
-    catch (e) { toast(e.message, 'bad'); }
   });
   $('#u-crear').onclick = async () => {
     try {

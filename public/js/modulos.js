@@ -353,7 +353,7 @@ export async function vistaConfig() {
 
     <div class="card-box"><h3>Seguridad, apariencia y disponibilidad</h3>
       <div class="field"><label for="p-p0">Contraseña actual</label><input id="p-p0" type="password" autocomplete="current-password"></div>
-      <div class="field"><label for="p-p1">Nueva contraseña</label><input id="p-p1" type="password" autocomplete="new-password" minlength="10"><small class="sub">Mínimo 10 caracteres, con letras y números.</small></div>
+      <div class="field"><label for="p-p1">Nueva contraseña</label><input id="p-p1" type="password" autocomplete="new-password"></div>
       <button class="btn sm" id="p-pass">Cambiar contraseña</button>
       <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
       <div class="row"><div class="field"><label>Tema</label><select id="p-tema">
