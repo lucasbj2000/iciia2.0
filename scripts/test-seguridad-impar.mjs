@@ -21,7 +21,7 @@ assert.ok(m40.includes('DROP TRIGGER IF EXISTS usuarios_alta_clave_impar') && m4
 
 assert.ok(server.includes("process.env.CORS_ORIGIN.split(',')") && server.includes(': false, credentials: true'), 'La API no acepta llamadas desde otros sitios');
 assert.ok(server.includes("skipSuccessfulRequests: true") && server.includes("app.use('/api', rateLimit("), 'Frenos de solicitudes');
-assert.ok(server.includes("sandbox\");") && server.includes('Permissions-Policy'), 'Archivos subidos aislados');
+assert.ok(server.includes("sandbox\");") && server.includes("!/\\.pdf$/i.test(ruta)") && server.includes('Permissions-Policy'), 'Archivos subidos aislados');
 assert.ok(server.includes("app.post('/api/sesion/cerrar-todas'") && leer('public/js/seguridad.js').includes('/sesion/cerrar-todas'));
 assert.ok(!leer('public/js/app.js').includes('pedirCodigoLogin') && !leer('public/js/app.js').includes('forzarCambioClave'));
 console.log('✔ IMPAR: bloqueo por intentos, sesiones revocables, cabeceras y archivos aislados (sin dos pasos ni cambio obligatorio).');

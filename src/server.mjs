@@ -90,7 +90,7 @@ app.use((_req, res, next) => {
 });
 // Freno general por dirección: generoso (una sucursal entera comparte la misma salida a internet).
 app.use('/api', rateLimit({
-  windowMs: 5 * 60 * 1000, max: Number(process.env.LIMITE_API_5MIN || 3000),
+  windowMs: 5 * 60 * 1000, max: Number(process.env.LIMITE_API_5MIN || 6000),
   standardHeaders: true, legacyHeaders: false,
   skip: req => req.path === '/stream',
   message: { error: 'Demasiadas solicitudes seguidas. Esperá un momento.' }
@@ -236,11 +236,12 @@ app.get('/api/health', async (_req, res) => {
    Los nombres son UUID irreproducibles, así que no son adivinables. */
 app.use('/media', express.static(MEDIA_DIR, {
   maxAge: '30d',
-  setHeaders: r2 => {
+  setHeaders: (r2, ruta) => {
     r2.setHeader('X-Content-Type-Options', 'nosniff');
     r2.setHeader('Content-Disposition', 'inline');
     // Un archivo subido nunca puede ejecutar código en el CRM, aunque alguien lo disfrace.
-    r2.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox");
+    // Los PDF quedan con la política general: el aislamiento extra impide que el navegador los muestre.
+    if (!/\.pdf$/i.test(ruta)) r2.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox");
   }
 }));
 
