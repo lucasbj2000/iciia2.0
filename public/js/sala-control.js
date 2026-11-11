@@ -365,6 +365,9 @@ export function abrirSala() {
   E = { datos: null, ticker: [], clima: new Map(), climaLista: [], iClima: 0, foco: document.activeElement };
   const tic = () => {
     const d = new Date(); $('#sala-hora').textContent = reloj(d); $('#sala-fecha').textContent = fechaLarga(d);
+    // El fondo acompaña la hora real: amanecer, día, atardecer y noche.
+    const h = d.getHours(), momento = h >= 5 && h < 9 ? 'amanecer' : h < 17 ? 'dia' : h < 20 ? 'atardecer' : 'noche';
+    if (raiz.dataset.momento !== momento) raiz.dataset.momento = momento;
     $$('.sala-c-reloj').forEach(el => {
       el.textContent = espera(el.dataset.desde);
       const min = (Date.now() - new Date(el.dataset.desde)) / 60000, li = el.parentElement;

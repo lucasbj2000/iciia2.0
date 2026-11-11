@@ -143,9 +143,14 @@ export function confeti(n = 70) {
   const cont = $('#confeti');
   cont.classList.remove('hidden');
   cont.innerHTML = '';
-  const colores = ['#FF7A00', '#ff3d81', '#22c55e', '#38bdf8', '#fbd14b', '#a78bfa'];
+  // Recortes de papel con los colores de IMPAR: verde de marca, gris del logo, blanco y cian de imprenta.
+  const colores = ['#7CC24F', '#5E9E2C', '#8B8D90', '#ffffff', '#38ADE3', '#F3C55B'];
   for (let i = 0; i < n; i++) {
     const p = document.createElement('i');
+    p.className = 'recorte';
+    p.style.setProperty('--giro', (Math.random() * 720 - 360) + 'deg');
+    p.style.setProperty('--deriva', (Math.random() * 160 - 80) + 'px');
+    p.style.width = (6 + Math.random() * 8) + 'px'; p.style.height = (9 + Math.random() * 10) + 'px';
     p.style.left = Math.random() * 100 + '%';
     p.style.top = '-20px';
     p.style.background = colores[Math.floor(Math.random() * colores.length)];

@@ -29,6 +29,7 @@ mejorarContrasenas($('#login'));
 iniciarPWA(id=>fichaNeg(id).catch(e=>toast(e.message,'bad')));
 
 const NAV = [
+  { id: 'inicio', t: 'Inicio', ic: '⌂', siempre: true, g: 'Trabajo' },
   { id: 'neg', t: 'Negociaciones', ic: '◫', mod: 'negociaciones', g: 'Trabajo' },
   { id: 'con', t: 'Contactos', ic: '◎', mod: 'contactos', g: 'Trabajo' },
   { id: 'com', t: 'Comunicación', ic: '✉', mod: 'comunicacion', flag: 'comunicacion', g: 'Trabajo' },
@@ -42,10 +43,10 @@ const NAV = [
   { id: 'adm', t: 'Administración', ic: '★', admin: true, g: 'Gestión' },
   { id: 'proy', t: 'Avances del CRM', ic: '◷', proyecto: true, g: 'Gestión' }
 ];
-const VISTAS = { neg: vistaNegociaciones, con: vistaContactos, com: vistaComunicacion,
+const VISTAS = { inicio: () => import('./experiencia.js').then(m => m.vistaInicio()), neg: vistaNegociaciones, con: vistaContactos, com: vistaComunicacion,
   cal: vistaCalendario, rep: vistaReportes, proy: vistaProyecto,
   sop: () => import('./soporte.js').then(m => m.vistaSoporte()), camp: () => import('./campanas.js').then(m => m.vistaCampanas()), cfg: vistaConfig, org: vistaOrganigrama, adm: vistaAdmin };
-const TITULOS = { neg: 'Negociaciones', con: 'Contactos', com: 'Comunicación interna',
+const TITULOS = { inicio: 'Inicio', neg: 'Negociaciones', con: 'Contactos', com: 'Comunicación interna',
   cal: 'Calendario', rep: 'Reportes', proy: 'Avances del proyecto CRM', camp: 'Campañas', sop: 'Soporte', cfg: 'Configuración', org: 'Organigrama', adm: 'Administración' };
 
 /* ================= LOGIN ================= */
@@ -129,7 +130,9 @@ async function arrancar(fresco, respuestaLogin=null) {
   try { conectarRealtime(); } catch (e) { console.warn('[impar] SSE no disponible:',e.message); }
   reloj(); setTimeout(()=>{ if(S.usuario) cargarClima(); },1400);
 
-  S.vista = 'neg';
+  // Al entrar, cada persona ve su día (Inicio); el tablero queda a un toque.
+  S.vista = 'inicio';
+  import('./experiencia.js').then(m => m.iniciarExperiencia()).catch(e => console.warn('[impar] Experiencia:', e.message));
   render().catch(e => console.warn('[impar] No se pudo renderizar la vista:',e.message));
   iniciarAyudas().catch(e => console.warn('[impar] Ayudas no disponibles:',e.message));
   try { iniciarRenovacion(conectarRealtime); } catch (e) { console.warn('[impar] Renovación no disponible:',e.message); }
@@ -211,6 +214,7 @@ export async function ir(v) {
 }
 
 async function render() {
+  window.dispatchEvent(new Event('impar:vista'));
   ayudasCambioDeVista();
   $('#v-title').textContent = TITULOS[S.vista];
   try { await (VISTAS[S.vista])(); }
@@ -268,7 +272,7 @@ function conectarRealtime() {
     if (S.vista === 'neg') patchTarjeta(id);
     refrescarFicha(id).catch(() => {});
   });
-  es.addEventListener('neg:nueva', e => { if (S.vista === 'neg') patchTarjeta(JSON.parse(e.data).id, { nueva: true }); });
+  es.addEventListener('neg:nueva', e => { window.dispatchEvent(new Event('impar:cliente-nuevo')); if (S.vista === 'neg') patchTarjeta(JSON.parse(e.data).id, { nueva: true }); });
   es.addEventListener('neg:borradas', e => { if (S.vista === 'neg') quitarTarjetas(JSON.parse(e.data).ids); });
   es.addEventListener('neg:recargar', () => { if (S.vista === 'neg') vistaNegociaciones(); });
   es.addEventListener('ubicacion', e => { if (S.vista === 'neg') patchTarjeta(JSON.parse(e.data).negociacionId, { destacar: true }); });

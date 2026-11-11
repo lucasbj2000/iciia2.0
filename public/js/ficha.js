@@ -4,7 +4,7 @@ import { seguirConversacion } from './presencia-equipo.js';
 import { ic } from './iconos.js';
 import {
   $, $$, esc, nombreLegible, S, get, post, patch, put, del, gs, fdate, fd, ago, toast, modal, cerrar,
-  confirmar, fx, esAdmin, esMando, etapa, ORIGENES, vacio, vibrar, esMovil, etiquetaLinea
+  confirmar, fx, esAdmin, esMando, etapa, ORIGENES, vacio, vibrar, esMovil, etiquetaLinea, iniciales
 } from './core.js';
 import { mover, patchTarjeta, quitarTarjetas } from './negociaciones.js';
 import { conectarAdjuntos, mediaHTML, activarVisor, subir, elegirArchivo, ICONOS } from './adjuntos.js';
@@ -14,6 +14,7 @@ import { actualizarMensajes, mostrarMensajePendiente, confirmarIdPendiente, hora
 import { combinarHistorial } from './historial-chat.js';
 import { enlazarTexto } from './enlaces.js';
 import { formularioHistorico,botonAnclarHistorico,activarCargaHistorica } from './carga-historica-impar.js';
+import { conectarFicha } from './experiencia.js';
 
 let actual = null, usuarios = [], rapidas = { equipo: [], personales: [] }, adj = null;
 let historialVista = null;
@@ -89,6 +90,8 @@ function pintar() {
      <small id="f-telefono-chat-error" class="meta-error" role="alert"></small>
     </div></div>
    <div class="ficha-acciones">
+    <button type="button" class="btn ghost sm hide-m" id="f-sig" title="Abrir el siguiente cliente que espera respuesta (en modo foco: Alt + ↓)">${ic('siguiente')}<span class="ficha-acc-t">Siguiente</span></button>
+    <button type="button" class="btn ghost sm hide-m" id="f-foco" aria-pressed="false" title="Modo foco: solo la conversación">${ic('foco')}<span class="sr">Modo foco</span></button>
     <button type="button" class="btn ghost sm ficha-menu-btn" id="f-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="f-menu-lista" title="Más acciones">${ic('mas')}<span class="sr">Más acciones</span></button>
     <div class="ficha-menu" id="f-menu-lista" role="menu" hidden>
      <button type="button" role="menuitem" data-menu="info">${ic('info')}Datos de la negociación</button>
@@ -157,11 +160,29 @@ function pintar() {
      : `<div class="chat-compose">${herramientasHTML('msg')}
         <div id="adj-barra" hidden></div>
         <div id="f-cita" class="cita-barra" hidden></div>
+        ${chipsTeclado('msg')}
         <div class="row chat-input-row" style="margin-top:8px;align-items:center;position:relative">
         ${fx('adjuntos') ? `<button class="btn-adj" id="f-adj" type="button" title="Adjuntar archivo (o pegá con Ctrl+V)" aria-label="Adjuntar archivo">${ic('clip')}</button>` : ''}
         <textarea id="msg" rows="1" enterkeyhint="enter" aria-label="Mensaje al cliente" placeholder="Escribir mensaje, pegar o arrastrar un archivo…"></textarea>
         <button class="btn" style="flex:none" id="f-enviar">Enviar</button></div></div>`}
    </div>
+
+   <aside class="ficha-hoja" aria-label="Hoja del cliente">
+     <div class="fh-cab"><span class="avatar">${esc(iniciales(nombreLegible(n.cliente) || '?'))}</span>
+       <div><b>${esc(nombreLegible(n.cliente) || '—')}</b>${n.frecuente ? `<span class="tag t-frec">${ic('estrella')} Frecuente</span>` : ''}</div></div>
+     <dl class="fh-datos">
+       <dt>${ic('telefono')} Teléfono</dt><dd>${esc(n.tel || '—')}</dd>
+       ${n.cliente_email ? `<dt>${ic('correo')} Correo</dt><dd>${esc(n.cliente_email)}</dd>` : ''}
+       ${n.cliente_direccion ? `<dt>${ic('pin')} Dirección</dt><dd>${esc(n.cliente_direccion)}</dd>` : ''}
+       <dt>${ic('edificio')} Sucursal</dt><dd>${esc(n.sucursal || '—')}${n.linea ? ' · ' + esc(n.linea) : ''}</dd>
+       <dt>${ic('usuario')} Responsable</dt><dd>${esc(n.agente_nombre || 'Sin asignar')}</dd>
+       <dt>${ic('dinero')} ${n.etapa === 'ganado' ? 'Cierre' : 'Valor estimado'}</dt><dd>${(n.etapa === 'ganado' ? n.monto_cierre : n.valor) ? gs(n.etapa === 'ganado' ? n.monto_cierre : n.valor) : '—'}</dd>
+       <dt>${ic('calendario')} Creada</dt><dd>${fdate(n.creado)}</dd>
+       <dt>${ic('actualizado')} Último movimiento</dt><dd>hace ${ago(n.actualizado)}</dd>
+       ${n.motivo ? `<dt>${ic('portapapeles')} Motivo</dt><dd>${esc(n.motivo)}</dd>` : ''}
+     </dl>
+     <button class="btn ghost sm block" type="button" data-hoja-360>${ic('usuarios')} Ficha 360° del cliente</button>
+   </aside>
 
    <div id="t-det" class="hidden">
     <div class="grid g2">
@@ -202,6 +223,8 @@ function pintar() {
   $('.modal').querySelectorAll('details.ficha-contexto, details.ficha-transferencias, details.chat-tools').forEach(panel => { panel.open = false; });
   $('.mask')?.classList.add('conversation-mask');
   $('.modal').dataset.negociacionId = n.id;
+  conectarFicha(n.id);
+  $('[data-hoja-360]')?.addEventListener('click', () => $('#f-360')?.click());
   // Escuchar si el cliente está escribiendo (WhatsApp); se renueva mientras la conversación siga abierta.
   const suscribir = () => { if ($('.conversation-modal')?.dataset.negociacionId === n.id) post(`/negociaciones/${n.id}/presencia`, {}).catch(() => {}); else clearInterval(window._presenciaTimer); };
   clearInterval(window._presenciaTimer); suscribir(); window._presenciaTimer = setInterval(suscribir, 8 * 60000);
@@ -477,6 +500,13 @@ function botonesHTML(campo) {
     ${esAdmin() ? `<button class="bpers" data-config-btn style="--bc:var(--muted)"><span class="em">${ic('ajustes')}</span><span>Configurar</span></button>` : ''}</div>`;
 }
 
+/* Celular: las respuestas rápidas de texto quedan como fichas encima del teclado. */
+function chipsTeclado(campo) {
+  if (!fx('respuestasRapidas')) return '';
+  const qs = misRapidas().filter(q => q.txt && !q.media_url && !q.archivo_id).slice(0, 8);
+  return qs.length ? `<div class="qr-teclado" aria-label="Respuestas rápidas">${qs.map(q =>
+    `<button type="button" class="qchip" data-rapida="${esc(q.txt)}" data-arch="" data-murl="" data-mtipo="" data-mnombre="" data-mbytes="0" data-campo="${campo}" title="${esc(q.txt)}">${esc(q.txt.slice(0, 28))}${q.txt.length > 28 ? '…' : ''}</button>`).join('')}</div>` : '';
+}
 function rapidasHTML(campo) {
   if (!fx('respuestasRapidas')) return '';
   const qs = misRapidas();

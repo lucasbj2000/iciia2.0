@@ -9,6 +9,7 @@ import {
 } from './core.js';
 import { fichaNeg } from './ficha.js';
 import { conectarAdjuntos } from './adjuntos.js';
+import { gestosTarjeta, sellar, esqueletoTablero } from './experiencia.js';
 
 export const F = { q: '', origen: '', agente: '', marcador: '' };
 export let SEL = new Set(), MODO_SEL = false;
@@ -20,7 +21,7 @@ let ultimaCarga=0;
 
 export async function vistaNegociaciones() {
   const revision=++ultimaCarga;
-  $('#view').innerHTML = `<div class="section">${skeleton(4)}</div>`;
+  $('#view').innerHTML = esqueletoTablero();
   // El tablero es la prioridad: usuarios y canales no deben impedir mostrar tarjetas.
   const resultado=await get('/negociaciones');
   if(revision!==ultimaCarga || S.vista!=='neg')return;
@@ -176,6 +177,7 @@ function pintarColumnas() {
         <span class="dot" style="background:${e.color}"></span><span class="count">${lista.length}</span><span class="col-plegada-nom">${esc(e.nombre)}</span>${ic('expandir')}</button>` : ''}
       <div class="col-h"><span class="dot" style="background:${e.color}"></span><b>${esc(e.nombre)}</b>
         <span class="count">${lista.length}</span>
+        <span class="col-pila" aria-hidden="true" title="${lista.length} negociaciones" style="--hojas:${Math.min(12, Math.ceil(lista.length / 4))};--c:${e.color}"></span>
         ${plegable ? `<button type="button" class="col-plegar" data-plegar="${e.id}" aria-label="Plegar ${esc(e.nombre)}" title="Plegar columna">${ic('plegar')}</button>` : ''}</div>
       ${e.id === 'nuevo' && esAdmin() && fx('cargaManual') ? '<div class="col-quick"><button type="button" class="btn ghost sm" id="b-rapida">+ Crear negociación rápida</button></div>' : ''}
       <div class="col-b" data-body="${e.id}">
@@ -295,7 +297,7 @@ function tarjeta(n) {
     ? `<b style="color:var(--ok)">${gs(n.monto_cierre)}</b>`
     : (n.valor ? gs(n.valor) : '');
 
-  let sla = '', plazo = '';
+  let sla = '', plazo = '', urg = '';
   if (n.etapa === 'contactado' || n.etapa === 'espera') {
     const horas = (Date.now() - new Date(n.entrada_etapa)) / 3600000;
     const limite = S.empresa.reglas?.slaHoras || 24;
@@ -304,12 +306,14 @@ function tarjeta(n) {
     const color = nivel === 'r' ? 'var(--bad)' : nivel === 'a' ? 'var(--warn)' : 'var(--ok)';
     // El cliente espera respuesta: respira en ámbar cerca del plazo; borde rojo si lo superó.
     if (n.etapa === 'espera') plazo = pct >= 100 ? ' plazo-vencido' : pct >= 75 ? ' plazo-cerca' : '';
+    // La hoja se va «tostando»: de verde a ámbar y a rojo según el tiempo que espera el cliente.
+    if (n.etapa === 'espera') urg = `;--urg:hsl(${Math.round(120 * (1 - pct / 100))} 72% 44%);--urg-k:${(pct / 100).toFixed(2)}`;
     sla = `<div class="sla ${nivel}"><i style="width:${pct}%"></i></div>
       <div class="sla-txt card-pie"><span style="color:${color}">${ic('reloj')} ${n.etapa === 'espera' ? 'Esperando' : 'En seguimiento'} hace ${ago(n.entrada_etapa)}</span>${fecha ? `<span class="card-fecha" title="Creada">${fecha}</span>` : ''}</div>`;
   } else if (fecha) sla = `<div class="card-pie"><span>${ic('calendario')} Creada</span><span class="card-fecha">${fecha}</span></div>`;
 
-  return `<div class="card ${SEL.has(n.id) ? 'sel' : ''}${plazo}" data-id="${n.id}"
-      style="--acc:${etapa(n.etapa).color}" draggable="${MODO_SEL ? 'false' : 'true'}">
+  return `<div class="card hoja-papel ${SEL.has(n.id) ? 'sel' : ''}${plazo}${urg ? ' urg' : ''}${n.etapa === 'ganado' ? ' ganada' : ''}" data-id="${n.id}"
+      style="--acc:${etapa(n.etapa).color}${urg}" draggable="${MODO_SEL ? 'false' : 'true'}">
     ${MODO_SEL ? `<input type="checkbox" class="chk" ${SEL.has(n.id) ? 'checked' : ''} data-chk="${n.id}">` : ''}
     ${avataresEquipo(n.id)}<span class="nom">${esc(nombreLegible(n.cliente) || '—')}</span>
     <div class="linea"><span class="card-canal canal-${cls}" role="img" aria-label="Canal ${esc(n.origen || 'otro')}" title="${esc(n.origen || 'otro')}">${ic(CANAL_IC[cls] || 'mensaje')}</span>${insigniaLinea(n)}
@@ -319,7 +323,8 @@ function tarjeta(n) {
       ${ocultos.length ? `<span class="mas" data-mas="${n.id}">+${ocultos.length}</span>` : ''}</div>
     ${ocultos.length ? `<div class="extra">${ocultos.join('')}</div>` : ''}
     ${sla}
-    ${n.motivo ? `<div class="linea" style="margin-top:5px">Motivo: ${esc(n.motivo)}</div>` : ''}</div>`;
+    ${n.motivo ? `<div class="linea" style="margin-top:5px">Motivo: ${esc(n.motivo)}</div>` : ''}
+    ${n.etapa === 'ganado' ? '<span class="sello quieto">GANADO</span>' : ''}</div>`;
 }
 
 /* ---------- Drag & drop ---------- */
@@ -327,6 +332,7 @@ function conectarDrag() { $$('.card').forEach(conectarTarjeta); conectarColumnas
 
 function conectarTarjeta(el) {
   const id = el.dataset.id;
+  gestosTarjeta(el, id);
   el.ondragstart = e => { el.classList.add('drag'); e.dataTransfer.setData('id', id); e.dataTransfer.effectAllowed = 'move'; };
   el.ondragend = () => el.classList.remove('drag');
   el.onclick = e => {
@@ -386,7 +392,8 @@ export async function mover(id, destino, extra = {}) {
     if (extra.motivo) n.motivo = extra.motivo;
     n.entrada_etapa = new Date().toISOString();
     bloqueadas.delete(id);
-    setTimeout(() => patchTarjeta(id), 80);
+    // Al cerrar ganado, la tarjeta recibe el sello de tinta con un golpe seco.
+    setTimeout(() => Promise.resolve(patchTarjeta(id)).then(() => { if (destino === 'ganado') sellar($(`[data-id="${id}"]`)); }), 80);
     if (destino === 'ganado') { confeti(); vibrar([18, 50, 18]); toast(`Cerrado ganado por ${gs(extra.monto)}`, 'ok', '¡Venta cerrada!'); }
     else toast(`Movido a ${etapa(destino).nombre}`, 'ok', 'Negociación');
   } catch (e) {
