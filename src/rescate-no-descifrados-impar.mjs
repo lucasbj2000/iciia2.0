@@ -108,3 +108,19 @@ export async function rescatarNoDescifrados(ahora = Date.now()) {
     return r;
   } finally { enCurso = false; }
 }
+
+/** Después de reparar el cifrado con un cliente: reenvía UNA vez los mensajes de las últimas 24 h
+ * que el cliente no pudo leer («Esperando mensaje»). Máximo 5, nunca un reenvío de un reenvío. */
+export async function reenviarPendientesCliente(empresaId, canalId, negociacionId) {
+  const { rows } = await q(`SELECT we.canal_id,we.wa_id,we.empresa_id,o.id AS outbox_id,o.negociacion_id,o.mensaje_id
+      FROM wa_entregas_impar we JOIN outbox o ON o.id=we.outbox_id AND o.empresa_id=we.empresa_id
+     WHERE we.empresa_id=$1 AND we.canal_id=$2 AND we.reintentos>0 AND we.reenviado_ts IS NULL
+       AND (we.rescate IS NULL OR we.rescate='sin_alternativa') AND o.reenvio_de IS NULL
+       AND we.reintento_ts > now()-interval '24 hours'
+       AND NOT (we.leido_ts IS NOT NULL AND we.leido_ts>=we.reintento_ts)
+       AND o.negociacion_id=$3
+     ORDER BY we.reintento_ts LIMIT 5`, [empresaId, canalId, negociacionId]);
+  let n = 0;
+  for (const f of rows) if (await reenviar(f)) n++;
+  return n;
+}

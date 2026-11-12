@@ -289,6 +289,34 @@ r.patch('/:id/telefono-destino', requiere(), async(req,res)=>{
 });
 
 /** Sólo administración puede activar el direccionamiento LID para un cliente. */
+/** Repara el cifrado con el cliente en la línea WhatsApp normal: «Esperando mensaje» o
+ * «WhatsApp no permitió leer». Cualquier persona con acceso a la negociación; una vez cada 5 min. */
+const ultimaReparacion = new Map();
+r.post('/:id/reparar-whatsapp', requiere(), async (req, res) => {
+  try {
+    const n = await obtenerNegociacionVisible(req, req.params.id);
+    if (!n) return res.status(404).json({ error: 'Negociación no encontrada' });
+    const { rows: canales } = await q("SELECT * FROM canales WHERE id=$1 AND empresa_id=$2 AND activo", [n.canal_id, req.empresaId]);
+    const canal = canales[0];
+    if (canal?.tipo !== 'whatsapp_qr') return res.status(409).json({ error: 'Esta reparación es para la línea de WhatsApp normal (QR).' });
+    const antes = ultimaReparacion.get(n.id) || 0;
+    if (Date.now() - antes < 5 * 60e3) return res.status(429).json({ error: 'Ya se reparó hace un momento. Esperá unos minutos antes de repetir.' });
+    const { repararCifradoWA } = await import('../channels/baileys.mjs');
+    const r2 = await repararCifradoWA(canal, n.telefono_destino || n.tel);
+    ultimaReparacion.set(n.id, Date.now());
+    if (ultimaReparacion.size > 2000) ultimaReparacion.delete(ultimaReparacion.keys().next().value);
+    const { reenviarPendientesCliente } = await import('../rescate-no-descifrados-impar.mjs');
+    const reenviados = await reenviarPendientesCliente(req.empresaId, canal.id, n.id).catch(() => 0);
+    await historial(req.empresaId, n.id, 'Conexión cifrada con el cliente reparada' + (reenviados ? ` · ${reenviados} ${reenviados === 1 ? 'mensaje reenviado' : 'mensajes reenviados'}` : ''), req.user.nombre);
+    auditar(req.empresaId, req.user.usuario, 'whatsapp:reparar-cifrado', `Negociación ${n.id}`, req.ip).catch(() => {});
+    emitir(req.empresaId, 'neg:patch', { id: n.id });
+    res.json({ ok: true, sesiones: r2.sesiones, reenviados });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    console.warn('[wa:cifrado] Reparación manual:', e.name);
+    res.status(500).json({ error: 'No se pudo reparar la conexión con el cliente.' });
+  }
+});
 r.get('/:id/ruta-whatsapp', requiere('admin'), async(req,res)=>{
   try{
     const n=await obtenerNegociacionVisible(req,req.params.id);

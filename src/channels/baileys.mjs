@@ -7,6 +7,7 @@ import { contactosDeBaileys, textoContactos } from '../contactos-compartidos-imp
 import { contenidoBaileys } from '../contenido-whatsapp-impar.mjs';
 import { hkdfSync, createDecipheriv } from 'node:crypto';
 import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { q } from '../db.mjs';
 import { emitir } from '../realtime.mjs';
@@ -16,7 +17,8 @@ import { guardarOriginal, recuperarOriginal } from '../wa-reintentos.mjs';
 import { crearCacheContadorReintentos } from '../wa-cache-reintentos.mjs';
 import { registrarActualizacionImpar } from '../wa-entregas-impar.mjs';
 import { registrarParejaWA, parejaDesdeEventoWA, validarParejaWA, rutaParaEnvioWA, resolverRemitenteWA,
-  modoDesdeEventoWA, registrarModoEntranteWA, registrarReintentoWA } from '../wa-identidades-impar.mjs';
+  modoDesdeEventoWA, registrarModoEntranteWA, registrarReintentoWA, telefonoAStringJid } from '../wa-identidades-impar.mjs';
+import { usuarioSignal, sesionesDeUsuarios, registrarFalla } from '../wa-cifrado-impar.mjs';
 import { vigilarBuffer } from '../wa-vigilancia-buffer.mjs';
 
 const AUTH_DIR = process.env.WA_AUTH_DIR || './auth';
@@ -131,6 +133,7 @@ export async function iniciar(canal) {
       registrarReintentoWA(canal,node.attrs).then(async r=>{
         if(!r)return;
         S.reintentosCifrado=(S.reintentosCifrado||0)+1;
+        fallaCifrado(canal,de,'mensaje_no_leido_por_cliente');
         console.warn(`[wa:ruta] Aviso de mensaje no descifrado por el cliente (ruta=${r.tipo}). Próximos envíos usan la ruta alternativa si está verificada.`);
         if(r.outboxId){
           const {rows}=await q('SELECT negociacion_id FROM outbox WHERE id=$1 AND empresa_id=$2',[r.outboxId,canal.empresa_id]);
@@ -382,9 +385,12 @@ async function registrarNoDescifrado(m,canal,id){
   if(!rows[0]?.id)return false;
   const S=sesiones.get(id);
   if(S)S.noDescifradosWA=(S.noDescifradosWA||0)+1;
+  // Fuera de esta función (al final del archivo): dos fallas del mismo cliente reparan su cifrado.
+  if(typeof fallaCifrado==='function')fallaCifrado(canal,m.key?.remoteJid,'mensaje_del_cliente_ilegible');
   despertarWorker();
   return true;
 }
+
 
 /** El original llegó después del aviso: reemplazar texto y adjunto, sin duplicar. */
 async function reemplazarNoDescifrado(mod,m,contenido,canal,id,{etiqueta,ubicacion,hayMedia}){
@@ -857,3 +863,43 @@ export async function prelevantar() {
 }
 
 export const disponible = async () => !!(await cargarBaileys());
+
+/* ---------- Reparación del cifrado con un cliente ---------- */
+async function usuariosDelCliente(canal,jid){
+  const u=usuarioSignal(jid);
+  const usuarios=new Set(u?[u]:[]);
+  if(!u)return usuarios;
+  const {rows}=await q('SELECT pn_jid,lid_jid FROM wa_identidades_impar WHERE canal_id=$1 AND (split_part(pn_jid,\'@\',1)=$2 OR split_part(lid_jid,\'@\',1)=$2) LIMIT 3',
+    [canal.id,u]).catch(()=>({rows:[]}));
+  for(const r of rows){usuarios.add(usuarioSignal(r.pn_jid));usuarios.add(usuarioSignal(r.lid_jid));}
+  usuarios.delete('');
+  return usuarios;
+}
+/** Borra solo la sesión de cifrado de ese cliente (número y LID, todos los dispositivos). */
+async function borrarSesionesCliente(canal,jid){
+  const S=sesiones.get(canal.id);
+  if(!S?.sock?.authState?.keys)throw Object.assign(new Error('La línea de WhatsApp no está conectada.'),{status:409});
+  const usuarios=await usuariosDelCliente(canal,jid);
+  if(!usuarios.size)throw Object.assign(new Error('No se reconoce el número del cliente.'),{status:422});
+  const archivos=await readdir(join(AUTH_DIR,String(canal.id))).catch(()=>[]);
+  const ids=sesionesDeUsuarios(archivos,usuarios);
+  if(ids.length)await S.sock.authState.keys.set({session:Object.fromEntries(ids.map(i=>[i,null]))});
+  S.cifradoReparado=(S.cifradoReparado||0)+1;
+  return ids.length;
+}
+function fallaCifrado(canal,jid,motivo){
+  const S=sesiones.get(canal?.id); if(!S)return;
+  S.cifrado ||= {};
+  if(!registrarFalla(S.cifrado,usuarioSignal(jid)))return;
+  borrarSesionesCliente(canal,jid)
+    .then(n=>console.warn(`[wa:cifrado] Sesión de cifrado de un cliente reiniciada automáticamente (motivo=${motivo}, sesiones=${n}).`))
+    .catch(e=>console.warn('[wa:cifrado] Reparación automática no aplicada:',e.name));
+}
+/** Reparación manual desde la ficha. */
+export async function repararCifradoWA(canal,numero){
+  const jid=telefonoAStringJid(numero);
+  if(!jid)throw Object.assign(new Error('El número del cliente no es válido.'),{status:422});
+  const n=await borrarSesionesCliente(canal,jid);
+  console.warn(`[wa:cifrado] Sesión de cifrado de un cliente reiniciada desde la ficha (sesiones=${n}).`);
+  return {sesiones:n};
+}

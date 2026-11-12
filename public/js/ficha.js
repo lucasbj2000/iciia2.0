@@ -99,6 +99,7 @@ function pintar() {
     <div class="ficha-menu" id="f-menu-lista" role="menu" hidden>
      <button type="button" role="menuitem" data-menu="info">${ic('info')}Datos de la negociación</button>
      ${esAdmin() && !cerrada ? `<button type="button" role="menuitem" data-menu="ruta">${ic('canal')}Ruta de envío de WhatsApp</button>` : ''}
+     ${!cerrada && n.canal_tipo === 'whatsapp_qr' ? `<button type="button" role="menuitem" data-menu="reparar-wa">${ic('escudo')}Reparar conexión con el cliente</button>` : ''}
      ${esAdmin() ? `<button type="button" role="menuitem" data-menu="historico">${ic('mas_simple')}Registrar mensaje histórico</button>` : ''}
      <button type="button" role="menuitem" data-menu="360">${ic('usuarios')}Ver ficha 360° del cliente</button>
      ${puedeBorrar ? `<hr><button type="button" role="menuitem" class="peligro" id="f-borrar">${ic('papelera')}Eliminar negociación</button>` : ''}
@@ -296,7 +297,25 @@ function mensajeHTML(m) {
        return `<div class="msg ${m.dir} ${m.especial ? 'esp-' + m.especial : ''} ${media ? 'media' : ''} ${m.estado === 'pendiente' ? 'pendiente' : ''} ${m.estado === 'error' ? 'error' : ''}"${tramo} data-linea="${esc(m.linea_id || '')}">
           ${responder}${m.especial === 'plantilla' ? `<span class="msg-plantilla">${ic('megafono')} Plantilla de WhatsApp · campaña</span>` : ''}${citaHTML(m.cita)}${media}${m.txt ? `<div class="${media ? 'pie' : ''}">${enlazarTexto(m.txt)}</div>` : ''}${editadoHTML(m.editado)}${mapaUbi}
           <small>${lineaMensaje(m)}${m.carga_historica ? `${ic('lapiz')} Carga histórica (admin) · ` : ''}${m.bot ? `${ic('bot')} Bot · ` : ''}<time datetime="${esc(m.ts || '')}" title="${esc(fdate(m.ts))}">${horaMensaje(m.ts)}</time>${otroNumero ? ` · <span class="msg-otro-num" title="Escribió desde otro número">${ic('celular')} ${esc(m.remitente_numero)}</span>` : ''}
-          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ` · ${ic('alerta')} no enviado` : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small></div>`;
+          ${m.estado === 'pendiente' ? ' · enviando…' : m.estado === 'error' ? ` · ${ic('alerta')} no enviado` : ''}${estadoWA}${marcaReenvio}${esAdmin()?botonAnclarHistorico(m):''}</small>${m.dir === 'in' && AVISO_ILEGIBLE.test(m.txt || '') ? `<button type="button" class="msg-reparar" data-reparar-wa>${ic('escudo')} Reparar conexión y pedir reenvío</button>` : ''}</div>`;
+}
+
+/* Línea WhatsApp normal: el cliente ve «Esperando mensaje» o el CRM no pudo leer lo que mandó.
+   Se reinicia solo el cifrado con ese cliente y se reenvían los mensajes que no pudo leer. */
+const AVISO_ILEGIBLE = /^\[El cliente envió un mensaje que WhatsApp no permitió leer/;
+const PEDIDO_REENVIO = 'Disculpá, tu último mensaje no nos llegó bien. ¿Nos lo podés volver a enviar, por favor?';
+let reparando = false;
+async function repararWhatsApp() {
+  if (!actual?.id || reparando) return;
+  reparando = true;
+  $$('[data-reparar-wa]').forEach(b => { b.disabled = true; });
+  try {
+    const r = await post(`/negociaciones/${actual.id}/reparar-whatsapp`, {});
+    toast(r.reenviados ? `Conexión reparada. Se reenviaron ${r.reenviados} ${r.reenviados === 1 ? 'mensaje' : 'mensajes'} que el cliente no podía leer.` : 'Conexión reparada. El próximo mensaje ya sale con una conexión nueva.', 'ok');
+    const caja = $('#msg');
+    if (caja && !caja.value.trim()) { caja.value = PEDIDO_REENVIO; caja.dispatchEvent(new Event('input', { bubbles: true })); caja.focus(); }
+  } catch (e) { toast(e.message, 'bad'); }
+  finally { reparando = false; $$('[data-reparar-wa]').forEach(b => { b.disabled = false; }); }
 }
 
 export async function refrescarFicha(id, seguir = false) {
@@ -489,6 +508,7 @@ function conectarMenuFicha() {
     else if (accion === 'ruta') mostrarPanel('f-avanzado', 'none');
     else if (accion === 'historico') mostrarPanel('f-avanzado', '#f-historico-manual');
     else if (accion === '360') $('#f-360')?.click();
+    else if (accion === 'reparar-wa') repararWhatsApp();
   });
   $$('[data-abrir-info]').forEach(b => b.onclick = () => mostrarPanel('f-info', 'details.ficha-contexto'));
 }
@@ -580,6 +600,7 @@ function rapidasHTML(campo) {
 }
 
 function conectar(n) {
+  $('#chatbox')?.addEventListener('click', e => { if (e.target.closest('[data-reparar-wa]')) repararWhatsApp(); });
   window.dispatchEvent(new CustomEvent('impar:ficha-lista', { detail: { id: n.id, tel: n.tel, cliente: n.cliente } }));
   conectarRedesWhatsApp(n, id => fichaNeg(id)); // se vuelve a abrir: cabecera, teléfono y línea quedan al día
   if($('#f-telefono-chat'))cargarTelefonosChat(n.id);

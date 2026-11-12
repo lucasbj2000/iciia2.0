@@ -947,3 +947,10 @@ th,.kpi span,.badge-rol,.cal-h,.org-rol,.pr-eyebrow{text-transform:none!importan
 .redes-wa-form .field{display:flex;flex-direction:column;gap:4px;margin:0}
 .redes-wa-form .field span{font-size:var(--fs-xs);color:var(--muted)}
 .redes-wa-acc{display:flex;justify-content:flex-end;gap:8px}
+
+/* Aviso de mensaje ilegible: reparar la conexión cifrada con el cliente desde el mismo aviso. */
+.msg .msg-reparar{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:6px 12px;border-radius:999px;border:1px solid var(--verde-borde);background:var(--verde-suave);color:var(--verde-texto);font:inherit;font-size:var(--fs-xs,12.5px);font-weight:600;cursor:pointer}
+.msg .msg-reparar svg{width:15px;height:15px}
+.msg .msg-reparar:hover{border-color:var(--verde)}
+.msg .msg-reparar:disabled{opacity:.6;cursor:progress}
+.msg .msg-reparar:focus-visible{outline:2px solid var(--verde);outline-offset:2px}
