@@ -31,6 +31,8 @@ jobs:
         run: node scripts/test-llamadas-impar.mjs
       - name: Reparación del cifrado con un cliente (WhatsApp normal)
         run: node scripts/test-wa-cifrado-impar.mjs
+      - name: Actualización automática del CRM abierto
+        run: node scripts/test-version-impar.mjs
       - name: Pruebas de horarios y aviso de salida
         run: node scripts/test-horarios.mjs
       - name: Pruebas de login y recuperación de interfaz

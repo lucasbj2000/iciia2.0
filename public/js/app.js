@@ -22,6 +22,7 @@ import { iniciarRenovacion } from './sesion.js';
 import { iniciarControlTurnos,comprobarSalida,refrescarSalidasHoy } from './horarios.js';
 
 import { iniciarPWA, notificarApp } from './pwa.js';
+import { iniciarVersion, verificarVersion } from './version.js';
 import { cargarNotas, cargarCambiosNeg } from './colaboracion.js';
 
 iniciarViewport();
@@ -135,6 +136,7 @@ async function arrancar(fresco, respuestaLogin=null) {
   import('./experiencia.js').then(m => m.iniciarExperiencia()).catch(e => console.warn('[impar] Experiencia:', e.message));
   render().catch(e => console.warn('[impar] No se pudo renderizar la vista:',e.message));
   iniciarAyudas().catch(e => console.warn('[impar] Ayudas no disponibles:',e.message));
+  try { iniciarVersion(); } catch (e) { console.warn('[impar] Control de versión:', e.message); }
   import('./videoteca.js').then(m => m.iniciarVideoteca()).catch(e => console.warn('[impar] Videos de novedades:', e.message));
   import('./llamadas-wa.js').then(m => m.iniciarLlamadas()).catch(e => console.warn('[impar] Llamadas:', e.message));
   try { iniciarRenovacion(conectarRealtime); } catch (e) { console.warn('[impar] Renovación no disponible:',e.message); }
@@ -335,7 +337,9 @@ function conectarRealtime() {
   es.addEventListener('open', () => {
     sseUltimaSenal = Date.now(); sseEspera = 3000;
     // Cada reconexión (no la primera) trae lo que cambió mientras estuvo cortado.
+    // Tras un reinicio del servidor (actualización), la pestaña carga la versión nueva en un momento seguro.
     if (sseYaConectado) resincronizarTablero();
+    if (sseYaConectado) verificarVersion();
     sseYaConectado = true;
     if (S.vista === 'neg') cargarPresencias().catch(() => {});
   });
