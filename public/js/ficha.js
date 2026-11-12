@@ -580,6 +580,7 @@ function rapidasHTML(campo) {
 }
 
 function conectar(n) {
+  window.dispatchEvent(new CustomEvent('impar:ficha-lista', { detail: { id: n.id, tel: n.tel, cliente: n.cliente } }));
   conectarRedesWhatsApp(n, id => fichaNeg(id)); // se vuelve a abrir: cabecera, teléfono y línea quedan al día
   if($('#f-telefono-chat'))cargarTelefonosChat(n.id);
   if($('#f-mas-mensajes'))$('#f-mas-mensajes').onclick=()=>cargarMensajesAnteriores(n.id);

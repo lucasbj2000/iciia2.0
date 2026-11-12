@@ -10,6 +10,7 @@ import { q } from '../db.mjs';
 import { guardarDesdeUrl, urlPublica } from '../archivos.mjs';
 import { resolverToken } from '../meta-secretos-impar.mjs';
 import { encolarWebhookMeta, drenarWebhooksMeta } from '../meta-webhooks-impar.mjs';
+import { procesarLlamadasCloud, estadoDeLlamada, esRespuestaPermiso, respuestaPermiso } from '../llamadas-wa-impar.mjs';
 
 // Messenger e Instagram: versión vigente (las anteriores a v24 se ignoran porque Meta las retira).
 const WA_API = `https://graph.facebook.com/${process.env.WA_GRAPH_VERSION || 'v26.0'}`;
@@ -97,8 +98,14 @@ async function procesarWhatsAppAPI(body) {
       const canal = await canalPor('whatsapp_api', 'phone_number_id', phoneId);
       if (!canal) { console.warn('[meta] sin canal para phone_number_id', phoneId); continue; }
 
-      for(const estado of v.statuses || [])await registrarEstadoCloud(canal,estado);
+      // Llamadas de WhatsApp (en prueba): sus eventos van a su propio módulo y no tocan los mensajes.
+      if (ch.field === 'calls' || v.calls || (v.statuses || []).some(estadoDeLlamada) || (v.messages || []).some(esRespuestaPermiso)) {
+        await procesarLlamadasCloud(canal, v);
+        for (const m of (v.messages || []).filter(esRespuestaPermiso)) await respuestaPermiso(canal, m);
+      }
+      for(const estado of v.statuses || []){ if(estadoDeLlamada(estado))continue; await registrarEstadoCloud(canal,estado); }
       for (const m of v.messages || []) {
+        if (esRespuestaPermiso(m)) continue;
         const perfil = (v.contacts || []).find(c => c.wa_id === m.from);
         const { texto, media, ubicacion, especial, citaExt } = await extraerWhatsApp(m, canal);
         if (!texto && !media && !ubicacion) continue;

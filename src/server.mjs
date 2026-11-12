@@ -40,6 +40,7 @@ import rHorarios from './routes/horarios.mjs';
 import rBitrix from './routes/importar-bitrix.mjs';
 import rVarios from './routes/varios.mjs';
 import rSoporte from './routes/soporte.mjs';
+import rLlamadas from './routes/llamadas.mjs';
 import rEnlaces, { redirigirEnlace, limiteEnlaces } from './routes/enlaces-impar.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -219,6 +220,7 @@ app.use('/api/horarios', rHorarios);
 app.use('/api/bitrix', rBitrix);
 app.use('/api/enlaces', rEnlaces);
 app.use('/api/soporte', rSoporte);
+app.use('/api/llamadas', rLlamadas);
 app.use('/api/campanas', rCampanas);
 app.use('/api', rVarios);
 

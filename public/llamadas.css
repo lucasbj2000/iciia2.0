@@ -1,0 +1,86 @@
+/* Llamadas de WhatsApp en prueba: botón del probador, panel y tarjeta flotante de llamada. */
+.ll-btn{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 10px;border-radius:10px;border:1px dashed var(--line);background:var(--surface);color:var(--muted);font:inherit;cursor:pointer;flex:none}
+.ll-btn svg{width:18px;height:18px}
+.ll-btn.activo{color:var(--txt);border-style:solid;border-color:color-mix(in srgb,#25D366 45%,var(--line))}
+.ll-btn.activo svg{color:#25D366}
+.ll-btn:hover{background:var(--surface2)}
+.ll-btn:focus-visible{outline:2px solid var(--verde);outline-offset:2px}
+.ll-btxt{font-size:13px;font-weight:600}
+.ll-prueba{font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:6px;background:color-mix(in srgb,#d9a441 22%,transparent);color:#c0902f}
+@media (max-width:760px){.ll-btxt,.ll-btn .ll-prueba{display:none}}
+
+/* panel */
+.ll-panel{position:fixed;inset:0;z-index:1150;display:grid;place-items:center}
+.ll-velo{position:absolute;inset:0;background:rgba(8,11,7,.6);backdrop-filter:blur(3px)}
+.ll-caja{position:relative;width:min(640px,94vw);max-height:90vh;display:flex;flex-direction:column;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.4)}
+.ll-caja>header{display:flex;justify-content:space-between;gap:14px;padding:22px 22px 12px}
+.ll-caja h2{margin:0;font-size:20px;display:flex;align-items:center;gap:10px}
+.ll-caja header p{margin:6px 0 0;color:var(--muted);font-size:13.5px;line-height:1.45}
+.ll-x{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--txt);cursor:pointer;flex:none}
+.ll-cuerpo{overflow:auto;padding:4px 22px 22px;display:flex;flex-direction:column;gap:16px}
+.ll-estado{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.ll-estado>div{flex:1;min-width:0}
+.ll-estado b{display:block;font-size:14.5px}
+.ll-estado small{color:var(--muted);font-size:12.5px;line-height:1.4}
+.ll-luz{width:12px;height:12px;border-radius:50%;background:var(--muted);flex:none}
+.ll-estado.on .ll-luz{background:#25D366;box-shadow:0 0 0 4px color-mix(in srgb,#25D366 25%,transparent)}
+.ll-aviso{margin:0;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.45;background:color-mix(in srgb,#d9a441 14%,transparent);border:1px solid color-mix(in srgb,#d9a441 35%,transparent)}
+.ll-aviso.bad{background:color-mix(in srgb,var(--bad,#d9534f) 12%,transparent);border-color:color-mix(in srgb,var(--bad,#d9534f) 35%,transparent)}
+.ll-campo{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.ll-campo input,.ll-campo select{height:42px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--txt);padding:0 12px;font:inherit;font-size:15px}
+.ll-prueba-caja h3,.ll-hist h3{margin:0 0 10px;font-size:14px}
+.ll-pasos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.ll-paso{display:flex;flex-direction:column;gap:4px;text-align:left;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--txt);font:inherit;cursor:pointer}
+.ll-paso b{font-size:14px;display:flex;align-items:center;gap:6px}
+.ll-paso b svg{width:16px;height:16px}
+.ll-paso small{font-size:12px;color:var(--muted);line-height:1.4}
+.ll-paso:hover{border-color:var(--verde-borde)}
+.ll-paso.llamar{background:#1f7a46;border-color:#1f7a46;color:#fff}
+.ll-paso.llamar small{color:rgba(255,255,255,.8)}
+.ll-paso:disabled{opacity:.6;cursor:progress}
+.ll-res{margin:10px 0 0;font-size:13px;color:var(--verde-texto);min-height:18px}
+.ll-hist ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.ll-hist li{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--surface)}
+.ll-hist li span:last-child{display:flex;flex-direction:column}
+.ll-hist small{color:var(--muted);font-size:12px}
+.ll-dir{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--surface2)}
+.ll-dir.entrante{color:#25D366}.ll-dir.saliente{color:#5b8cff}
+.ll-vacio{color:var(--muted);font-size:13px;margin:0}
+@media (max-width:560px){.ll-pasos{grid-template-columns:1fr}}
+
+/* tarjeta flotante de llamada */
+.ll-card{position:fixed;right:20px;bottom:20px;z-index:1300;width:340px;max-width:calc(100vw - 24px);display:grid;grid-template-columns:auto 1fr;gap:12px 14px;align-items:center;padding:16px 16px 14px;border-radius:20px;
+  background:#16241a;color:#EEF1EA;border:1px solid #2c4a33;box-shadow:0 24px 60px rgba(0,0,0,.45);animation:ll-entra .32s cubic-bezier(.2,.9,.3,1.2) both;overflow:hidden}
+.ll-card.saliendo{animation:ll-sale .25s ease-in forwards}
+@keyframes ll-entra{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes ll-sale{to{opacity:0;transform:translateY(16px) scale(.97)}}
+.ll-sello{position:absolute;right:-14px;top:-14px;width:74px;height:74px;border-radius:50%;border:2px dashed rgba(37,211,102,.35);display:grid;place-items:center;color:rgba(37,211,102,.4);transform:rotate(-12deg)}
+.ll-sello svg{width:26px;height:26px}
+.ll-av{position:relative;width:56px;height:56px;border-radius:50%;background:#25D366;color:#06301a;display:grid;place-items:center;font-weight:700;font-size:22px}
+.ll-av span{position:relative}
+.ll-av i{position:absolute;inset:0;border-radius:50%;border:2px solid #25D366;opacity:0}
+.ll-card.sonando .ll-av i{animation:ll-onda 1.6s ease-out infinite}
+.ll-card.sonando .ll-av i+i{animation-delay:.8s}
+@keyframes ll-onda{from{opacity:.8;transform:scale(1)}to{opacity:0;transform:scale(1.8)}}
+.ll-card.sonando .ll-av{animation:ll-vibra 1.1s ease-in-out infinite}
+@keyframes ll-vibra{0%,60%,100%{transform:none}65%{transform:rotate(-8deg)}70%{transform:rotate(8deg)}75%{transform:rotate(-6deg)}80%{transform:rotate(6deg)}85%{transform:none}}
+.ll-quien{min-width:0;display:flex;flex-direction:column;gap:2px;position:relative}
+.ll-quien b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ll-quien small{font-size:12.5px;color:#a9b8a6}
+.ll-st{margin-top:4px;font-size:13px;color:#9AD46F;display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.ll-onda{width:18px;height:12px;background:linear-gradient(90deg,#25D366 0 3px,transparent 3px 5px,#25D366 5px 8px,transparent 8px 10px,#25D366 10px 13px,transparent 13px 15px,#25D366 15px 18px);
+  mask:linear-gradient(#000,#000);animation:ll-eq .9s ease-in-out infinite alternate;transform-origin:center}
+@keyframes ll-eq{from{transform:scaleY(.45)}to{transform:scaleY(1)}}
+.ll-acc{grid-column:1/-1;display:flex;justify-content:center;gap:18px;margin-top:4px}
+.ll-r{width:54px;height:54px;border-radius:50%;border:none;display:grid;place-items:center;cursor:pointer;background:#2a3b2e;color:#EEF1EA}
+.ll-r svg{width:24px;height:24px}
+.ll-r.verde{background:#25D366;color:#06301a}
+.ll-card.sonando .ll-r.verde{animation:ll-latir 1.2s ease-in-out infinite}
+@keyframes ll-latir{50%{box-shadow:0 0 0 10px rgba(37,211,102,.18)}}
+.ll-r.rojo{background:#d64545;color:#fff}
+.ll-r.on{background:#EEF1EA;color:#16241a}
+.ll-r:focus-visible{outline:3px solid #9AD46F;outline-offset:3px}
+.ll-ver{grid-column:1/-1;justify-self:center;background:none;border:none;color:#9AD46F;font:inherit;font-size:13px;text-decoration:underline;cursor:pointer}
+.ll-ficha svg{width:16px;height:16px;color:#25D366}
+@media (max-width:560px){.ll-card{right:12px;left:12px;bottom:12px;width:auto}}
+@media (prefers-reduced-motion:reduce){.ll-card,.ll-card.saliendo,.ll-card.sonando .ll-av,.ll-card.sonando .ll-av i,.ll-card.sonando .ll-r.verde,.ll-onda{animation:none}}

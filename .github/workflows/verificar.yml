@@ -27,6 +27,8 @@ jobs:
         run: node scripts/test-ayudas.mjs
       - name: Sala de novedades en video
         run: node scripts/test-videoteca-impar.mjs
+      - name: Llamadas de WhatsApp en prueba
+        run: node scripts/test-llamadas-impar.mjs
       - name: Pruebas de horarios y aviso de salida
         run: node scripts/test-horarios.mjs
       - name: Pruebas de login y recuperación de interfaz
@@ -184,6 +186,10 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
         run: node scripts/test-duplicados-pg.mjs
+      - name: Llamadas de WhatsApp con PostgreSQL
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
+        run: node scripts/test-llamadas-pg.mjs
       - name: Recepción por sucursal, reparto concurrente y Matriz en PostgreSQL real
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres

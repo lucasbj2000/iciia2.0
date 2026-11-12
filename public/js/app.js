@@ -136,6 +136,7 @@ async function arrancar(fresco, respuestaLogin=null) {
   render().catch(e => console.warn('[impar] No se pudo renderizar la vista:',e.message));
   iniciarAyudas().catch(e => console.warn('[impar] Ayudas no disponibles:',e.message));
   import('./videoteca.js').then(m => m.iniciarVideoteca()).catch(e => console.warn('[impar] Videos de novedades:', e.message));
+  import('./llamadas-wa.js').then(m => m.iniciarLlamadas()).catch(e => console.warn('[impar] Llamadas:', e.message));
   try { iniciarRenovacion(conectarRealtime); } catch (e) { console.warn('[impar] Renovación no disponible:',e.message); }
   try { iniciarControlTurnos(); } catch (e) { console.warn('[impar] Horarios no disponibles:',e.message); }
 
@@ -326,6 +327,7 @@ function conectarRealtime() {
     aplicarMarca(); aplicarFX(); pintarNav();
   });
   es.addEventListener('usuarios', () => { import('./sala-control.js').then(m => m.salaAbierta() && m.cambioEquipo()).catch(() => {}); });
+  es.addEventListener('llamada', e => { try { window.dispatchEvent(new CustomEvent('impar:llamada', { detail: JSON.parse(e.data) })); } catch {} });
   es.addEventListener('equipo:viendo', e => { try { recibirPresencia(JSON.parse(e.data)); } catch {} });
   es.addEventListener('sala:pulso', e => {
     try { const d = JSON.parse(e.data); import('./sala-control.js').then(m => m.salaAbierta() && m.pulsoSala(d)).catch(() => {}); } catch {}
