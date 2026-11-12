@@ -25,6 +25,8 @@ jobs:
         run: node scripts/verificar.mjs
       - name: Pruebas de permisos y guia interactiva
         run: node scripts/test-ayudas.mjs
+      - name: Sala de novedades en video
+        run: node scripts/test-videoteca-impar.mjs
       - name: Pruebas de horarios y aviso de salida
         run: node scripts/test-horarios.mjs
       - name: Pruebas de login y recuperación de interfaz

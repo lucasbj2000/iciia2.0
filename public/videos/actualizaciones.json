@@ -1,0 +1,24 @@
+{
+  "videos": [
+    {
+      "id": "2026-11-redes-a-whatsapp",
+      "titulo": "Instagram y Messenger en el CRM",
+      "descripcion": "Cómo entran los mensajes de redes al tablero, qué indica cada sello, cómo se responde desde la tarjeta y cómo la conversación pasa a WhatsApp en la misma negociación.",
+      "fecha": "2026-11-12",
+      "duracion": "2:25",
+      "archivo": "/videos/2026-11-redes-a-whatsapp.mp4",
+      "poster": "/videos/2026-11-redes-a-whatsapp.jpg",
+      "capitulos": [
+        { "t": 0, "titulo": "Lo nuevo de esta actualización" },
+        { "t": 7.9, "titulo": "Los mensajes entran al tablero" },
+        { "t": 22.8, "titulo": "Qué indica cada sello" },
+        { "t": 38.3, "titulo": "WhatsApp verificado y normal" },
+        { "t": 59.1, "titulo": "Respuesta rápida desde la tarjeta" },
+        { "t": 79.9, "titulo": "Pedirle el WhatsApp al cliente" },
+        { "t": 94.9, "titulo": "La conversación sigue por WhatsApp" },
+        { "t": 111.6, "titulo": "Respuestas guardadas y emojis" },
+        { "t": 123.8, "titulo": "Ver toda la conversación" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+/* Sala de novedades: botón tipo cinta de película y sala que se proyecta desde él. */
+
+/* ---------- botón ---------- */
+header.top:has(#vt-btn:not([hidden])) h2{flex:0 1 auto}
+.vt-btn{position:relative;margin:0 auto;display:inline-flex;align-items:center;gap:10px;height:40px;min-height:40px;padding:0 12px 0 8px;
+  border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--txt);cursor:pointer;overflow:hidden;font:inherit;flex:none;
+  transition:border-color .2s,background .2s}
+.vt-btn[hidden]{display:none}
+.vt-btn:hover{border-color:var(--verde-borde);background:var(--surface2)}
+.vt-btn:focus-visible{outline:2px solid var(--verde);outline-offset:2px}
+/* perforaciones de la cinta, arriba y abajo */
+.vt-perfo{position:absolute;inset:0;pointer-events:none;opacity:.9;
+  background:repeating-linear-gradient(90deg,var(--line) 0 5px,transparent 5px 11px) 0 3px/100% 3px no-repeat,
+             repeating-linear-gradient(90deg,var(--line) 0 5px,transparent 5px 11px) 0 calc(100% - 3px)/100% 3px no-repeat}
+.vt-btn:hover .vt-perfo{animation:vt-cinta .6s linear infinite}
+@keyframes vt-cinta{to{background-position:11px 3px,11px calc(100% - 3px)}}
+/* pantallita con el botón de reproducir */
+.vt-pantallita{position:relative;display:grid;place-items:center;width:30px;height:22px;border-radius:5px;background:var(--verde);color:var(--sobre-verde);flex:none;
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--verde) 25%,transparent)}
+.vt-pantallita svg{position:relative;width:15px;height:15px;transition:transform .2s}
+.vt-btn:hover .vt-pantallita svg{transform:scale(1.15)}
+.vt-luz{position:absolute;inset:-6px;border-radius:9px;background:radial-gradient(circle,color-mix(in srgb,var(--verde) 55%,transparent),transparent 70%);opacity:0}
+.vt-btn.estreno .vt-luz{animation:vt-latido 2.4s ease-in-out infinite}
+@keyframes vt-latido{0%,100%{opacity:0;transform:scale(.8)}50%{opacity:.9;transform:scale(1.15)}}
+.vt-btxt{display:flex;flex-direction:column;align-items:flex-start;line-height:1.05;position:relative}
+.vt-btxt b{font-size:13.5px;font-weight:700;letter-spacing:.01em}
+.vt-btxt small{font-size:11px;color:var(--muted)}
+.vt-n{position:relative;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--verde);color:var(--sobre-verde);font-size:12px;font-weight:700;display:inline-grid;place-items:center}
+.vt-n[hidden]{display:none}
+/* destello que recorre la cinta cuando hay un estreno */
+.vt-btn.estreno::after{content:"";position:absolute;top:0;bottom:0;left:-40%;width:35%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,color-mix(in srgb,var(--verde) 30%,transparent),transparent);animation:vt-destello 1.4s ease-in-out 1.2s 3 both}
+@keyframes vt-destello{from{left:-40%}to{left:110%}}
+@media (max-width:760px){
+  .vt-btxt{display:none}
+  .vt-btn{padding:0 9px;margin:0 0 0 auto;overflow:visible}
+  .vt-n{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;font-size:11px;box-shadow:0 0 0 2px var(--bg)}
+}
+
+/* ---------- sala ---------- */
+html.vt-abierta{overflow:hidden}
+.vt{position:fixed;inset:0;z-index:1200}
+.vt[hidden]{display:none}
+.vt-fondo{position:absolute;inset:0;background:rgba(8,11,7,.74);backdrop-filter:blur(4px);opacity:0;transition:opacity .35s ease}
+.vt.abierto .vt-fondo{opacity:1}
+.vt-haz{position:fixed;inset:0;pointer-events:none;opacity:0;
+  background:radial-gradient(ellipse 120% 90% at var(--ox,50%) var(--oy,0),rgba(196,240,160,.6),rgba(124,194,79,.22) 40%,rgba(124,194,79,.05) 75%,transparent)}
+.vt.abierto .vt-haz{animation:vt-haz 1.05s ease-out forwards}
+@keyframes vt-haz{0%{opacity:0}22%{opacity:1}35%{opacity:.75}48%{opacity:.95}80%{opacity:.5}100%{opacity:0}}
+
+.vt-sala{position:absolute;left:50%;top:50%;width:min(1180px,94vw);height:min(840px,90vh);transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:6px 6px 18px 18px;
+  box-shadow:0 40px 90px rgba(0,0,0,.45);clip-path:inset(0 0 100% 0 round 6px)}
+.vt.abierto .vt-sala{animation:vt-bajar .75s cubic-bezier(.2,.85,.25,1.08) .22s forwards}
+.vt.cerrando .vt-sala{animation:vt-subir .38s cubic-bezier(.5,0,.75,0) forwards}
+@keyframes vt-bajar{from{clip-path:inset(0 0 100% 0 round 6px)}to{clip-path:inset(0 0 0 0 round 6px 6px 18px 18px)}}
+@keyframes vt-subir{from{clip-path:inset(0 0 0 0 round 6px 6px 18px 18px)}to{clip-path:inset(0 0 100% 0 round 6px)}}
+/* barra de la pantalla del proyector */
+.vt-barra{position:absolute;left:-1px;right:-1px;top:-1px;height:12px;border-radius:6px;background:linear-gradient(var(--surface2),var(--line));
+  box-shadow:inset 0 -1px 0 rgba(0,0,0,.25)}
+.vt-barra::before,.vt-barra::after{content:"";position:absolute;top:2px;width:22px;height:8px;border-radius:4px;background:var(--verde)}
+.vt-barra::before{left:10px}.vt-barra::after{right:10px}
+
+.vt-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:28px 26px 16px}
+.vt-cab h2{margin:0;font-family:Nunito,var(--font,inherit);font-size:24px}
+.vt-cab p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.vt-x{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--txt);font-size:16px;cursor:pointer;flex:none}
+.vt-x:hover{border-color:var(--verde-borde)}
+.vt-x:focus-visible,.vt-cuadro:focus-visible,.vt-caps button:focus-visible{outline:2px solid var(--verde);outline-offset:2px}
+
+.vt-cuerpo{flex:1;min-height:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:24px;padding:0 26px 26px}
+.vt.abierto .vt-cuerpo{animation:vt-parpadeo .6s steps(1,end) .75s both}
+@keyframes vt-parpadeo{0%{opacity:0}20%{opacity:.7}35%{opacity:.25}55%{opacity:.9}70%{opacity:.6}100%{opacity:1}}
+.vt-proyeccion{height:100%;aspect-ratio:4/5;max-width:56vw;border-radius:14px;overflow:hidden;background:#0b0e0a;border:1px solid var(--line);
+  box-shadow:0 0 0 6px color-mix(in srgb,var(--verde) 10%,transparent),0 20px 50px -20px rgba(0,0,0,.6)}
+.vt-proyeccion video{display:block;width:100%;height:100%;object-fit:contain;background:#0b0e0a}
+.vt-lado{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:22px;padding-right:4px}
+.vt-fecha{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--verde-texto);font-weight:700}
+.vt-fecha::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--verde);transform:rotate(45deg)}
+.vt-info h3{margin:8px 0 6px;font-family:Nunito,inherit;font-size:22px;line-height:1.2}
+.vt-info p{margin:0;color:var(--muted);font-size:14.5px;line-height:1.5;max-width:62ch}
+.vt-caps{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;border-left:2px solid var(--line);padding-left:10px}
+.vt-caps button{width:100%;display:flex;gap:12px;align-items:center;text-align:left;padding:7px 10px;border-radius:8px;border:1px solid transparent;background:none;color:var(--txt);font:inherit;font-size:14px;cursor:pointer}
+.vt-caps button span{font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--muted);min-width:38px}
+.vt-caps button:hover{background:var(--surface)}
+.vt-caps button.activo{background:var(--verde-suave);border-color:var(--verde-borde)}
+.vt-caps button.activo span{color:var(--verde-texto)}
+
+.vt-rollo h3{margin:0 0 10px;font-size:14px;color:var(--muted);font-weight:600}
+.vt-lista{display:flex;flex-direction:column;gap:10px}
+/* cada video es un cuadro de película, con perforaciones a los costados */
+.vt-cuadro{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;text-align:left;
+  padding:10px 30px 10px 30px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--txt);font:inherit;cursor:pointer;transition:border-color .2s,transform .2s}
+.vt-cuadro::before,.vt-cuadro::after{content:"";position:absolute;top:8px;bottom:8px;width:6px;
+  background:repeating-linear-gradient(180deg,var(--line) 0 6px,transparent 6px 11px)}
+.vt-cuadro::before{left:11px}.vt-cuadro::after{right:11px}
+.vt-cuadro:hover{border-color:var(--verde-borde)}
+.vt-cuadro.activo{border-color:var(--verde);box-shadow:0 0 0 3px var(--verde-suave)}
+.vt-mini{position:relative;width:54px;height:68px;border-radius:6px;overflow:hidden;background:#0b0e0a;flex:none}
+.vt-mini img{width:100%;height:100%;object-fit:cover;display:block}
+.vt-mini i{position:absolute;inset:0;display:grid;place-items:center;color:#fff;background:rgba(0,0,0,.25)}
+.vt-mini i svg{width:22px;height:22px}
+.vt-ctxt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.vt-ctxt b{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vt-ctxt small{font-size:12.5px;color:var(--muted)}
+.vt-sello{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;border:1.5px solid}
+.vt-sello.nuevo{color:var(--verde-texto);border-color:var(--verde-borde);background:var(--verde-suave)}
+.vt-sello.visto{color:var(--muted);border-color:var(--line)}
+.vt-proximo{display:flex;gap:12px;align-items:center;margin-top:10px;padding:14px 16px;border:1.5px dashed var(--line);border-radius:10px;color:var(--muted);font-size:13.5px}
+.vt-claqueta{width:34px;height:26px;border-radius:4px;flex:none;position:relative;background:var(--surface2);border:1.5px solid var(--line)}
+.vt-claqueta::before{content:"";position:absolute;left:-2px;right:-2px;top:-9px;height:8px;border-radius:2px;transform:rotate(-8deg);transform-origin:0 100%;
+  background:repeating-linear-gradient(120deg,var(--txt) 0 5px,var(--surface) 5px 10px);opacity:.55}
+
+@media (max-width:820px){
+  .vt-sala{width:100vw;height:100dvh;border-radius:0;border:none}
+  .vt-cuerpo{display:flex;flex-direction:column;overflow:auto;padding:0 16px 20px;gap:18px}
+  .vt-proyeccion{flex:none;align-self:center;max-width:none;width:min(100%,calc(70vh * .8));height:auto;aspect-ratio:4/5}
+  .vt-lado{overflow:visible}
+  .vt-cab{padding:24px 16px 12px}
+}
+@media (prefers-reduced-motion:reduce){
+  .vt-fondo{transition:none}
+  .vt-haz{display:none}
+  .vt-sala,.vt.abierto .vt-sala,.vt.cerrando .vt-sala{animation:none;clip-path:none}
+  .vt.abierto .vt-cuerpo{animation:none}
+  .vt-btn.estreno::after,.vt-btn.estreno .vt-luz,.vt-btn:hover .vt-perfo{animation:none}
+}

@@ -135,6 +135,7 @@ async function arrancar(fresco, respuestaLogin=null) {
   import('./experiencia.js').then(m => m.iniciarExperiencia()).catch(e => console.warn('[impar] Experiencia:', e.message));
   render().catch(e => console.warn('[impar] No se pudo renderizar la vista:',e.message));
   iniciarAyudas().catch(e => console.warn('[impar] Ayudas no disponibles:',e.message));
+  import('./videoteca.js').then(m => m.iniciarVideoteca()).catch(e => console.warn('[impar] Videos de novedades:', e.message));
   try { iniciarRenovacion(conectarRealtime); } catch (e) { console.warn('[impar] Renovación no disponible:',e.message); }
   try { iniciarControlTurnos(); } catch (e) { console.warn('[impar] Horarios no disponibles:',e.message); }
 
