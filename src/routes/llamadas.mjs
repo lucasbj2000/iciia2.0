@@ -8,6 +8,7 @@ import {
   configLlamadas, esProbador, puedeConfigurar, canalesCloud, canalLlamadas, estadoMeta, activarEnMeta, desactivarEnMeta,
   permiso, pedirPermiso, enviarBotonLlamada, iniciarLlamada, atenderLlamada, rechazarLlamada, cortarLlamada, historial
 } from '../llamadas-wa-impar.mjs';
+import { pasarelaDe, generarToken, ajustarPasarela, estadoConexion, llamarTel, atenderTel, respuestaTel, cortarTel } from '../pasarela-tel-impar.mjs';
 
 const r = Router();
 r.use(requiere('admin'));
@@ -34,8 +35,10 @@ r.get('/estado', enviar(async req => {
     try { canal = await canalLlamadas(req.empresaId, cfg); meta = await estadoMeta(canal); }
     catch (e) { meta = { error: e.message }; }
   }
+  const p = await pasarelaDe(req.empresaId);
+  const pasarela = p ? { nombre: p.nombre, sucursal: p.sucursal, crear_negociacion: p.crear_negociacion, activo: p.activo, ultimo_contacto: p.ultimo_contacto, ...estadoConexion(p) } : null;
   return { visible: true, activo: !!cfg.activo, probador: esProbador(cfg, req.user),
-    canales, canal_id: canal?.id || null, meta, mio: req.user.id };
+    canales, canal_id: canal?.id || null, meta, mio: req.user.id, pasarela };
 }));
 
 r.post('/activar', enviar(async req => {
@@ -72,6 +75,20 @@ r.post('/boton-prueba', enviar(async req => {
   await enviarBotonLlamada(await canalLlamadas(req.empresaId, cfg), req.body?.tel);
   return { ok: true };
 }));
+
+/* ---------- Pasarela telefónica (celular + Bluetooth) ---------- */
+r.post('/tel/token', enviar(async req => {
+  const cfg = await soloProbador(req); if (!cfg.activo) throw Object.assign(new Error('Activá primero las llamadas en modo prueba.'), { status: 409 });
+  const token = await generarToken(req.empresaId, { nombre: req.body?.nombre, sucursal: req.body?.sucursal });
+  auditar(req.empresaId, req.user.usuario, 'pasarela:token', 'Token de la pasarela telefónica generado', req.ip).catch(() => {});
+  return { token };
+}));
+r.post('/tel/ajustes', enviar(async req => { await soloProbador(req); await ajustarPasarela(req.empresaId, req.body || {}); return { ok: true }; }));
+r.post('/tel/llamar', enviar(async req => { await soloProbador(req); return llamarTel(req.empresaId, req.user, req.body || {}); }));
+r.post('/tel/:id/atender', enviar(async req => { await soloProbador(req); return atenderTel(req.empresaId, req.user, req.params.id); }));
+r.post('/tel/:id/sdp', enviar(async req => { await soloProbador(req); return respuestaTel(req.empresaId, req.user, req.params.id, req.body?.sdp); }));
+r.post('/tel/:id/rechazar', enviar(async req => { await soloProbador(req); return cortarTel(req.empresaId, req.user, req.params.id, { rechazar: true }); }));
+r.post('/tel/:id/cortar', enviar(async req => { await soloProbador(req); return cortarTel(req.empresaId, req.user, req.params.id); }));
 
 r.post('/iniciar', enviar(async req => { await soloProbador(req); return iniciarLlamada(req.empresaId, req.user, req.body || {}); }));
 r.post('/:id/atender', enviar(async req => { await soloProbador(req); return atenderLlamada(req.empresaId, req.user, callId(req.params.id), req.body?.sdp); }));

@@ -33,6 +33,8 @@ jobs:
         run: node scripts/test-wa-cifrado-impar.mjs
       - name: Actualización automática del CRM abierto
         run: node scripts/test-version-impar.mjs
+      - name: Programa de la pasarela telefónica
+        run: node scripts/test-pasarela-programa.mjs
       - name: Pruebas de horarios y aviso de salida
         run: node scripts/test-horarios.mjs
       - name: Pruebas de login y recuperación de interfaz
@@ -194,6 +196,10 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
         run: node scripts/test-llamadas-pg.mjs
+      - name: Pasarela telefónica con PostgreSQL
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres
+        run: node scripts/test-pasarela-pg.mjs
       - name: Recepción por sucursal, reparto concurrente y Matriz en PostgreSQL real
         env:
           TEST_DATABASE_URL: postgresql://postgres:prueba_solo_ci@127.0.0.1:5432/postgres

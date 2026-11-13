@@ -1,0 +1,11 @@
+{
+  "name": "impar-pasarela-telefono",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pasarela telefónica de IMPAR: conecta un celular por Bluetooth con el CRM.",
+  "type": "module",
+  "main": "pasarela.mjs",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node pasarela.mjs", "probar": "node pasarela.mjs --probar" },
+  "dependencies": { "@roamhq/wrtc": "0.10.0" }
+}

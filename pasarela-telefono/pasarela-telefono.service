@@ -1,0 +1,14 @@
+# Servicio de usuario (systemd --user): necesita la sesión del usuario para PipeWire y el Bluetooth.
+[Unit]
+Description=Pasarela telefónica IMPAR (celular por Bluetooth ↔ CRM)
+After=pipewire.service wireplumber.service network-online.target
+Wants=pipewire.service wireplumber.service
+
+[Service]
+WorkingDirectory=%h/pasarela-telefono
+ExecStart=/usr/bin/node %h/pasarela-telefono/pasarela.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

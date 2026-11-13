@@ -32,8 +32,8 @@ function crearBotonCabecera() {
   const ref = $('#vt-btn') || $('#v-title'); if (!ref) return;
   const b = document.createElement('button');
   b.type = 'button'; b.id = 'll-btn'; b.className = 'll-btn';
-  b.title = 'Llamadas de WhatsApp (en prueba, solo visible para vos)';
-  b.setAttribute('aria-label', 'Abrir el panel de llamadas de WhatsApp en prueba');
+  b.title = 'Llamadas por WhatsApp y teléfono (en prueba, solo visible para vos)';
+  b.setAttribute('aria-label', 'Abrir el panel de llamadas en prueba');
   b.innerHTML = `${IC.tel}<span class="ll-btxt">Llamadas</span><span class="ll-prueba">Prueba</span>`;
   ref.insertAdjacentElement('afterend', b);
   b.addEventListener('click', abrirPanel);
@@ -58,7 +58,7 @@ async function abrirPanel() {
   d.id = 'll-panel'; d.className = 'll-panel'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-labelledby', 'll-tit');
   d.innerHTML = `<div class="ll-velo" data-cerrar></div>
    <section class="ll-caja">
-    <header><div><h2 id="ll-tit">Llamadas de WhatsApp <span class="ll-prueba">Prueba</span></h2>
+    <header><div><h2 id="ll-tit">Llamadas <span class="ll-prueba">Prueba</span></h2>
       <p>Solo vos ves este panel. El resto del equipo y los clientes no ven nada hasta que lo habilites para todos.</p></div>
       <button type="button" class="ll-x" data-cerrar aria-label="Cerrar">✕</button></header>
     <div class="ll-cuerpo">
@@ -85,8 +85,9 @@ async function abrirPanel() {
        </div>
        <p class="ll-res" id="ll-res" role="status"></p>
      </div>
+     ${estado.activo ? seccionPasarela() : ''}
      <div class="ll-hist"><h3>Últimas llamadas</h3>${hist.length ? `<ul>${hist.map(h => `<li><span class="ll-dir ${h.direccion}">${h.direccion === 'entrante' ? '↙' : '↗'}</span>
-       <span><b>${esc(h.cliente || telVisible(h.telefono))}</b><small>${esc(new Date(h.creado).toLocaleString('es-PY', { dateStyle: 'short', timeStyle: 'short' }))} · ${esc(etiquetaEstado(h.estado))}${h.duracion ? ' · ' + fmt(h.duracion) : ''}</small></span></li>`).join('')}</ul>` : '<p class="ll-vacio">Todavía no hay llamadas.</p>'}</div>
+       <span><b>${esc(h.cliente || telVisible(h.telefono))}</b><small>${h.medio === 'telefono' ? 'Teléfono' : 'WhatsApp'} · ${esc(new Date(h.creado).toLocaleString('es-PY', { dateStyle: 'short', timeStyle: 'short' }))} · ${esc(etiquetaEstado(h.estado))}${h.duracion ? ' · ' + fmt(h.duracion) : ''}</small></span></li>`).join('')}</ul>` : '<p class="ll-vacio">Todavía no hay llamadas.</p>'}</div>
     </div>
    </section>`;
   document.body.appendChild(d);
@@ -104,9 +105,50 @@ async function abrirPanel() {
     catch (e) { toast(e.message, 'bad'); ev.target.disabled = false; }
   });
   d.querySelectorAll('[data-acc]').forEach(b => b.addEventListener('click', () => accionPrueba(b.dataset.acc, b)));
+  conectarPasarela(d);
   setTimeout(() => ($('#ll-num', d) || $('.ll-x', d))?.focus(), 30);
 }
 function cerrarPanel() { $('#ll-panel')?.remove(); }
+
+/* ---------- pasarela telefónica (celular + Bluetooth) ---------- */
+const pasarelaLista = () => !!(estado?.pasarela?.conectada && estado.pasarela.celular);
+function estadoPasarelaTexto() {
+  const p = estado?.pasarela;
+  if (!p) return { clase: '', titulo: 'Sin configurar', detalle: 'Generá un token e instalá la pasarela en la computadora de la sucursal.' };
+  if (!p.conectada) return { clase: '', titulo: 'Desconectada', detalle: p.ultimo_contacto ? 'Último contacto: ' + new Date(p.ultimo_contacto).toLocaleString('es-PY', { dateStyle: 'short', timeStyle: 'short' }) : 'Todavía no se conectó nunca.' };
+  if (!p.celular) return { clase: 'medio', titulo: 'Conectada, sin celular', detalle: 'La computadora está en línea pero no ve ningún celular por Bluetooth.' };
+  return { clase: 'on', titulo: 'Lista para llamar', detalle: `Celular conectado por Bluetooth${p.version ? ' · versión ' + esc(p.version) : ''}` };
+}
+function seccionPasarela() {
+  const e = estadoPasarelaTexto(), p = estado.pasarela;
+  return `<div class="ll-pasarela" id="ll-pasarela">
+    <h3>Línea telefónica (pasarela por Bluetooth)</h3>
+    <div class="ll-estado ${e.clase}"><span class="ll-luz"></span><div><b>${e.titulo}</b><small>${e.detalle}</small></div>
+      <button type="button" class="btn ghost sm" id="ll-token">${p ? 'Cambiar token' : 'Generar token'}</button></div>
+    <div id="ll-token-caja" hidden></div>
+    ${p ? `<label class="ll-check"><input type="checkbox" id="ll-crear" ${p.crear_negociacion ? 'checked' : ''}> Crear la negociación cuando llama un número nuevo (queda a tu nombre mientras sea una prueba)</label>` : ''}
+    <div class="ll-pasos uno"><button type="button" class="ll-paso llamar tel" data-acc="llamar-tel" ${pasarelaLista() ? '' : 'disabled'}><b>${IC.tel} Llamar por teléfono</b><small>Usa el chip del celular de la sucursal y el número escrito arriba.</small></button></div>
+  </div>`;
+}
+function conectarPasarela(d) {
+  $('#ll-token', d)?.addEventListener('click', async ev => {
+    if (estado.pasarela && !confirm('El token actual dejará de funcionar y la pasarela se desconectará hasta que cargues el nuevo. ¿Continuar?')) return;
+    ev.target.disabled = true;
+    try {
+      const { token } = await post('/llamadas/tel/token', { nombre: 'Pasarela telefónica' });
+      const caja = $('#ll-token-caja', d); caja.hidden = false;
+      caja.innerHTML = `<p class="ll-aviso">Copiá este token y pegalo en el archivo <b>pasarela.env</b> de la computadora (línea PASARELA_TOKEN). Se muestra una sola vez.</p>
+        <div class="ll-token"><input readonly id="ll-token-v" value="${esc(token)}" aria-label="Token de la pasarela"><button type="button" class="btn sm" id="ll-copiar">Copiar</button></div>`;
+      $('#ll-copiar', d).addEventListener('click', () => { const i = $('#ll-token-v', d); i.select(); navigator.clipboard?.writeText(i.value).then(() => toast('Token copiado', 'ok'), () => document.execCommand('copy')); });
+    } catch (e) { toast(e.message, 'bad'); }
+    finally { ev.target.disabled = false; }
+  });
+  $('#ll-crear', d)?.addEventListener('change', ev => post('/llamadas/tel/ajustes', { crear_negociacion: ev.target.checked }).then(() => toast('Ajuste guardado', 'ok'), e => toast(e.message, 'bad')));
+}
+function refrescarPasarela() {
+  const caja = $('#ll-pasarela'); if (caja && !$('#ll-token-caja:not([hidden])')) { caja.outerHTML = seccionPasarela(); conectarPasarela($('#ll-panel')); $('#ll-panel [data-acc="llamar-tel"]')?.addEventListener('click', ev => accionPrueba('llamar-tel', ev.currentTarget)); }
+  document.querySelectorAll('.ll-ficha-tel').forEach(b => { b.hidden = !pasarelaLista(); });
+}
 async function accionPrueba(acc, b) {
   const tel = dig($('#ll-num')?.value);
   const res = $('#ll-res');
@@ -117,6 +159,7 @@ async function accionPrueba(acc, b) {
     if (acc === 'permiso') { await post('/llamadas/permiso', { tel }); res.textContent = 'Solicitud enviada. Aceptala en tu WhatsApp y después probá «Llamar».'; }
     if (acc === 'verificar') { const p = await get('/llamadas/permiso?tel=' + tel); res.textContent = p.estado === 'no_permission' ? 'Todavía no hay permiso para llamar a este número.' : `Permiso ${p.estado === 'temporary' ? 'temporal' : 'vigente'}${p.vence ? ' hasta ' + new Date(p.vence * 1000).toLocaleString('es-PY') : ''}.`; }
     if (acc === 'llamar') { cerrarPanel(); await llamar(tel, null, null); }
+    if (acc === 'llamar-tel') { cerrarPanel(); await llamarTel(tel, null, null); }
   } catch (e) { if (res) res.textContent = e.message; }
   finally { b.disabled = false; }
 }
@@ -134,6 +177,15 @@ function botonFicha({ id, tel, cliente }) {
     llamar(elegido.length >= 10 ? elegido : dig(tel), id, cliente);
   });
   acc.prepend(b);
+  const t = document.createElement('button');
+  t.type = 'button'; t.className = 'btn ghost sm ll-ficha ll-ficha-tel'; t.hidden = !pasarelaLista();
+  t.title = 'Llamar por la línea telefónica (prueba, solo visible para vos)';
+  t.innerHTML = `${IC.tel}<span class="ficha-acc-t">Teléfono</span>`;
+  t.addEventListener('click', () => {
+    const elegido = dig(document.querySelector('#f-telefono-chat')?.value);
+    llamarTel(elegido.length >= 9 ? elegido : dig(tel), id, cliente);
+  });
+  b.after(t);
 }
 
 /* ---------- WebRTC ---------- */
@@ -188,6 +240,37 @@ async function llamar(tel, negId, nombre) {
     limpiarAudio(); actual = null; tarjeta();
   }
 }
+async function llamarTel(tel, negId, nombre) {
+  if (!habilitado()) { toast('Las llamadas no están activas.', 'bad'); return; }
+  if (actual) { toast('Ya hay una llamada en curso.', 'bad'); return; }
+  if (!pasarelaLista()) { toast('La pasarela telefónica no está lista: revisá la computadora y el celular de la sucursal.', 'bad'); return; }
+  actual = { medio: 'telefono', direccion: 'saliente', telefono: tel, nombre, estado: 'preparando' };
+  tarjeta();
+  try {
+    await prepararAudio();
+    actual.estado = 'llamando'; tarjeta();
+    const r = await post('/llamadas/tel/llamar', { tel, negociacion_id: negId || null });
+    actual.call_id = r.call_id; if (r.nombre && !actual.nombre) actual.nombre = r.nombre;
+    tarjeta();
+    const pend = ofertasPendientes.get(r.call_id); if (pend) { ofertasPendientes.delete(r.call_id); await aplicarOfertaTel(pend); }
+  } catch (e) {
+    toast(e.name === 'NotAllowedError' ? 'Permití el uso del micrófono para llamar.' : e.message, 'bad');
+    limpiarAudio(); actual = null; tarjeta();
+  }
+}
+const ofertasPendientes = new Map();
+/** La pasarela manda la oferta de audio; el navegador responde. */
+async function aplicarOfertaTel(sdp) {
+  if (!pc || !actual?.call_id) return;
+  try {
+    await pc.setRemoteDescription({ type: 'offer', sdp });
+    const resp = await pc.createAnswer();
+    await pc.setLocalDescription(resp);
+    await esperarICE();
+    await post(`/llamadas/tel/${encodeURIComponent(actual.call_id)}/sdp`, { sdp: pc.localDescription.sdp });
+    if (actual.direccion === 'entrante') enCurso();
+  } catch (e) { toast('No se pudo conectar el audio con la pasarela: ' + e.message, 'bad'); colgar(); }
+}
 async function aplicarRespuesta(sdp) {
   if (!pc || !sdp) return;
   try { await pc.setRemoteDescription({ type: 'answer', sdp }); actual.estado = 'conectando'; tarjeta(); }
@@ -197,6 +280,11 @@ async function atender() {
   if (!actual || actual.direccion !== 'entrante') return;
   pararTono();
   actual.estado = 'conectando'; tarjeta();
+  if (actual.medio === 'telefono') {
+    try { await prepararAudio(); await post(`/llamadas/tel/${encodeURIComponent(actual.call_id)}/atender`, {}); }
+    catch (e) { toast(e.name === 'NotAllowedError' ? 'Permití el uso del micrófono para atender.' : e.message, 'bad'); limpiarAudio(); actual = null; tarjeta(); }
+    return; // el audio llega cuando la pasarela manda su oferta
+  }
   try {
     await prepararAudio();
     await pc.setRemoteDescription({ type: 'offer', sdp: actual.sdp });
@@ -212,13 +300,13 @@ async function atender() {
 }
 async function rechazar() {
   if (!actual?.call_id) return;
-  const id = actual.call_id; pararTono(); actual = null; tarjeta();
-  post(`/llamadas/${encodeURIComponent(id)}/rechazar`, {}).catch(e => toast(e.message, 'bad'));
+  const id = actual.call_id, base = actual.medio === 'telefono' ? '/llamadas/tel/' : '/llamadas/'; pararTono(); actual = null; tarjeta();
+  post(`${base}${encodeURIComponent(id)}/rechazar`, {}).catch(e => toast(e.message, 'bad'));
 }
 async function colgar() {
-  const id = actual?.call_id;
+  const id = actual?.call_id, base = actual?.medio === 'telefono' ? '/llamadas/tel/' : '/llamadas/';
   pararTono(); limpiarAudio(); clearInterval(cronometro); actual = null; tarjeta();
-  if (id) post(`/llamadas/${encodeURIComponent(id)}/cortar`, {}).catch(() => {});
+  if (id) post(`${base}${encodeURIComponent(id)}/cortar`, {}).catch(() => {});
 }
 function enCurso() {
   if (!actual) return;
@@ -233,6 +321,17 @@ function silenciar() {
 /* ---------- eventos del servidor ---------- */
 async function recibirEvento(ev) {
   if (!habilitado()) return;
+  if (ev.medio === 'telefono') {
+    if (ev.tipo === 'pasarela') { estado.pasarela = { ...(estado.pasarela || {}), ...ev }; refrescarPasarela(); return; }
+    if (ev.tipo === 'entrante') {
+      if (actual) return;
+      actual = { medio: 'telefono', direccion: 'entrante', call_id: ev.call_id, telefono: ev.telefono, nombre: ev.nombre, negociacion_id: ev.negociacion_id, estado: 'sonando' };
+      tarjeta(); sonarTono();
+      try { if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('Llamada telefónica', { body: ev.nombre || (ev.telefono ? telVisible(ev.telefono) : 'Número oculto'), tag: 'll-' + ev.call_id }); } catch { /* sin aviso */ }
+      return;
+    }
+    if (ev.tipo === 'oferta') { if (actual?.call_id === ev.call_id) await aplicarOfertaTel(ev.sdp); else ofertasPendientes.set(ev.call_id, ev.sdp); return; }
+  }
   if (ev.tipo === 'entrante') {
     if (actual) return; // ya hay una llamada; Meta la corta sola si nadie atiende
     actual = { direccion: 'entrante', call_id: ev.call_id, telefono: ev.telefono, nombre: ev.nombre, negociacion_id: ev.negociacion_id, sdp: ev.sdp, estado: 'sonando' };
@@ -258,6 +357,7 @@ async function recibirEvento(ev) {
 
 /* ---------- tarjeta flotante ---------- */
 const ETQ = { preparando: 'Preparando el micrófono…', llamando: 'Llamando…', sonando_cliente: 'Sonando en el celular del cliente…', conectando: 'Conectando audio…', sonando: 'Llamada entrante de WhatsApp', en_curso: '' };
+const etqEstado = () => actual?.medio === 'telefono' && actual.estado === 'sonando' ? 'Llamada telefónica entrante' : (ETQ[actual.estado] || etiquetaEstado(actual.estado));
 function etiquetaEstado(e) { return ({ en_curso: 'en curso', finalizada: 'finalizada', perdida: 'perdida', rechazada: 'rechazada', sin_respuesta: 'sin respuesta', fallida: 'falló', sonando: 'sonando', llamando: 'llamando', conectando: 'conectando', atendiendo: 'atendiendo', sonando_cliente: 'sonando' })[e] || e; }
 const fmt = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 function tarjeta() {
@@ -267,12 +367,12 @@ function tarjeta() {
   t.classList.remove('saliendo');
   const entrante = actual.direccion === 'entrante' && actual.estado === 'sonando';
   const vivo = actual.estado === 'en_curso';
-  t.className = 'll-card' + (entrante ? ' sonando' : '') + (vivo ? ' vivo' : '');
-  const nombre = actual.nombre || telVisible(actual.telefono);
+  t.className = 'll-card' + (entrante ? ' sonando' : '') + (vivo ? ' vivo' : '') + (actual.medio === 'telefono' ? ' tel' : '');
+  const nombre = actual.nombre || (actual.telefono ? telVisible(actual.telefono) : 'Número oculto');
   t.innerHTML = `<span class="ll-sello" aria-hidden="true">${IC.tel}</span>
     <div class="ll-av" aria-hidden="true"><i></i><i></i><span>${esc((actual.nombre || '#').trim().charAt(0).toUpperCase())}</span></div>
-    <div class="ll-quien"><b>${esc(nombre)}</b><small>${actual.nombre ? esc(telVisible(actual.telefono)) + ' · ' : ''}WhatsApp</small>
-      <span class="ll-st">${vivo ? `<i class="ll-onda"></i><span id="ll-tiempo">${fmt((Date.now() - (actual.desde || Date.now())) / 1000)}</span>` : esc(ETQ[actual.estado] || etiquetaEstado(actual.estado))}</span></div>
+    <div class="ll-quien"><b>${esc(nombre)}</b><small>${actual.nombre && actual.telefono ? esc(telVisible(actual.telefono)) + ' · ' : ''}${actual.medio === 'telefono' ? 'Teléfono' : 'WhatsApp'}</small>
+      <span class="ll-st">${vivo ? `<i class="ll-onda"></i><span id="ll-tiempo">${fmt((Date.now() - (actual.desde || Date.now())) / 1000)}</span>` : esc(etqEstado())}</span></div>
     <div class="ll-acc">
       ${entrante ? `<button type="button" class="ll-r rojo" data-ll="rechazar" aria-label="Rechazar llamada">${IC.colgar}</button>
         <button type="button" class="ll-r verde" data-ll="atender" aria-label="Atender llamada">${IC.tel}</button>`

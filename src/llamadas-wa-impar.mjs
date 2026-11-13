@@ -249,7 +249,7 @@ export async function respuestaPermiso(canal, m) {
 }
 
 export async function historial(empresaId, limite = 30) {
-  const { rows } = await q(`SELECT l.call_id,l.direccion,l.telefono,l.estado,l.creado,l.conectada,l.fin,l.duracion,l.error,
+  const { rows } = await q(`SELECT l.call_id,l.direccion,l.telefono,l.estado,l.creado,l.conectada,l.fin,l.duracion,l.error,l.medio,
       c.nombre AS cliente, u.nombre AS usuario, l.negociacion_id
       FROM llamadas_wa_impar l LEFT JOIN contactos c ON c.id=l.contacto_id LEFT JOIN usuarios u ON u.id=l.usuario_id
       WHERE l.empresa_id=$1 ORDER BY l.creado DESC LIMIT $2`, [empresaId, limite]);

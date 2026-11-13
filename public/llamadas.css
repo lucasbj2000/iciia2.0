@@ -84,3 +84,22 @@
 .ll-ficha svg{width:16px;height:16px;color:#25D366}
 @media (max-width:560px){.ll-card{right:12px;left:12px;bottom:12px;width:auto}}
 @media (prefers-reduced-motion:reduce){.ll-card,.ll-card.saliendo,.ll-card.sonando .ll-av,.ll-card.sonando .ll-av i,.ll-card.sonando .ll-r.verde,.ll-onda{animation:none}}
+
+/* Pasarela telefónica (celular por Bluetooth) */
+.ll-pasarela h3{margin:0 0 10px;font-size:14px}
+.ll-pasarela{display:flex;flex-direction:column;gap:10px}
+.ll-estado.medio .ll-luz{background:#d9a441;box-shadow:0 0 0 4px color-mix(in srgb,#d9a441 25%,transparent)}
+.ll-check{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--txt);line-height:1.4}
+.ll-check input{margin-top:2px;accent-color:var(--verde)}
+.ll-token{display:flex;gap:8px}
+.ll-token input{flex:1;min-width:0;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--txt);padding:0 10px;font-family:ui-monospace,monospace;font-size:12.5px}
+.ll-pasos.uno{grid-template-columns:1fr;margin-top:2px}
+.ll-paso.tel{background:#9a6b16;border-color:#9a6b16}
+.ll-paso:disabled{opacity:.5;cursor:not-allowed}
+.ll-card.tel{background:#231d10;border-color:#4a3c1c}
+.ll-card.tel .ll-av{background:#d9a441;color:#2b1f05}
+.ll-card.tel .ll-av i{border-color:#d9a441}
+.ll-card.tel .ll-sello{border-color:rgba(217,164,65,.4);color:rgba(217,164,65,.5)}
+.ll-card.tel .ll-st{color:#e8c070}
+.ll-card.tel .ll-onda{background:linear-gradient(90deg,#d9a441 0 3px,transparent 3px 5px,#d9a441 5px 8px,transparent 8px 10px,#d9a441 10px 13px,transparent 13px 15px,#d9a441 15px 18px)}
+.ll-ficha-tel svg{color:#d9a441}

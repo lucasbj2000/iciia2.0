@@ -24,3 +24,7 @@ coverage/
 *.pem
 *.key
 backups/
+
+# Pasarela telefónica: configuración local con token, nunca al repositorio
+pasarela-telefono/pasarela.env
+pasarela-telefono/node_modules/

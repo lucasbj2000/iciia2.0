@@ -41,6 +41,7 @@ import rBitrix from './routes/importar-bitrix.mjs';
 import rVarios from './routes/varios.mjs';
 import rSoporte from './routes/soporte.mjs';
 import rLlamadas from './routes/llamadas.mjs';
+import rPasarela from './routes/pasarela.mjs';
 import rEnlaces, { redirigirEnlace, limiteEnlaces } from './routes/enlaces-impar.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -221,6 +222,7 @@ app.use('/api/bitrix', rBitrix);
 app.use('/api/enlaces', rEnlaces);
 app.use('/api/soporte', rSoporte);
 app.use('/api/llamadas', rLlamadas);
+app.use('/api/pasarela', rPasarela);
 app.use('/api/campanas', rCampanas);
 app.use('/api', rVarios);
 
