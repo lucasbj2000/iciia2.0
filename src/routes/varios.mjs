@@ -1,3 +1,4 @@
+import { TRABAJO, CIERRE, MOTIVOS_OLVIDO, salidaPendiente, registrarOlvido, tiemposAsesores } from '../estados-asesores-impar.mjs';
 import { Router } from 'express';
 import { q } from '../db.mjs';
 import { requiere, hash, alcanceSQL, firmar } from '../auth.mjs';
@@ -70,10 +71,21 @@ r.get('/sala-control/clima', requiere(...ROLES_SALA), async (req, res) => {
 
 r.post('/disponibilidad', requiere(), async (req, res) => {
   const estado = String(req.body?.estado || '');
+  if (![...TRABAJO, ...CIERRE].includes(estado)) return res.status(422).json({ error: 'Estado no válido.' });
   await q('UPDATE usuarios SET disponibilidad=$2 WHERE id=$1', [req.user.id, estado]);
   await q('INSERT INTO marcaciones (empresa_id,usuario_id,estado) VALUES ($1,$2,$3)', [req.empresaId, req.user.id, estado]);
   emitir(req.empresaId, 'usuarios', {});
   res.json({ ok: true });
+});
+
+/* Jornada abierta de un día anterior (no marcó la salida): pide hora aproximada y motivo. */
+r.get('/jornada/pendiente', requiere(), async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ pendiente: await salidaPendiente(req.user.id), motivos: MOTIVOS_OLVIDO });
+});
+r.post('/jornada/olvido', requiere(), async (req, res) => {
+  try { res.json(await registrarOlvido(req.empresaId, req.user.id, req.body || {})); }
+  catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); console.warn('[jornada] Olvido:', e.message); res.status(500).json({ error: 'No se pudo guardar la salida.' }); }
 });
 
 /* ================= NOTIFICACIONES ================= */
@@ -301,8 +313,9 @@ r.get('/reportes', requiere(), async (req, res) => {
   const { rows: personas } = await q('SELECT id,nombre FROM usuarios WHERE empresa_id=$1', [req.empresaId]);
   const tiempos = await tiemposRespuesta(q, { empresaId: req.empresaId, rango, where, params, reglas: r2,
     nombres: new Map(personas.map(u => [u.id, u.nombre])) });
+  const estados = await tiemposAsesores(req.empresaId, universo.map(u => u.id), rango).catch(e => { console.warn('[reportes] Tiempos por estado:', e.message); return {}; });
   res.json({
-    negociaciones: negs, universo, porCanal, etapasActivas: activas, anterior: ant[0], dias,
+    negociaciones: negs, universo, porCanal, etapasActivas: activas, anterior: ant[0], dias, estados,
     desde: rango.desde, hasta: rango.hasta, tiempos,
     colaEspera: espera.map(e => ({ ...e, horasLab: Number(horasLaborales(e.entrada_etapa, new Date(), r2).toFixed(1)) })),
     primeraRespuestaMin: Math.round(Number(tr[0]?.minutos) || 0),

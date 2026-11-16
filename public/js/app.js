@@ -23,6 +23,7 @@ import { iniciarControlTurnos,comprobarSalida,refrescarSalidasHoy } from './hora
 
 import { iniciarPWA, notificarApp } from './pwa.js';
 import { iniciarVersion, verificarVersion } from './version.js';
+import { revisarJornada, iniciarJornada } from './jornada.js';
 import { cargarNotas, cargarCambiosNeg } from './colaboracion.js';
 
 iniciarViewport();
@@ -146,11 +147,14 @@ async function arrancar(fresco, respuestaLogin=null) {
   if (fresco) {
     bienvenida(S.usuario.nombre.split(' ')[0], saludoHora());
     toast(`${saludo()}, ${S.usuario.nombre.split(' ')[0]}. Sesión en ${S.empresa?.nombre || 'iciia2.0'}.`, 'ok', 'Bienvenido');
-    setTimeout(() => {
+    setTimeout(async () => {
+      // Primero, si quedó abierta la jornada de un día anterior: motivo y volver a iniciar.
+      if (S.usuario.rol !== 'admin' && await revisarJornada({ alReiniciar: modalDisponibilidad })) return;
       if (S.usuario.rol !== 'admin' && fx('natalicioObligatorio') && !S.usuario.nacimiento) modalNacimiento();
       else if (S.usuario.rol !== 'admin') modalDisponibilidad();
     }, 800);
-  }
+  } else revisarJornada({ alReiniciar: modalDisponibilidad });
+  try { iniciarJornada({ alReiniciar: modalDisponibilidad }); } catch (e) { console.warn('[impar] Jornada:', e.message); }
 
 }
 
