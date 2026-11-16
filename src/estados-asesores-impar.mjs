@@ -27,7 +27,7 @@ const finDelDia = ts => inicioDia(siguienteDia(fechaLocal(ts))).getTime();
  * marcas: [{ usuario_id, estado, ts, motivo, origen }] ordenadas por usuario y fecha
  * (pueden incluir marcaciones posteriores a fin, que solo sirven para saber si se marcó la salida).
  */
-export function calcularTiempos(marcas, { ini, fin, ahora = new Date() }) {
+export function calcularTiempos(marcas, { ini, fin, ahora = new Date(), finTurno = null }) {
   const a = new Date(ini).getTime(), b = Math.min(new Date(fin).getTime(), new Date(ahora).getTime());
   const hoy = fechaLocal(ahora);
   const porUsuario = new Map();
@@ -40,15 +40,36 @@ export function calcularTiempos(marcas, { ini, fin, ahora = new Date() }) {
     lista.sort((x, y) => x.t - y.t);
     const r = { segundos: Object.fromEntries(TRABAJO.map(e => [e, 0])), conectado: 0, dias: 0, sinSalida: 0, sinJustificar: 0, motivos: [] };
     const dias = new Set();
+    // Detalle de cada día: tramos con hora de inicio y fin, entrada, salida y motivo si la salida se cargó después.
+    r.porDia = {};
+    const delDia = dia => (r.porDia[dia] ||= { segundos: Object.fromEntries(TRABAJO.map(e => [e, 0])), conectado: 0, tramos: [], entrada: null, salida: null, sinSalida: false, enCurso: false });
     lista.forEach((m, i) => {
       const sig = lista[i + 1];
       if (TRABAJO.includes(m.estado)) {
         const desde = Math.max(m.t, a);
-        const hasta = Math.min(sig ? sig.t : Infinity, finDelDia(m.t), b);
-        if (hasta > desde) { r.segundos[m.estado] += Math.round((hasta - desde) / 1000); dias.add(fechaLocal(desde)); }
+        let hasta = Math.min(sig ? sig.t : Infinity, finDelDia(m.t), b), estimado = false;
+        // Día anterior sin salida marcada: el último estado se corta en la salida de su turno (estimado), no a medianoche.
+        if ((!sig || fechaLocal(sig.t) > fechaLocal(m.t)) && fechaLocal(m.t) < hoy && finTurno) {
+          const ft = finTurno(uid, fechaLocal(m.t));
+          if (ft && ft > m.t && ft < hasta) { hasta = Math.min(ft, b); estimado = true; }
+        }
+        if (hasta > desde) {
+          const seg = Math.round((hasta - desde) / 1000), dia = fechaLocal(desde), d = delDia(dia);
+          r.segundos[m.estado] += seg; dias.add(dia);
+          d.segundos[m.estado] += seg; d.conectado += seg;
+          d.tramos.push({ estado: m.estado, ini: new Date(desde).toISOString(), fin: new Date(hasta).toISOString(), segundos: seg, ...(estimado ? { estimado: true } : {}) });
+          if (estimado) d.estimado = true;
+          if (!d.entrada) d.entrada = new Date(desde).toISOString();
+          d.salida = null; // si vuelve a trabajar, la salida es la última del día
+          if (!sig && fechaLocal(m.t) === hoy && hasta >= b - 1000) d.enCurso = true;
+        }
         // Último estado de trabajo del día sin salida marcada (ni al día siguiente con motivo).
         const dia = fechaLocal(m.t);
-        if (m.t >= a && m.t < b && dia < hoy && (!sig || fechaLocal(sig.t) > dia)) { r.sinSalida++; r.sinJustificar++; }
+        if (m.t >= a && m.t < b && dia < hoy && (!sig || fechaLocal(sig.t) > dia)) { r.sinSalida++; r.sinJustificar++; delDia(dia).sinSalida = true; }
+      }
+      if (CIERRE.includes(m.estado) && m.t >= a && m.t < b) {
+        const d = r.porDia[fechaLocal(m.t)];
+        if (d) d.salida = { hora: new Date(m.t).toISOString(), estado: m.estado, cargadaDespues: m.origen === 'olvido', motivo: m.origen === 'olvido' ? (m.motivo || '') : null };
       }
       if (m.origen === 'olvido' && m.t >= a && m.t < b) {
         r.sinSalida++;
@@ -68,7 +89,27 @@ export async function tiemposAsesores(empresaId, ids, rango, ahora = new Date())
     `SELECT usuario_id, estado, ts, motivo, origen FROM marcaciones
       WHERE empresa_id=$1 AND usuario_id = ANY($2::uuid[]) AND ts >= $3::timestamptz AND ts < $4::timestamptz + interval '7 days'
       ORDER BY usuario_id, ts`, [empresaId, ids, rango.ini.toISOString(), rango.fin.toISOString()]);
-  return calcularTiempos(rows, { ini: rango.ini, fin: rango.fin, ahora });
+  return calcularTiempos(rows, { ini: rango.ini, fin: rango.fin, ahora, finTurno: await turnos(empresaId, ids, rango) });
+}
+/** Hora de salida de cada asesor por día: extensión confirmada ese día, su horario o el de la empresa. */
+async function turnos(empresaId, ids, rango) {
+  const [emp, ag, resp] = await Promise.all([
+    q("SELECT dia,to_char(salida,'HH24:MI') AS salida FROM horarios_empresa WHERE empresa_id=$1 AND activo", [empresaId]),
+    q("SELECT usuario_id,dia,to_char(salida,'HH24:MI') AS salida FROM horarios_agentes WHERE empresa_id=$1 AND activo AND usuario_id = ANY($2::uuid[])", [empresaId, ids]),
+    q(`SELECT usuario_id,to_char(dia_fecha,'YYYY-MM-DD') AS dia,to_char(CASE WHEN decision='extra' THEN hasta ELSE confirmado_para END,'HH24:MI') AS salida
+         FROM horarios_respuestas WHERE empresa_id=$1 AND usuario_id = ANY($2::uuid[]) AND dia_fecha >= $3::date AND dia_fecha < $4::date`,
+      [empresaId, ids, fechaLocal(rango.ini), fechaLocal(rango.fin)])
+  ]).catch(() => [{ rows: [] }, { rows: [] }, { rows: [] }]);
+  const porDia = new Map(emp.rows.map(r => [Number(r.dia), r.salida]));
+  const porAgente = new Map(ag.rows.map(r => [`${r.usuario_id}|${r.dia}`, r.salida]));
+  const porFecha = new Map(resp.rows.map(r => [`${r.usuario_id}|${r.dia}`, r.salida]));
+  return (uid, dia) => {
+    const dow = new Date(dia + 'T12:00:00Z').getUTCDay();
+    const h = porFecha.get(`${uid}|${dia}`) || porAgente.get(`${uid}|${dow}`) || porDia.get(dow);
+    if (!h) return null;
+    const [hh, mm] = h.split(':').map(Number);
+    return inicioDia(dia).getTime() + (hh * 60 + mm) * 60000;
+  };
 }
 
 /** ¿Quedó abierta la jornada de un día anterior? Devuelve { estado, desde, dia } o null. */

@@ -3,6 +3,7 @@
    admin/gerente ven toda la empresa, jefe su equipo y agente sus propias negociaciones. */
 import { $, $$, esc, S, get, gs, fd, fdate, fx, etapa, bajar, vacio, skeleton, toast, DISPONIBILIDAD } from './core.js';
 import { fichaNeg } from './ficha.js';
+import { montarCalendarioEstados } from './calendario-estados.js';
 import { ic } from './iconos.js';
 import { hoja, registro, crucesAnillo } from './graficos-impar.js';
 
@@ -255,40 +256,6 @@ function equipo(d, ns) {
     }).join('') || `<tr><td colspan="6">${vacio('◎', 'Sin responsables', '')}</td></tr>`}</tbody></table></div>`;
 }
 
-/* Tiempos por estado de cada asesor (Disponible, En gestión, Almuerzo, Permiso) y salidas sin marcar. */
-const ESTADOS_TRABAJO = ['disponible', 'ocupado', 'almuerzo', 'permiso'];
-const duracion = seg => {
-  const m = Math.round((Number(seg) || 0) / 60);
-  if (!m) return '—';
-  const h = Math.floor(m / 60), r = m % 60;
-  return h ? `${h} h${r ? ` ${r} min` : ''}` : `${r} min`;
-};
-function tiemposEstados(d) {
-  const est = d.estados || {};
-  const filas = (d.universo || []).map(u => ({ u, t: est[u.id] || null }))
-    .sort((a, b) => (b.t?.conectado || 0) - (a.t?.conectado || 0) || a.u.nombre.localeCompare(b.u.nombre));
-  if (!filas.length) return vacio('◷', 'Sin asesores', '');
-  const color = id => (DISPONIBILIDAD.find(x => x.id === id) || {}).c || '#888';
-  const nombre = id => (DISPONIBILIDAD.find(x => x.id === id) || {}).t || id;
-  const leyenda = `<div class="rep-estados-ley" aria-hidden="true">${ESTADOS_TRABAJO.map(e => `<span><i style="background:${color(e)}"></i>${esc(nombre(e))}</span>`).join('')}</div>`;
-  return `${leyenda}<div class="rep-tabla-scroll"><table class="rep-tabla rep-estados"><thead><tr><th>Asesor</th><th class="hide-m">Distribución del tiempo</th>
-      ${ESTADOS_TRABAJO.map(e => `<th class="num">${esc(nombre(e))}</th>`).join('')}<th class="num">Total conectado</th><th class="num">Promedio por día</th><th class="num">Salidas sin marcar</th></tr></thead>
-    <tbody>${filas.map(({ u, t }) => {
-      if (!t || !t.conectado && !t.sinSalida) return `<tr class="rep-sin"><td><span class="rep-persona"><b>${esc(u.nombre)}</b><small>${esc(u.rol)}${u.sucursal ? ' · ' + esc(u.sucursal) : ''}</small></span></td>
-        <td class="hide-m"><span class="rep-estados-vacio">Sin marcaciones en el período</span></td>${ESTADOS_TRABAJO.map(() => '<td class="num">—</td>').join('')}<td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`;
-      const total = t.conectado || 1;
-      const barra = ESTADOS_TRABAJO.filter(e => t.segundos[e] > 0).map(e => `<i style="width:${t.segundos[e] / total * 100}%;background:${color(e)}" title="${esc(nombre(e))}: ${duracion(t.segundos[e])}"></i>`).join('');
-      const motivos = t.motivos?.length ? `<ul>${t.motivos.map(m => `<li><b>${esc(fd(m.dia + 'T12:00:00'))}</b> · salió ${esc(new Date(m.hora).toLocaleTimeString('es-PY', { timeZone: 'America/Asuncion', hour: '2-digit', minute: '2-digit', hour12: false }))}<br>${esc(m.motivo)}</li>`).join('')}</ul>` : '';
-      const pend = t.sinJustificar ? `<span class="rep-estados-pend">${t.sinJustificar} sin motivo todavía</span>` : '';
-      return `<tr><td><span class="rep-persona"><b>${esc(u.nombre)}</b><small>${esc(u.rol)}${u.sucursal ? ' · ' + esc(u.sucursal) : ''}</small></span></td>
-        <td class="hide-m"><span class="rep-estados-barra" role="img" aria-label="${ESTADOS_TRABAJO.map(e => `${nombre(e)} ${duracion(t.segundos[e])}`).join(', ')}">${barra}</span></td>
-        ${ESTADOS_TRABAJO.map(e => `<td class="num">${duracion(t.segundos[e])}</td>`).join('')}
-        <td class="num"><b>${duracion(t.conectado)}</b></td>
-        <td class="num">${t.dias ? duracion(t.conectado / t.dias) : '—'}<small class="rep-estados-dias">${t.dias} ${t.dias === 1 ? 'día' : 'días'}</small></td>
-        <td class="num">${t.sinSalida ? (motivos ? `<details class="rep-estados-mot"><summary><b>${t.sinSalida}</b> ver motivos</summary>${motivos}${pend}</details>` : `<b>${t.sinSalida}</b>${pend}`) : '0'}</td></tr>`;
-    }).join('')}</tbody></table></div>`;
-}
-
 function detalle(ns) {
   const q = FILTRO.q.trim().toLowerCase();
   const lista = ns.filter(n => (!FILTRO.etapa || n.etapa === FILTRO.etapa)
@@ -511,7 +478,8 @@ function pintar(d) {
      ${esAgente ? '' : '<p class="rep-nota">Tocá un encabezado para ordenar.</p>'}<div id="rep-equipo">${equipo(d, ns)}</div></section>
 
    <section class="card-box rep-card"><h3>${esAgente ? 'Tus tiempos por estado' : 'Tiempos por estado de los asesores'}</h3>
-     <p class="rep-nota">Tiempo en cada estado según lo que marca cada asesor. Si alguien no marca la salida, su estado deja de sumar al terminar ese día y al día siguiente se le pide el motivo.</p>${tiemposEstados(d)}</section>
+     <p class="rep-nota">Un día por casilla, con la línea de tiempo de cada estado. Tocá un día para ver todo el detalle. Si alguien no marca la salida, su estado deja de sumar al terminar ese día y al día siguiente se le pide el motivo.</p>
+     <div id="rep-cal-estados" class="ce"></div></section>
 
    <div class="rep-grid rep-grid-2">
      <section class="card-box rep-card"><h3>Ventas ganadas</h3>
@@ -531,6 +499,7 @@ function pintar(d) {
      <div id="rep-detalle">${detalle(ns)}</div></section>
   </div>`;
 
+  montarCalendarioEstados($('#rep-cal-estados'), { personas: d.universo || [], esAgente });
   const root = $('#view');
   // Orden de entrada: cada bloque aparece un instante después del anterior.
   $$('.rep > section, .rep > .rep-grid > section', root).forEach((el, i) => { el.classList.add('rep-anima'); el.style.setProperty('--i', i); });

@@ -101,7 +101,7 @@ async function aviso(empresaId, datos, uid) {
 }
 async function avisarEstado(empresaId) {
   const p = await pasarelaDe(empresaId).catch(() => null);
-  aviso(empresaId, { tipo: 'pasarela', ...estadoConexion(p) }).catch(() => {});
+  await aviso(empresaId, { tipo: 'pasarela', ...estadoConexion(p) }).catch(() => {});
 }
 
 /* ---------- cliente y negociación ---------- */

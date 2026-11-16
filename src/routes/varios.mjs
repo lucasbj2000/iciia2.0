@@ -4,7 +4,7 @@ import { q } from '../db.mjs';
 import { requiere, hash, alcanceSQL, firmar } from '../auth.mjs';
 import { notificar, horasLaborales, auditar } from '../core.mjs';
 import { problemaClave } from '../seguridad-impar.mjs';
-import { rangoDesdeConsulta, tiemposRespuesta } from '../tiempos-respuesta-impar.mjs';
+import { rangoDesdeConsulta, tiemposRespuesta, fechaLocal } from '../tiempos-respuesta-impar.mjs';
 import { emitir } from '../realtime.mjs';
 import { fotoSala, climaSucursales, ROLES_SALA } from '../sala-control-impar.mjs';
 import bcrypt from 'bcryptjs';
@@ -252,6 +252,29 @@ r.delete('/calendario/:id', requiere(), async (req, res) => {
 });
 
 /* ================= REPORTES ================= */
+/** Personas que entran en los reportes según el rol: el agente se ve a sí mismo, el jefe a su equipo, el resto a todos. */
+async function universoReporte(req) {
+  return req.user.rol === 'agente'
+    ? [{ id: req.user.id, nombre: req.user.nombre, rol: req.user.rol, sucursal: req.user.sucursal, disponibilidad: req.user.disponibilidad }]
+    : (await q(
+        `SELECT id,nombre,rol,sucursal,disponibilidad FROM usuarios
+          WHERE empresa_id=$1 AND activo AND NOT oculto ${req.user.rol === 'jefe' ? 'AND (equipo=$2 OR id=$3)' : ''} ORDER BY nombre`,
+        req.user.rol === 'jefe' ? [req.empresaId, req.user.usuario, req.user.id] : [req.empresaId])).rows;
+}
+
+/** Calendario de tiempos por estado: detalle día por día, filtrable por fechas y por asesor. */
+r.get('/reportes/estados', requiere(), async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const rango = rangoDesdeConsulta({ desde: req.query.desde, hasta: req.query.hasta, dias: req.query.dias || 31 });
+  const universo = await universoReporte(req);
+  const pedido = String(req.query.usuario || '');
+  const ids = pedido ? universo.filter(u => u.id === pedido).map(u => u.id) : universo.map(u => u.id);
+  if (pedido && !ids.length) return res.status(403).json({ error: 'No podés ver los tiempos de esa persona.' });
+  const tiempos = await tiemposAsesores(req.empresaId, ids, rango);
+  res.json({ desde: rango.desde, hasta: rango.hasta, hoy: fechaLocal(new Date()),
+    personas: universo.map(u => ({ id: u.id, nombre: u.nombre, rol: u.rol, sucursal: u.sucursal })), tiempos });
+});
+
 r.get('/reportes', requiere(), async (req, res) => {
   // Período por fechas reales (día, semana, mes, año o rango) en hora de Paraguay; ?dias=N sigue funcionando.
   const rango = rangoDesdeConsulta(req.query);
@@ -279,12 +302,7 @@ r.get('/reportes', requiere(), async (req, res) => {
         AND m.primera IS NOT NULL ${where}`,
     [req.empresaId, ini, fin, ...params]);
 
-  const universo = req.user.rol === 'agente'
-    ? [{ id: req.user.id, nombre: req.user.nombre, rol: req.user.rol, sucursal: req.user.sucursal, disponibilidad: req.user.disponibilidad }]
-    : (await q(
-        `SELECT id,nombre,rol,sucursal,disponibilidad FROM usuarios
-          WHERE empresa_id=$1 AND activo AND NOT oculto ${req.user.rol === 'jefe' ? 'AND (equipo=$2 OR id=$3)' : ''} ORDER BY nombre`,
-        req.user.rol === 'jefe' ? [req.empresaId, req.user.usuario, req.user.id] : [req.empresaId])).rows;
+  const universo = await universoReporte(req);
 
   const { rows: espera } = await q(
     `SELECT n.id, n.entrada_etapa, c.nombre AS cliente, c.frecuente, u.nombre AS agente

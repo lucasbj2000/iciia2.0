@@ -43,6 +43,22 @@ assert.equal(r.b.motivos[0].motivo, 'Me olvidé de marcar la salida');
 const r2 = calcularTiempos(marcas, { ini: new Date('2026-11-15T00:00:00-03:00'), fin: new Date('2026-11-17T00:00:00-03:00'), ahora });
 assert.equal(h(r2.a.segundos.disponible), 1.5);
 assert.equal(r2.a.sinSalida, 0);
+// Detalle por día para el calendario
+const v = r.a.porDia['2026-11-13'];
+assert.deepEqual(v.tramos.map(t => t.estado), ['disponible', 'almuerzo', 'ocupado']);
+assert.equal(v.salida.cargadaDespues, false); assert.equal(new Date(v.salida.hora).toISOString(), L('2026-11-13', '17:00'));
+assert.equal(v.entrada, L('2026-11-13', '08:00'));
+assert.equal(r.a.porDia['2026-11-14'].sinSalida, true);
+assert.equal(r.a.porDia['2026-11-16'].enCurso, true);
+assert.equal(r.b.porDia['2026-11-13'].salida.cargadaDespues, true);
+assert.match(r.b.porDia['2026-11-13'].salida.motivo, /olvidé/);
+// Con horario: el día sin salida se corta en la salida del turno (estimado), no a medianoche
+const turno = (uid, dia) => new Date(`${dia}T17:00:00-03:00`).getTime();
+const r3 = calcularTiempos(marcas, { ini: new Date('2026-11-13T00:00:00-03:00'), fin: new Date('2026-11-17T00:00:00-03:00'), ahora, finTurno: turno });
+assert.equal(h(r3.a.porDia['2026-11-14'].segundos.disponible), 9);
+assert.equal(r3.a.porDia['2026-11-14'].estimado, true);
+assert.equal(r3.a.porDia['2026-11-14'].tramos.at(-1).estimado, true);
+assert.equal(r3.a.porDia['2026-11-13'].estimado, undefined, 'los días con salida no se tocan');
 console.log('✔ cálculo de tiempos por estado, corte al final del día y salidas sin marcar');
 
 /* ---------- Con PostgreSQL ---------- */
