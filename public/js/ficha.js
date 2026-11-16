@@ -579,24 +579,32 @@ function chipsTeclado(campo) {
   if (!fx('respuestasRapidas')) return '';
   const qs = misRapidas().filter(q => q.txt && !q.media_url && !q.archivo_id).slice(0, 8);
   return qs.length ? `<div class="qr-teclado" aria-label="Respuestas rápidas">${qs.map(q =>
-    `<button type="button" class="qchip" data-rapida="${esc(q.txt)}" data-arch="" data-murl="" data-mtipo="" data-mnombre="" data-mbytes="0" data-campo="${campo}" title="${esc(q.txt)}">${esc(q.txt.slice(0, 28))}${q.txt.length > 28 ? '…' : ''}</button>`).join('')}</div>` : '';
+    `<button type="button" class="qchip" data-rapida="${esc(q.txt)}" data-arch="" data-murl="" data-mtipo="" data-mnombre="" data-mbytes="0" data-campo="${campo}" title="${esc(q.txt)}">${esc((q.titulo || q.txt).slice(0, 28))}${(q.titulo || q.txt).length > 28 ? '…' : ''}</button>`).join('')}</div>` : '';
 }
+function chipRapida(q, campo) {
+  const conImg = q.media_url && (q.media_tipo === 'imagen' || q.archivo_tipo === 'imagen');
+  const etiqueta = q.titulo || q.txt || q.media_nombre || q.archivo_nombre || 'Archivo';
+  return `<button class="qchip ${conImg ? 'con-img' : ''}" data-rapida="${esc(q.txt || '')}"
+    data-arch="${esc(q.archivo_id || '')}" data-murl="${esc(q.media_url || '')}"
+    data-mtipo="${esc(q.archivo_tipo || q.media_tipo || '')}" data-mnombre="${esc(q.archivo_nombre || q.media_nombre || '')}"
+    data-mbytes="${q.archivo_bytes || 0}" data-campo="${campo}" title="${esc(q.txt || etiqueta)}">
+    ${conImg ? `<img src="${esc(q.media_url)}" alt="">` : (q.media_url ? (ICONOS[q.archivo_tipo || q.media_tipo] || ic('clip')) + ' ' : '')}
+    ${esc(etiqueta.slice(0, 38))}${etiqueta.length > 38 ? '…' : ''}</button>`;
+}
+/* Las plantillas con «grupo» van en su propio sector (por ejemplo, Ubicación de sucursales). */
 function rapidasHTML(campo) {
   if (!fx('respuestasRapidas')) return '';
   const qs = misRapidas();
+  const sueltas = qs.filter(q => !q.grupo), grupos = new Map();
+  qs.filter(q => q.grupo).forEach(q => { if (!grupos.has(q.grupo)) grupos.set(q.grupo, []); grupos.get(q.grupo).push(q); });
   return `<div style="margin-top:10px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
     <b style="font-size:var(--fs-xs);color:var(--muted)">Respuestas rápidas</b>
     <button class="btn ghost sm" data-gestionar>${ic('ajustes')} Gestionar</button></div>
-   <div class="qr-chips">${qs.map(q => {
-     const conImg = q.media_url && (q.media_tipo === 'imagen' || q.archivo_tipo === 'imagen');
-     const etiqueta = q.txt || q.media_nombre || q.archivo_nombre || 'Archivo';
-     return `<button class="qchip ${conImg ? 'con-img' : ''}" data-rapida="${esc(q.txt || '')}"
-       data-arch="${esc(q.archivo_id || '')}" data-murl="${esc(q.media_url || '')}"
-       data-mtipo="${esc(q.archivo_tipo || q.media_tipo || '')}" data-mnombre="${esc(q.archivo_nombre || q.media_nombre || '')}"
-       data-mbytes="${q.archivo_bytes || 0}" data-campo="${campo}" title="${esc(etiqueta)}">
-       ${conImg ? `<img src="${esc(q.media_url)}" alt="">` : (q.media_url ? (ICONOS[q.archivo_tipo || q.media_tipo] || ic('clip')) + ' ' : '')}
-       ${esc(etiqueta.slice(0, 38))}${etiqueta.length > 38 ? '…' : ''}</button>`;
-   }).join('') || '<span style="color:var(--muted);font-size:var(--fs-xs)">Sin plantillas. Creá la primera desde «Gestionar».</span>'}</div></div>`;
+   <div class="qr-chips">${sueltas.map(q => chipRapida(q, campo)).join('')
+     || (grupos.size ? '' : '<span style="color:var(--muted);font-size:var(--fs-xs)">Sin plantillas. Creá la primera desde «Gestionar».</span>')}</div>
+   ${[...grupos].map(([g, lista]) => `<div class="qr-grupo">
+     <b>${/sucursal|ubicaci/i.test(g) ? '📍 ' : ''}${esc(g)}</b>
+     <div class="qr-chips">${lista.map(q => chipRapida(q, campo)).join('')}</div></div>`).join('')}</div>`;
 }
 
 function conectar(n) {
@@ -852,7 +860,10 @@ export async function modalRapidas() {
           <select data-amb="${q.id}" style="flex:1;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:6px;font-size:var(--fs-xs)">
             <option value="empresa" ${q.ambito === 'empresa' ? 'selected' : ''}>Toda la empresa</option>
             ${sucs.map(x => `<option value="suc:${esc(x)}" ${q.ambito === 'sucursal' && q.sucursal === x ? 'selected' : ''}>Sucursal ${esc(x)}</option>`).join('')}</select>
-          ${q.archivo_nombre || q.media_nombre ? `<small style="color:var(--muted);font-size:var(--fs-xs)">${esc(q.archivo_nombre || q.media_nombre)}</small>` : ''}</div></div>
+          ${q.archivo_nombre || q.media_nombre ? `<small style="color:var(--muted);font-size:var(--fs-xs)">${esc(q.archivo_nombre || q.media_nombre)}</small>` : ''}</div>
+        <div class="qr-sector-campos">
+          <input data-grupo="${q.id}" value="${esc(q.grupo || '')}" list="qr-grupos" placeholder="Sector (opcional)" aria-label="Sector">
+          <input data-titulo="${q.id}" value="${esc(q.titulo || '')}" placeholder="Nombre del botón (opcional)" aria-label="Nombre del botón"></div></div>
       <div style="flex:none;display:flex;gap:5px">
         <button class="btn ghost sm" data-imgeq="${q.id}" title="Adjuntar" aria-label="Adjuntar">${ic('clip')}</button>
         ${q.media_url ? `<button class="btn ghost sm" data-quiteq="${q.id}" title="Quitar adjunto" aria-label="Quitar adjunto">${ic('quitar')}</button>` : ''}
@@ -865,7 +876,11 @@ export async function modalRapidas() {
       <select id="qr-amb" style="max-width:190px;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:10px">
         <option value="empresa">Toda la empresa</option>
         ${sucs.map(x => `<option value="suc:${esc(x)}" ${S.usuario.sucursal === x ? 'selected' : ''}>Sucursal ${esc(x)}</option>`).join('')}</select>
-      <button class="btn sm" style="flex:none" id="qr-addemp">Publicar</button></div></div>` : ''}
+      <button class="btn sm" style="flex:none" id="qr-addemp">Publicar</button></div>
+    <div class="qr-sector-campos" style="margin-top:6px">
+      <input id="qr-grupo" list="qr-grupos" placeholder="Sector (opcional), por ejemplo: Ubicación de sucursales" aria-label="Sector de la nueva plantilla">
+      <input id="qr-titulo" placeholder="Nombre del botón (opcional)" aria-label="Nombre del botón de la nueva plantilla"></div>
+    <datalist id="qr-grupos">${[...new Set(rapidas.equipo.map(q => q.grupo).filter(Boolean))].map(g => `<option value="${esc(g)}">`).join('')}</datalist></div>` : ''}
   </div><div class="modal-f"><button class="btn" id="qr-listo">Listo</button></div>`, true);
 
   activarVisor($('.modal'));
@@ -900,6 +915,8 @@ export async function modalRapidas() {
   };
 
   $$('[data-eq]').forEach(el => el.onchange = () => patch(`/admin/rapidas/${el.dataset.eq}`, { txt: el.value }));
+  $$('[data-grupo]').forEach(el => el.onchange = () => patch(`/admin/rapidas/${el.dataset.grupo}`, { grupo: el.value }));
+  $$('[data-titulo]').forEach(el => el.onchange = () => patch(`/admin/rapidas/${el.dataset.titulo}`, { titulo: el.value }));
   $$('[data-amb]').forEach(el => el.onchange = () => {
     const v = el.value;
     patch(`/admin/rapidas/${el.dataset.amb}`,
@@ -919,7 +936,8 @@ export async function modalRapidas() {
     if (!t && !a) return toast('Escribí un texto o adjuntá una imagen', 'warn');
     const v = $('#qr-amb').value;
     const base = v === 'empresa' ? { ambito: 'empresa' } : { ambito: 'sucursal', sucursal: v.slice(4) };
-    await post('/admin/rapidas', { ...base, txt: t, archivoId: a?.id || null });
+    await post('/admin/rapidas', { ...base, txt: t, archivoId: a?.id || null,
+      grupo: $('#qr-grupo')?.value || '', titulo: $('#qr-titulo')?.value || '' });
     toast('Plantilla publicada para el equipo', 'ok'); modalRapidas();
   };
 }

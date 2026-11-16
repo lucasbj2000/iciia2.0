@@ -1081,3 +1081,10 @@ html.jr-abierta{overflow:hidden}
   .ce-chip{min-width:16px;height:16px;font-size:10px}
   .ce-filtro select{min-width:0;max-width:60vw}
 }
+
+/* Respuestas rápidas: sectores (por ejemplo, Ubicación de sucursales) */
+.qr-grupo{margin-top:4px;padding-top:7px;border-top:1px dashed var(--line)}
+.qr-grupo>b{display:block;font-size:var(--fs-xs);color:var(--muted);margin-bottom:6px}
+.qr-grupo .qr-chips{max-height:none}
+.qr-sector-campos{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+.qr-sector-campos input{flex:1 1 160px;min-width:0;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:var(--fs-xs)}

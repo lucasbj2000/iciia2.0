@@ -242,6 +242,8 @@ r.post('/usuarios/:id/password', requiere('admin'), async (req, res) => {
 });
 
 /* ================= RESPUESTAS RÁPIDAS ================= */
+// Sector (grupo) y nombre corto del botón (titulo): texto libre, vacío = sin valor.
+const limpio = v => { const t = String(v ?? '').trim().slice(0, 60); return t || null; };
 r.get('/rapidas', requiere(), async (req, res) => {
   const { rows } = await q(
     `SELECT r.*, u.nombre AS autor, a.tipo AS archivo_tipo, a.nombre AS archivo_nombre, a.bytes AS archivo_bytes,
@@ -253,14 +255,15 @@ r.get('/rapidas', requiere(), async (req, res) => {
 
 r.post('/rapidas', requiere('admin', 'gerente', 'jefe'), async (req, res) => {
   const { txt, ambito, sucursal, archivoId } = req.body || {};
+  const grupo = limpio(req.body?.grupo), titulo = limpio(req.body?.titulo);
   if (!txt && !archivoId) return res.status(422).json({ error: 'Escribí un texto o adjuntá una imagen.' });
   const a = archivoId ? await obtenerArchivo(archivoId, req.empresaId) : null;
   if (archivoId && !a) return res.status(404).json({ error: 'El archivo no existe.' });
   const { rows } = await q(
-    `INSERT INTO rapidas (empresa_id,txt,ambito,sucursal,autor_id,archivo_id,media_url,media_tipo,media_nombre)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    `INSERT INTO rapidas (empresa_id,txt,ambito,sucursal,autor_id,archivo_id,media_url,media_tipo,media_nombre,grupo,titulo)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
     [req.empresaId, txt || '', ambito || 'empresa', ambito === 'sucursal' ? sucursal : null, req.user.id,
-     a?.id || null, a?.url || null, a?.tipo || null, a?.nombre || null]);
+     a?.id || null, a?.url || null, a?.tipo || null, a?.nombre || null, grupo, titulo]);
   res.json({ ok: true, rapida: rows[0] });
 });
 
@@ -273,10 +276,13 @@ r.patch('/rapidas/:id', requiere('admin', 'gerente', 'jefe'), async (req, res) =
        archivo_id  = CASE WHEN $7 THEN NULL WHEN $6::uuid IS NOT NULL THEN $6::uuid ELSE archivo_id END,
        media_url   = CASE WHEN $7 THEN NULL WHEN $6::uuid IS NOT NULL THEN $8 ELSE media_url END,
        media_tipo  = CASE WHEN $7 THEN NULL WHEN $6::uuid IS NOT NULL THEN $9 ELSE media_tipo END,
-       media_nombre= CASE WHEN $7 THEN NULL WHEN $6::uuid IS NOT NULL THEN $10 ELSE media_nombre END
+       media_nombre= CASE WHEN $7 THEN NULL WHEN $6::uuid IS NOT NULL THEN $10 ELSE media_nombre END,
+       grupo  = CASE WHEN $11 THEN $12 ELSE grupo END,
+       titulo = CASE WHEN $13 THEN $14 ELSE titulo END
      WHERE id=$1 AND empresa_id=$2`,
     [req.params.id, req.empresaId, txt, ambito, ambito === 'sucursal' ? sucursal : null,
-     a?.id || null, !!quitarArchivo, a?.url || null, a?.tipo || null, a?.nombre || null]);
+     a?.id || null, !!quitarArchivo, a?.url || null, a?.tipo || null, a?.nombre || null,
+     'grupo' in (req.body || {}), limpio(req.body?.grupo), 'titulo' in (req.body || {}), limpio(req.body?.titulo)]);
   res.json({ ok: true });
 });
 
