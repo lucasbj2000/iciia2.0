@@ -153,7 +153,7 @@ export async function iniciar(canal) {
     const estadoRecepcion = setInterval(() => {
       if (S.sock !== sock) { clearInterval(estadoRecepcion); return; }
       if (S.estado !== 'conectado') return;
-      console.log(`[wa:recepcion] estado=${S.estado} buffer=${Boolean(sock.ev?.isBuffering?.())} eventos=${S.eventosWA||0} mensajes=${S.mensajesWA||0} guardados=${S.totalEntradas||0} sin_contenido=${S.sinContenidoWA||0} no_admitidos=${S.tipoNoAdmitidoWA||0} errores=${S.erroresRecepcionWA||0} recuperados=${S.recuperadosWA||0} avisos_no_leidos=${S.noDescifradosWA||0} tardios=${S.tardiosWA||0} ediciones=${S.edicionesWA||0} esperando_descifrado=${S.noDescifrados?.size||0}`);
+      console.log(`[wa:recepcion] estado=${S.estado} buffer=${Boolean(sock.ev?.isBuffering?.())} eventos=${S.eventosWA||0} mensajes=${S.mensajesWA||0} guardados=${S.totalEntradas||0} sin_contenido=${S.sinContenidoWA||0} no_admitidos=${S.tipoNoAdmitidoWA||0} errores=${S.erroresRecepcionWA||0} recuperados=${S.recuperadosWA||0} avisos_no_leidos=${S.noDescifradosWA||0} tardios=${S.tardiosWA||0} ediciones=${S.edicionesWA||0} esperando_descifrado=${S.noDescifrados?.size||0} pedidos_al_telefono=${S.pedidosTelefonoWA||0}`);
       const mapa=m=>m?.size?[...m].map(([t,n])=>t+':'+n).join(','):'-';
       if (S.edicionesPorUpdate || S.protocolosVistos?.size || S.edicionesIgnoradas?.size)
         console.log(`[wa:ediciones] por_update=${S.edicionesPorUpdate||0} protocolos=${mapa(S.protocolosVistos)} ignoradas=${mapa(S.edicionesIgnoradas)}`);
@@ -351,9 +351,42 @@ function fechaDe(m){
 const despertarWorker=()=>import('../worker.mjs').then(({drenarInbox})=>drenarInbox())
   .catch(e=>console.warn('[wa:recepcion] Worker inmediato:',e.name));
 
+// Cuando el CRM no puede leer un mensaje (lo más común: una foto que el teléfono
+// del cliente cifró solo para el celular de la línea), el celular de la línea sí
+// lo tiene y puede reenviárselo al CRM. Baileys se lo pide una sola vez; si el
+// celular estaba dormido o sin internet, ese pedido se pierde. Por eso se insiste
+// con esperas crecientes hasta 30 minutos; si llega, reemplaza el aviso.
+const REINTENTOS_TELEFONO_MS=[25000,90000,240000,600000,1800000];
+const MAX_PEDIDOS_TELEFONO=500;
+function pedirAlTelefono(S,key,paso=0){
+  S.pedidosTelefono ||= new Map();
+  const clave=String(key.id);
+  if(paso>=REINTENTOS_TELEFONO_MS.length){S.pedidosTelefono.delete(clave);return;}
+  if(paso===0){
+    if(S.pedidosTelefono.has(clave))return;
+    if(S.pedidosTelefono.size>=MAX_PEDIDOS_TELEFONO){
+      const [antigua,t]=S.pedidosTelefono.entries().next().value;
+      clearTimeout(t);S.pedidosTelefono.delete(antigua);
+    }
+  }
+  const timer=setTimeout(()=>{
+    if(!S.pedidosTelefono?.has(clave))return;
+    const sock=S.sock;
+    if(sock && typeof sock.requestPlaceholderResend==='function'){
+      S.pedidosTelefonoWA=(S.pedidosTelefonoWA||0)+1;
+      Promise.resolve().then(()=>sock.requestPlaceholderResend({...key}))
+        .catch(e=>console.warn('[wa:descifrado] Pedido al teléfono:',e.name));
+    }
+    pedirAlTelefono(S,key,paso+1);
+  },REINTENTOS_TELEFONO_MS[paso]);
+  timer?.unref?.();
+  S.pedidosTelefono.set(clave,timer);
+}
+
 function esperarDescifrado(m,canal,id){
   const S=sesiones.get(id);
   if(!S)return;
+  pedirAlTelefono(S,{...m.key});
   S.noDescifrados ||= new Map();
   const clave=String(m.key.id);
   if(S.noDescifrados.has(clave))return;
@@ -563,6 +596,8 @@ async function recibir(mod,m,canal,id){
     return;
   }
   const S0=sesiones.get(id);
+  const pedido=S0?.pedidosTelefono?.get(String(m.key.id));
+  if(pedido!==undefined){clearTimeout(pedido);S0.pedidosTelefono.delete(String(m.key.id));}
   const espera=S0?.noDescifrados?.get(String(m.key.id));
   if(espera){
     clearTimeout(espera.timer);S0.noDescifrados.delete(String(m.key.id));

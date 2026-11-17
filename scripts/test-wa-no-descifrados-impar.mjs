@@ -82,7 +82,8 @@ const original = (id, txt) => ({ key: clave(id), message: { conversation: txt },
   const e = entorno();
   await e.recibir(mod, cifrado('B'), canal, 'c');
   await e.recibir(mod, cifrado('B'), canal, 'c');
-  assert.equal(e.timers.filter(t => t.vivo).length, 1, 'Un solo temporizador por mensaje');
+  assert.equal(e.timers.filter(t => t.vivo && t.ms === 60000).length, 1, 'Un solo temporizador de aviso por mensaje');
+  assert.equal(e.timers.filter(t => t.vivo && t.ms === 25000).length, 1, 'Un solo pedido al teléfono en curso');
   await e.vencer(60000);
   const fila = e.inbox.get('B');
   assert.equal(fila.txt, e.AVISO_NO_DESCIFRADO);
@@ -125,6 +126,31 @@ const original = (id, txt) => ({ key: clave(id), message: { conversation: txt },
   assert.equal(e.inbox.size, 0);
 }
 
+// 5) Se insiste al celular de la línea con esperas crecientes y se deja de insistir al recuperarse.
+{
+  const e = entorno();
+  const pedidos = [];
+  e.sesiones.get('c').sock = { requestPlaceholderResend: async k => { pedidos.push(k.id); } };
+  await e.recibir(mod, cifrado('H'), canal, 'c');
+  await e.vencer(25000); await e.vencer(60000); await e.vencer(90000); await e.vencer(240000);
+  assert.deepEqual(pedidos, ['H', 'H', 'H'], 'Tres pedidos al teléfono hasta los 4 minutos');
+  assert.equal(e.inbox.get('H').txt, e.AVISO_NO_DESCIFRADO, 'Mientras tanto queda el aviso');
+  e.mensajes.set('H', { txt: e.AVISO_NO_DESCIFRADO, neg: 'neg-2' });
+  await e.recibir(mod, original('H', 'Foto del pedido'), canal, 'c');
+  assert.equal(e.inbox.get('H').txt, 'Foto del pedido', 'El reenvío del teléfono reemplaza el aviso');
+  assert.equal(e.timers.filter(t => t.vivo && [600000, 1800000].includes(t.ms)).length, 0, 'No se insiste más');
+  assert.equal(e.sesiones.get('c').pedidosTelefono.size, 0);
+  assert.equal(e.sesiones.get('c').pedidosTelefonoWA, 3);
+}
+// 6) Sin socket (reconectando) no falla y sigue programando.
+{
+  const e = entorno();
+  await e.recibir(mod, cifrado('I'), canal, 'c');
+  await e.vencer(25000);
+  assert.equal(e.timers.filter(t => t.vivo && t.ms === 90000).length, 1);
+}
+
+assert.ok(ba.includes('pedidos_al_telefono='), 'Contador de pedidos en el log');
 assert.ok(ba.includes('avisos_no_leidos=') && ba.includes('recuperados=') && ba.includes('tardios='),
   'Contadores en el log de recepción');
 console.log('✔ IMPAR: mensajes no descifrables quedan visibles y se reemplazan al recuperarse.');
