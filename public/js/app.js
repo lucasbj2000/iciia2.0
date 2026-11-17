@@ -24,12 +24,12 @@ import { iniciarControlTurnos,comprobarSalida,refrescarSalidasHoy } from './hora
 import { iniciarPWA, notificarApp } from './pwa.js';
 import { iniciarVersion, verificarVersion } from './version.js';
 import { revisarJornada, iniciarJornada } from './jornada.js';
-import { iniciarInicioCapas } from './inicio-capas.js';
+import { iniciarInicioDiagonal } from './inicio-diagonal.js';
 import { cargarNotas, cargarCambiosNeg } from './colaboracion.js';
 
 iniciarViewport();
 mejorarContrasenas($('#login'));
-iniciarInicioCapas();
+iniciarInicioDiagonal();
 iniciarPWA(id=>fichaNeg(id).catch(e=>toast(e.message,'bad')));
 
 const NAV = [
@@ -84,7 +84,7 @@ $('#form-login').onsubmit = async e => {
       $('#inicio-salir').classList.remove('hidden');
     } else {
       err.textContent = ex?.message || 'No fue posible iniciar sesión. Comprobá la conexión.';
-      const c = $('.login-card'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake');
+      const c = $('#form-login'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake');
       vibrar([30, 60, 30]);
     }
   } finally { btn.disabled = false; btn.textContent = 'Ingresar'; }

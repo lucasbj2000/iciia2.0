@@ -34,7 +34,7 @@
 <link rel="stylesheet" href="/campanas.css?v=20261109-fb">
 <link rel="stylesheet" href="/videoteca.css?v=20261112-2">
 <link rel="stylesheet" href="/llamadas.css?v=20261112-2">
-<link rel="stylesheet" href="/impar-diseno.css?v=20261117-inicio-capas">
+<link rel="stylesheet" href="/impar-diseno.css?v=20261117-inicio-diagonal">
 </head>
 <body>
 <div id="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -42,31 +42,36 @@
 <div id="inicio-estado" role="status" aria-live="polite"><div class="inicio-logo"><span class="logo-impar" role="img" aria-label="IMPAR"><img src="/assets/impar-logo-color.png" alt="" width="678" height="302" decoding="async"><i class="logo-tinta" aria-hidden="true"></i></span></div><p id="inicio-mensaje">Restableciendo tu sesión de IMPAR…</p><button id="inicio-reintentar" class="btn sm hidden">Reintentar conexión</button><button id="inicio-salir" class="btn ghost sm hidden">Cambiar usuario</button></div>
 
 <div id="login">
-  <div class="pc-logo"><span class="logo-impar" role="img" aria-label="IMPAR — Expertos en papel. Papeles e Insumos Gráficos"><img src="/assets/impar-logo-color.png" alt="" width="678" height="302" decoding="async"><i class="logo-tinta" aria-hidden="true"></i></span></div>
-  <div class="pc-mensaje">
-    <p class="pc-etiqueta"><i aria-hidden="true"></i>Papelerías IMPAR · espacio de trabajo</p>
-    <p class="pc-frase">Cada contacto,<span>una nueva oportunidad.</span></p>
-    <p class="pc-apoyo">Clientes, conversaciones y ventas de todas las sucursales, en un mismo lugar.</p>
-  </div>
-  <div class="pc-suc" aria-label="Sucursales de IMPAR">
-    <b>Nuestras sucursales</b>
-    <span>Matriz</span><span>Barrio Obrero</span><span>Lambaré</span><span>Madame Lynch</span><span>Encarnación</span><span>Ciudad del Este</span><span>Pedro Juan Caballero</span>
-  </div>
-  <form class="login-card" id="form-login">
-    <p class="pc-saludo" id="l-saludo"><svg class="pc-sol" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6 19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg><svg class="pc-luna" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Hola</span></p>
-    <h1 class="impar-title">Ingresá a tu cuenta</h1>
-    <p class="sub">Usá el usuario y la contraseña que te dio tu administrador.</p>
-    <div class="field"><label for="l-usr">Usuario</label>
-      <input id="l-usr" placeholder="usuario" autocomplete="username" required></div>
-    <div class="field"><label for="l-pwd">Contraseña</label>
-      <input id="l-pwd" type="password" placeholder="••••••••" autocomplete="current-password" required></div>
-    <div class="err" id="l-err" role="alert"></div>
-    <button class="btn block" type="submit" id="l-btn">Ingresar</button>
-    <div class="hint">
-      <span>¿Problemas para ingresar? Hablá con tu administrador.</span>
-      <a href="https://www.impar-papeles.com.py" target="_blank" rel="noopener">Conocé IMPAR ↗</a>
+  <div id="ni" class="entra">
+    <div class="ni-papel" aria-hidden="true">
+      <div class="ni-capa ni-sombra"></div>
+      <div class="ni-capa ni-verde"><div class="ni-relieve"></div><div class="ni-brillo"></div></div>
+      <div class="ni-capa ni-canto"></div>
     </div>
-  </form>
+    <section class="ni-marca">
+      <div class="ni-logo"><span class="logo-impar" role="img" aria-label="IMPAR — Expertos en papel. Papeles e Insumos Gráficos"><img src="/assets/impar-logo-color.png" alt="" width="678" height="302" decoding="async"><i class="logo-tinta" aria-hidden="true"></i></span></div>
+      <div class="ni-frase">
+        <p class="ni-antetitulo">Espacio de trabajo de Papelerías IMPAR</p>
+        <p class="ni-titulo">Cada contacto,<span>una nueva oportunidad.</span></p>
+        <p class="ni-apoyo">Clientes, conversaciones y ventas de todas las sucursales, en un mismo lugar.</p>
+      </div>
+      <div class="ni-suc"><p>Nuestras sucursales</p><ul><li>Matriz</li><li>Barrio Obrero</li><li>Lambaré</li><li>Madame Lynch</li><li>Encarnación</li><li>Ciudad del Este</li><li>Pedro Juan Caballero</li></ul></div>
+    </section>
+    <section class="ni-lado">
+      <form class="ni-form" id="form-login">
+        <p class="ni-saludo" id="l-saludo"><svg class="ni-sol" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6 19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg><svg class="ni-luna" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Hola</span></p>
+        <h1 class="ni-h1">Ingresá a tu cuenta</h1>
+        <p class="ni-sub">Usá el usuario y la contraseña que te dio tu administrador.</p>
+        <div class="field"><label for="l-usr">Usuario</label>
+          <input id="l-usr" placeholder="usuario" autocomplete="username" required></div>
+        <div class="field"><label for="l-pwd">Contraseña</label>
+          <input id="l-pwd" type="password" placeholder="••••••••" autocomplete="current-password" required></div>
+        <div class="err" id="l-err" role="alert"></div>
+        <button class="btn block" type="submit" id="l-btn">Ingresar</button>
+      </form>
+      <footer class="ni-pie"><span>© <span id="l-anio">2026</span> Papelerías IMPAR · ¿Problemas para ingresar? Hablá con tu administrador.</span><a href="https://www.impar-papeles.com.py" target="_blank" rel="noopener">Conocé IMPAR ↗</a></footer>
+    </section>
+  </div>
 </div>
 
 <div id="app" class="hidden">
@@ -104,7 +109,7 @@
 <div id="modals"></div>
 <div id="confeti" class="hidden"></div>
 
-<script src="/js/app.js?v=impar-busqueda-principal-20261019-3-enlaces-20261019-ruta-pn-lid-20261026-cloud-api-20261027-soporte-20261111-colores-calendario-20261116-sucursales-inicio-20261117" type="module"></script>
+<script src="/js/app.js?v=impar-busqueda-principal-20261019-3-enlaces-20261019-ruta-pn-lid-20261026-cloud-api-20261027-soporte-20261111-colores-calendario-20261116-sucursales-inicio-diagonal-20261117" type="module"></script>
 </body>
 </html>
 
