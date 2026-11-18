@@ -1089,8 +1089,10 @@ html.jr-abierta{overflow:hidden}
    Inicio de sesión · pantalla de acceso clásica, centrada
    Usa las variables del CRM: claro y oscuro coinciden solos.
    ============================================================ */
-#login:not(.hidden){display:grid!important;place-items:center;min-height:var(--crm-viewport-height,100dvh);padding:24px 16px!important;
-  background:transparent!important;background-image:none!important;overflow:auto}
+#login:not(.hidden){display:flex!important;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 16px!important;
+  background:transparent!important;background-image:none!important;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* margin:auto centra cuando sobra lugar y deja desplazar cuando no entra (teclado abierto) */
+#login .lc{margin:auto}
 body:has(#login:not(.hidden)){background-image:var(--fondo-grano);background-size:220px 220px}
 body:has(#login:not(.hidden))::before{left:0}
 body:has(#login:not(.hidden))::before,body:has(#login:not(.hidden))::after{opacity:.7}
@@ -1118,6 +1120,13 @@ body:has(#login:not(.hidden))::before,body:has(#login:not(.hidden))::after{opaci
 .lc-tema svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
 .lc-tema .lc-luna,[data-tema="oscuro"] .lc-tema .lc-sol{display:none}
 [data-tema="oscuro"] .lc-tema .lc-luna{display:inline}
+/* Celular con el teclado abierto: se compacta para que el botón quede a la vista */
+#login.lc-teclado:not(.hidden){padding:10px 12px!important}
+#login.lc-teclado .lc{margin:0 auto;gap:8px}
+#login.lc-teclado .lc-logo,#login.lc-teclado .lc-sub,#login.lc-teclado .lc-ayuda,#login.lc-teclado .lc-pie{display:none}
+#login.lc-teclado .lc-tarjeta{padding:16px 16px 14px}
+#login.lc-teclado .lc-h1{font-size:19px;margin-bottom:12px}
+#login.lc-teclado .field{margin-bottom:10px}
 @media (max-width:480px){
   .lc{gap:16px}.lc-logo .logo-impar{width:140px}
   .lc-tarjeta{padding:24px 18px 20px}

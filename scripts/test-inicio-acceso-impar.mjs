@@ -18,9 +18,11 @@ assert.ok(app.includes("import { iniciarInicioAcceso } from './inicio-acceso.js'
 assert.ok(app.includes("const c = $('#form-login'); c.classList.remove('shake');"));
 const bloque = css.slice(css.indexOf('Inicio de sesión · pantalla de acceso clásica'));
 for (const v of ['var(--surface)', 'var(--line)', 'var(--txt)', 'var(--muted)', 'var(--sombra)', 'var(--f-titulo)']) assert.ok(bloque.includes(v), v);
-assert.ok(bloque.includes('place-items:center'), 'Centrada');
 // Formas del fondo apoyadas en las esquinas, sin quedar cortadas por bordes de pantalla.
 assert.ok(css.includes('body::before{left:240px;bottom:0;background:var(--cuarto-verde);border-radius:0 100% 0 0}'));
 assert.ok(css.includes('body::after{right:0;top:0;background:var(--cuarto-gris);border-radius:0 0 0 100%}'));
+// Teclado del celular: centrado con margin:auto (desplazable) y modo compacto con el botón a la vista.
+assert.ok(bloque.includes('#login .lc{margin:auto}') && !bloque.includes('place-items:center'));
+assert.ok(js.includes('lc-teclado') && js.includes("scrollIntoView({ block: 'end' })") && bloque.includes('#login.lc-teclado .lc-logo'));
 assert.ok(js.includes("localStorage.setItem('iciia_tema', S.tema)") && js.includes('aplicarTema()'));
 console.log('✔ IMPAR: acceso clásico centrado, con los tonos del CRM y el fondo completo.');
