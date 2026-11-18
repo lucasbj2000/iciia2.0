@@ -24,12 +24,12 @@ import { iniciarControlTurnos,comprobarSalida,refrescarSalidasHoy } from './hora
 import { iniciarPWA, notificarApp } from './pwa.js';
 import { iniciarVersion, verificarVersion } from './version.js';
 import { revisarJornada, iniciarJornada } from './jornada.js';
-import { iniciarInicioDiagonal } from './inicio-diagonal.js';
+import { iniciarInicioIlustrado } from './inicio-ilustrado.js';
 import { cargarNotas, cargarCambiosNeg } from './colaboracion.js';
 
 iniciarViewport();
 mejorarContrasenas($('#login'));
-iniciarInicioDiagonal();
+iniciarInicioIlustrado();
 iniciarPWA(id=>fichaNeg(id).catch(e=>toast(e.message,'bad')));
 
 const NAV = [
