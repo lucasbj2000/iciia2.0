@@ -40,6 +40,28 @@ export function iniciarInicioDiagonal() {
   const medir = () => ni.style.setProperty('--ni-alto', marca.offsetHeight + 'px');
   if (window.ResizeObserver) new ResizeObserver(medir).observe(marca); else addEventListener('resize', medir);
   medir();
+  // Celular con el teclado abierto: cabecera compacta y el campo activo siempre a la vista.
+  // Solo se activa si el área visible realmente se achica (el teclado está abierto),
+  // no por el foco automático que el CRM pone en «Usuario» al cargar.
+  const form = document.getElementById('form-login');
+  const vv = window.visualViewport;
+  const altoVisible = () => Math.round(vv?.height || innerHeight);
+  let base = altoVisible();
+  const movil = () => matchMedia('(max-width: 900px)').matches;
+  const escribiendo = () => form?.contains(document.activeElement) && document.activeElement.matches('input');
+  const ajustar = () => {
+    const alto = altoVisible();
+    if (!escribiendo()) base = Math.max(base, alto);
+    const tecladoAbierto = movil() && escribiendo() && alto < base * 0.8;
+    if (tecladoAbierto !== ni.classList.contains('ni-escribiendo')) ni.classList.toggle('ni-escribiendo', tecladoAbierto);
+    if (tecladoAbierto) document.activeElement.scrollIntoView({ block: 'center' });
+  };
+  let espera;
+  const luego = () => { clearTimeout(espera); espera = setTimeout(ajustar, 180); };
+  vv?.addEventListener('resize', luego);
+  addEventListener('resize', luego);
+  form?.addEventListener('focusin', luego);
+  form?.addEventListener('focusout', luego);
   new MutationObserver(revisar).observe(login, { attributes: true, attributeFilter: ['class'] });
   new MutationObserver(revisar).observe(raiz, { attributes: true, attributeFilter: ['class'] });
   revisar();

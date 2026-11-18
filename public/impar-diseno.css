@@ -1198,24 +1198,36 @@ html.en-acceso body::before,html.en-acceso body::after{display:none!important}
 }
 /* Celular y tableta vertical: papel verde arriba con corte inclinado, formulario debajo */
 @media (max-width:900px){
-  #ni{grid-template-columns:1fr;grid-template-rows:auto auto}
-  .ni-papel{bottom:auto;height:calc(var(--ni-alto,300px) + 34px)}
-  .ni-sombra{clip-path:polygon(0 0,100% 0,100% 84%,0 100%);transform:translate3d(0,4px,0)}
+  #ni{grid-template-columns:1fr;grid-template-rows:auto 1fr;min-height:var(--crm-viewport-height,100dvh)}
+  .ni-papel{bottom:auto;height:calc(var(--ni-alto,240px) + 34px)}
+  .ni-sombra{clip-path:polygon(0 0,100% 0,100% 84%,0 100%)}
   .ni-verde{clip-path:polygon(0 0,100% 0,100% 80%,0 96%)}
   .ni-canto{clip-path:polygon(0 92%,100% 76%,100% 80%,0 96%)}
   .ni-sombra,.ni-verde,.ni-canto{animation-name:ni-vaiven-v;animation-duration:9s}
-  .ni-marca{min-height:0;padding:24px 22px 0;grid-template-rows:auto auto;row-gap:18px}
-  .ni-logo{width:150px}
-  .ni-frase{align-self:start}
-  .ni-titulo{font-size:28px;margin:0}
+  .ni-marca{min-height:0;padding:22px 22px 6px;grid-template-rows:auto auto;row-gap:16px}
+  .ni-logo{width:140px}
+  .ni-frase{align-self:start;max-width:none}
+  .ni-titulo{font-size:26px;margin:0}
   .ni-antetitulo,.ni-apoyo,.ni-suc{display:none}
-  .ni-lado{grid-column:1;min-height:0;padding:90px 22px 22px;grid-template-rows:auto auto;row-gap:28px}
-  .ni-form,.ni-pie{justify-self:center;width:min(480px,100%)}
-  .ni-h1{font-size:28px}
-  .ni-sub{margin-bottom:24px}
+  .ni-lado{grid-column:1;min-height:0;padding:62px 22px max(18px,env(safe-area-inset-bottom));grid-template-rows:1fr auto;row-gap:24px}
+  .ni-form{align-self:start;justify-self:center;width:min(480px,100%)}
+  .ni-pie{justify-self:center;width:min(480px,100%);align-self:end}
+  .ni-h1{font-size:27px}
+  .ni-sub{margin-bottom:26px}
+  #ni .field{margin-bottom:22px}
+  /* Teclado abierto: la cabecera se achica y el formulario queda a la vista entero */
+  #ni.ni-escribiendo .ni-marca{padding:14px 20px 0;row-gap:0}
+  #ni.ni-escribiendo .ni-logo{width:104px}
+  #ni.ni-escribiendo .ni-frase,#ni.ni-escribiendo .ni-saludo,#ni.ni-escribiendo .ni-sub,#ni.ni-escribiendo .ni-pie{display:none}
+  #ni.ni-escribiendo .ni-lado{padding-top:40px;padding-bottom:12px}
+  #ni.ni-escribiendo .ni-h1{font-size:22px;margin-bottom:14px}
+  #ni.ni-escribiendo .field{margin-bottom:16px}
+  #ni.ni-escribiendo #l-btn{height:50px;margin-top:4px}
+  #ni.ni-escribiendo .ni-sombra,#ni.ni-escribiendo .ni-verde,#ni.ni-escribiendo .ni-canto,
+  #ni.ni-escribiendo .ni-relieve,#ni.ni-escribiendo .ni-brillo{animation-play-state:paused}
 }
 @keyframes ni-vaiven-v{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,5px,0)}}
-@media (max-width:900px) and (max-height:700px){.ni-titulo{font-size:24px}}
+@media (max-width:900px) and (max-height:700px){.ni-titulo{font-size:23px}.ni-lado{padding-top:54px}}
 @media (prefers-reduced-motion:reduce){
   .ni-sombra,.ni-verde,.ni-canto,.ni-relieve,.ni-brillo{animation:none!important}
   #ni.entra *{animation:none!important}

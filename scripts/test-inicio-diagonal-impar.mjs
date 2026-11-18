@@ -32,6 +32,9 @@ assert.ok(css.includes('[data-tema="oscuro"] #login{--ni-fondo:'), 'Variables de
 assert.ok(/prefers-reduced-motion:reduce\)\{\s*\.ni-sombra,\.ni-verde,\.ni-canto,\.ni-relieve,\.ni-brillo\{animation:none!important\}/.test(css));
 // Celular y pantallas medianas ordenadas.
 assert.ok(css.includes('@media (max-width:900px){') && css.includes('@media (max-width:1400px) and (min-width:901px){'));
+// Teclado del celular: modo compacto solo si el área visible se achica, y el campo activo a la vista.
+assert.ok(js.includes('ni-escribiendo') && js.includes('alto < base * 0.8') && js.includes("scrollIntoView({ block: 'center' })"));
+assert.ok(css.includes('#ni.ni-escribiendo .ni-frase'));
 // Guarda contra el bucle del observador (solo escribe la clase si cambió).
 assert.ok(js.includes('if (ahora === visible) return;'));
 console.log('✔ IMPAR: inicio de sesión con corte diagonal, claro y oscuro, fluido y sin restos de diseños anteriores.');
