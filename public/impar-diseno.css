@@ -278,8 +278,8 @@ small,.tag,.ev,.badge-rol,.card .mas,.ficha-acordeon-ayuda,.historial-tramo,.cha
 body{background-color:var(--bg);background-image:var(--fondo-marcas),var(--fondo-grano);background-size:160px 160px,220px 220px;background-attachment:fixed}
 body::before,body::after{content:"";position:fixed;z-index:0;pointer-events:none;width:min(52vmin,520px);aspect-ratio:1}
 /* cuarto de círculo como el del logo: recto arriba y a la derecha, curvo abajo a la izquierda */
-body::before{left:clamp(0px,calc(240px - 8vmin),240px);bottom:-14vmin;background:var(--cuarto-verde);border-radius:0 0 0 100%;transform:rotate(90deg)}
-body::after{right:-10vmin;top:-12vmin;background:var(--cuarto-gris);border-radius:0 0 0 100%}
+body::before{left:240px;bottom:0;background:var(--cuarto-verde);border-radius:0 100% 0 0}
+body::after{right:0;top:0;background:var(--cuarto-gris);border-radius:0 0 0 100%}
 #app,#login,#inicio-estado{position:relative;z-index:1}
 #login{background:transparent!important;background-image:none!important}
 header.top{background:transparent!important}
@@ -360,7 +360,7 @@ aside{background:color-mix(in srgb,var(--surface) 94%,transparent)}
   #wx{display:inline-flex!important;padding:0 8px 0 4px!important;height:44px}
   #wx .wx-cond,#wx small{display:none}
   #wx .wxa{width:30px;height:30px}
-  body::before{left:-12vmin}
+  body::before{left:0}
 }
 @media(max-width:420px){ #wx .wx-txt{display:none} #wx{padding:0 6px!important;width:44px;justify-content:center} }
 
@@ -1086,95 +1086,40 @@ html.jr-abierta{overflow:hidden}
 
 
 /* ============================================================
-   Inicio de sesión · con la misma estructura y tonos del CRM
-   Menú lateral, encabezado y columnas como en Negociaciones.
-   Usa las mismas variables del CRM, así claro y oscuro coinciden solos.
+   Inicio de sesión · pantalla de acceso clásica, centrada
+   Usa las variables del CRM: claro y oscuro coinciden solos.
    ============================================================ */
-#login:not(.hidden){display:block!important;padding:0!important;background:transparent!important;background-image:none!important;overflow:hidden auto}
-#la{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:var(--crm-viewport-height,100dvh);width:100%;
-  color:var(--txt);font-family:var(--f-texto)}
-.la-ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-
-/* Menú lateral (igual al del CRM) */
-.la-lado{display:flex;flex-direction:column;background:color-mix(in srgb,var(--surface) 94%,transparent);border-right:1px solid var(--line);min-height:0}
-.la-marca{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:20px 20px 16px;border-bottom:1px solid var(--line-suave)}
-.la-marca .logo-impar{width:132px}
-.la-emp{font-size:var(--fs-xs);color:var(--muted)}
-.la-nav{padding:10px 10px 0;flex:1;overflow:auto}
-.la-grupo{margin:10px 12px 6px;font-size:var(--fs-xs);font-weight:600;color:var(--muted)}
-.la-item{display:flex;align-items:center;gap:12px;min-height:40px;padding:8px 12px;margin:0 0 2px;border-radius:var(--r-sm);
-  color:var(--muted);font-weight:600;font-size:var(--fs-sm)}
-.la-item .la-ic{color:var(--verde-texto);opacity:.85}
-.la-pie{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line-suave);padding:12px 14px 14px}
-.la-pie a{font-size:var(--fs-xs);font-weight:600;color:var(--verde-texto);text-decoration:none}
-.la-tema{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 10px;border-radius:10px;border:1px solid var(--line);
-  background:var(--surface);color:var(--txt);font:600 var(--fs-xs) var(--f-texto);cursor:pointer}
-.la-tema:hover{background:var(--surface2)}
-.la-tema .la-luna,[data-tema="oscuro"] .la-tema .la-sol{display:none}
-[data-tema="oscuro"] .la-tema .la-luna{display:inline}
-
-/* Encabezado (igual a «Negociaciones») */
-.la-main{display:flex;flex-direction:column;min-width:0}
-.la-top{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 20px;border-bottom:1px solid var(--line-suave)}
-.la-titulo{margin:0;flex:1;font:700 var(--fs-xl) var(--f-titulo);color:var(--txt)}
-.la-logo-movil{display:none!important}
-.la-pill{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px;border-radius:10px;background:var(--surface);border:1px solid var(--line);
-  font-size:var(--fs-sm);font-weight:600;color:var(--txt)}
-.la-punto{width:9px;height:9px;border-radius:50%;background:var(--verde)}
-
-/* Columnas como el tablero */
-.la-tablero{flex:1;display:grid;grid-template-columns:minmax(340px,440px) minmax(280px,380px);align-content:start;gap:16px;padding:20px}
-.la-col{background:var(--surface2);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.la-col-h{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
-.la-col-h i{width:9px;height:9px;border-radius:50%;background:var(--c)}
-.la-col-h b{font:700 var(--fs-sm) var(--f-titulo)}
-.la-c-verde{--c:#73BC45}.la-c-ambar{--c:#F2B33D}.la-c-wav{--c:#25A85A}.la-c-ig{--c:#C1358B}.la-c-fb{--c:#2D7FE0}
-
-/* Formulario: mismos campos y botón del CRM */
-.la-form{margin:12px;padding:22px 22px 18px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
-.la-h1{margin:0 0 6px;font:700 22px/1.2 var(--f-titulo);color:var(--txt)}
-.la-sub{margin:0 0 20px;font-size:var(--fs-sm);color:var(--muted)}
-#la .field{margin:0 0 14px}
-#la .field label{display:block;margin:0 0 6px;font-size:var(--fs-xs);font-weight:600;color:var(--muted)}
-#la .field input{width:100%;height:44px;padding:0 12px}
-#la .pass-caja{display:block;position:relative}
-#la .pass-caja input{padding-right:42px}
-#la .pass-ver{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--muted);box-shadow:none}
-#la .pass-mayus{display:flex;gap:6px;align-items:center;margin-top:6px;font-size:var(--fs-xs);color:var(--warn,#B9790A)}
-#la .pass-mayus[hidden]{display:none}
-#la .err{color:var(--bad,#C2412D);font-size:var(--fs-sm)}
-#la #l-btn{width:100%;min-height:44px;margin-top:6px}
-.la-ayuda{margin:14px 0 0;font-size:var(--fs-xs);color:var(--muted)}
-
-/* Tarjetas como las de las negociaciones */
-.la-tarjeta{position:relative;display:flex;flex-direction:column;gap:6px;margin:12px;padding:14px 16px;background:var(--surface);
-  border:1px solid var(--line);border-left:3px solid var(--verde);border-radius:10px}
-.la-tarjeta::after{content:"";position:absolute;top:-1px;right:-1px;width:14px;height:14px;
-  background:linear-gradient(225deg,var(--surface2) 50%,var(--line) 50%);border-bottom-left-radius:3px}
-.la-tarjeta b{font-weight:600;font-size:var(--fs-md)}
-.la-meta{margin:0;font-size:var(--fs-xs);color:var(--muted)}
-.la-sello{color:var(--verde-texto);font-weight:700}
-.la-linea{font-size:var(--fs-sm);color:var(--muted)}
-.la-poster{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface2)}
-.la-canales{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
-.la-canales li{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);font-size:var(--fs-xs);font-weight:600}
-.la-canales i{width:8px;height:8px;border-radius:50%;background:var(--c)}
-.la-frase b{font:700 18px/1.25 var(--f-titulo)}
-
-/* Pantallas medianas: info debajo del acceso */
-@media (max-width:1100px){.la-tablero{grid-template-columns:minmax(0,440px);justify-content:start}}
-/* Celular: como el CRM en el celular, sin menú lateral */
-@media (max-width:860px){
-  #la{grid-template-columns:1fr}
-  .la-lado{display:none}
-  .la-top{padding:8px 12px}
-  .la-logo-movil{display:block!important;width:96px}
-  .la-titulo{font-size:var(--fs-lg)}
-  .la-tablero{grid-template-columns:1fr;padding:12px;gap:12px}
-  .la-form{margin:10px;padding:18px 16px 14px}
-  .la-col-info .la-tarjeta:nth-of-type(2){display:none}
-}
-@media (max-width:380px){.la-pill{display:none}}
-/* El fondo del acceso es el mismo del tablero de Negociaciones */
+#login:not(.hidden){display:grid!important;place-items:center;min-height:var(--crm-viewport-height,100dvh);padding:24px 16px!important;
+  background:transparent!important;background-image:none!important;overflow:auto}
 body:has(#login:not(.hidden)){background-image:var(--fondo-grano);background-size:220px 220px}
-body:has(#login:not(.hidden))::before,body:has(#login:not(.hidden))::after{opacity:.28}
+body:has(#login:not(.hidden))::before{left:0}
+body:has(#login:not(.hidden))::before,body:has(#login:not(.hidden))::after{opacity:.7}
+.lc{width:min(420px,100%);display:flex;flex-direction:column;align-items:stretch;gap:20px;color:var(--txt);font-family:var(--f-texto)}
+.lc-logo{display:flex;justify-content:center}
+.lc-logo .logo-impar{width:170px}
+.lc-tarjeta{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sombra);padding:32px 30px 26px}
+.lc-h1{margin:0 0 6px;text-align:center;font:700 24px/1.2 var(--f-titulo);color:var(--txt)}
+.lc-sub{margin:0 0 24px;text-align:center;font-size:var(--fs-sm);color:var(--muted)}
+#login .field{margin:0 0 16px}
+#login .field label{display:block;margin:0 0 6px;font-size:var(--fs-xs);font-weight:600;color:var(--muted)}
+#login .field input{width:100%;height:46px;padding:0 12px}
+#login .pass-caja{display:block;position:relative}
+#login .pass-caja input{padding-right:42px}
+#login .pass-ver{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--muted);box-shadow:none}
+#login .pass-mayus{display:flex;gap:6px;align-items:center;margin-top:6px;font-size:var(--fs-xs);color:var(--warn,#B9790A)}
+#login .pass-mayus[hidden]{display:none}
+#login .err{color:var(--bad,#C2412D);font-size:var(--fs-sm);text-align:center}
+#login #l-btn{width:100%;min-height:46px;margin-top:8px;font-size:var(--fs-md)}
+.lc-ayuda{margin:18px 0 0;padding-top:16px;border-top:1px solid var(--line-suave);text-align:center;font-size:var(--fs-xs);color:var(--muted)}
+.lc-pie{display:flex;justify-content:center;align-items:center;gap:14px;font-size:var(--fs-xs);color:var(--muted)}
+.lc-pie a{color:var(--verde-texto);font-weight:600;text-decoration:none}
+.lc-tema{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;border-radius:10px;border:1px solid var(--line);
+  background:var(--surface);color:var(--txt);font:600 var(--fs-xs) var(--f-texto);cursor:pointer}
+.lc-tema svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.lc-tema .lc-luna,[data-tema="oscuro"] .lc-tema .lc-sol{display:none}
+[data-tema="oscuro"] .lc-tema .lc-luna{display:inline}
+@media (max-width:480px){
+  .lc{gap:16px}.lc-logo .logo-impar{width:140px}
+  .lc-tarjeta{padding:24px 18px 20px}
+  .lc-h1{font-size:22px}
+}

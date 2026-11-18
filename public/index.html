@@ -34,7 +34,7 @@
 <link rel="stylesheet" href="/campanas.css?v=20261109-fb">
 <link rel="stylesheet" href="/videoteca.css?v=20261112-2">
 <link rel="stylesheet" href="/llamadas.css?v=20261112-2">
-<link rel="stylesheet" href="/impar-diseno.css?v=20261117-inicio-crm">
+<link rel="stylesheet" href="/impar-diseno.css?v=20261117-inicio-clasico">
 </head>
 <body>
 <div id="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -42,61 +42,24 @@
 <div id="inicio-estado" role="status" aria-live="polite"><div class="inicio-logo"><span class="logo-impar" role="img" aria-label="IMPAR"><img src="/assets/impar-logo-color.png" alt="" width="678" height="302" decoding="async"><i class="logo-tinta" aria-hidden="true"></i></span></div><p id="inicio-mensaje">Restableciendo tu sesión de IMPAR…</p><button id="inicio-reintentar" class="btn sm hidden">Reintentar conexión</button><button id="inicio-salir" class="btn ghost sm hidden">Cambiar usuario</button></div>
 
 <div id="login">
-  <div id="la">
-    <aside class="la-lado">
-      <div class="la-marca">
-        <span class="logo-impar" role="img" aria-label="IMPAR — Expertos en papel. Papeles e Insumos Gráficos"><img src="/assets/impar-logo-color.png" alt="" width="678" height="302" decoding="async"><i class="logo-tinta" aria-hidden="true"></i></span>
-        <span class="la-emp">Espacio de trabajo</span>
-      </div>
-      <nav class="la-nav" aria-label="Sucursales de IMPAR">
-        <p class="la-grupo">Sucursales</p>
-        <span class="la-item"><svg class="la-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/></svg>Matriz</span><span class="la-item"><svg class="la-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/></svg>Barrio Obrero</span><span class="la-item"><svg class="la-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/></svg>Lambaré</span><span class="la-item"><svg class="la-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/></svg>Madame Lynch</span><span class="la-item"><svg class="la-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/></svg>Encarnación</span><span class="la-item"><svg class="la-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/></svg>Ciudad del Este</span><span class="la-item"><svg class="la-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/></svg>Pedro Juan Caballero</span>
-      </nav>
-      <div class="la-pie">
-        <button type="button" class="la-tema" id="l-tema" aria-label="Cambiar tema claro u oscuro"><svg class="la-ic" viewBox="0 0 24 24" aria-hidden="true"><circle class="la-sol" cx="12" cy="12" r="4"/><path class="la-sol" d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/><path class="la-luna" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Tema</span></button>
-        <a href="https://www.impar-papeles.com.py" target="_blank" rel="noopener">Conocé IMPAR ↗</a>
-      </div>
-    </aside>
-    <main class="la-main">
-      <header class="la-top">
-        <span class="logo-impar la-logo-movil" aria-hidden="true"><img src="/assets/impar-logo-color.png" alt="" width="678" height="302" decoding="async"><i class="logo-tinta"></i></span>
-        <h2 class="la-titulo">Ingresar</h2>
-        <span class="la-pill" id="l-saludo"><i class="la-punto"></i><span>Hola</span></span>
-      </header>
-      <div class="la-tablero">
-        <section class="la-col la-col-acceso">
-          <div class="la-col-h"><i class="la-c-verde"></i><b>Acceso al CRM</b></div>
-          <form class="la-form" id="form-login">
-            <h1 class="la-h1">Ingresá a tu cuenta</h1>
-            <p class="la-sub">Usá el usuario y la contraseña que te dio tu administrador.</p>
-            <div class="field"><label for="l-usr">Usuario</label>
-              <input id="l-usr" placeholder="usuario" autocomplete="username" required></div>
-            <div class="field"><label for="l-pwd">Contraseña</label>
-              <input id="l-pwd" type="password" placeholder="••••••••" autocomplete="current-password" required></div>
-            <div class="err" id="l-err" role="alert"></div>
-            <button class="btn block" type="submit" id="l-btn">Ingresar</button>
-            <p class="la-ayuda">¿Problemas para ingresar? Hablá con tu administrador.</p>
-          </form>
-        </section>
-        <section class="la-col la-col-info">
-          <div class="la-col-h"><i class="la-c-ambar"></i><b>Hoy en IMPAR</b></div>
-          <article class="la-tarjeta">
-            <p class="la-meta"><span class="la-sello">◆ IMPAR</span> · Novedades en video</p>
-            <img class="la-poster" src="/videos/2026-11-redes-a-whatsapp.jpg" alt="" loading="lazy" decoding="async">
-            <b>Instagram y Messenger en el CRM</b>
-            <span class="la-linea">Mirá cómo llegan los mensajes de redes al tablero.</span>
-          </article>
-          <article class="la-tarjeta">
-            <p class="la-meta"><span class="la-sello">◆ IMPAR</span> · Canales conectados</p>
-            <ul class="la-canales"><li><i class="la-c-wav"></i>WhatsApp verificado</li><li><i class="la-c-verde"></i>WhatsApp normal</li><li><i class="la-c-ig"></i>Instagram</li><li><i class="la-c-fb"></i>Messenger</li></ul>
-          </article>
-          <article class="la-tarjeta la-frase">
-            <b>Cada contacto, una nueva oportunidad.</b>
-            <span class="la-linea">Clientes, conversaciones y ventas de todas las sucursales, en un mismo lugar.</span>
-          </article>
-        </section>
-      </div>
-    </main>
+  <div class="lc">
+    <div class="lc-logo"><span class="logo-impar" role="img" aria-label="IMPAR — Expertos en papel. Papeles e Insumos Gráficos"><img src="/assets/impar-logo-color.png" alt="" width="678" height="302" decoding="async"><i class="logo-tinta" aria-hidden="true"></i></span></div>
+    <form class="lc-tarjeta" id="form-login">
+      <h1 class="lc-h1">Iniciar sesión</h1>
+      <p class="lc-sub">Ingresá con el usuario y la contraseña que te dio tu administrador.</p>
+      <div class="field"><label for="l-usr">Usuario</label>
+        <input id="l-usr" placeholder="usuario" autocomplete="username" required></div>
+      <div class="field"><label for="l-pwd">Contraseña</label>
+        <input id="l-pwd" type="password" placeholder="••••••••" autocomplete="current-password" required></div>
+      <div class="err" id="l-err" role="alert"></div>
+      <button class="btn block" type="submit" id="l-btn">Ingresar</button>
+      <p class="lc-ayuda">¿Problemas para ingresar? Hablá con tu administrador.</p>
+    </form>
+    <div class="lc-pie">
+      <button type="button" class="lc-tema" id="l-tema" aria-label="Cambiar tema claro u oscuro"><svg viewBox="0 0 24 24" aria-hidden="true"><circle class="lc-sol" cx="12" cy="12" r="4"/><path class="lc-sol" d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/><path class="lc-luna" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>Tema</button>
+      <span>© <span id="l-anio">2026</span> Papelerías IMPAR</span>
+      <a href="https://www.impar-papeles.com.py" target="_blank" rel="noopener">Conocé IMPAR ↗</a>
+    </div>
   </div>
 </div>
 
@@ -135,7 +98,7 @@
 <div id="modals"></div>
 <div id="confeti" class="hidden"></div>
 
-<script src="/js/app.js?v=impar-busqueda-principal-20261019-3-enlaces-20261019-ruta-pn-lid-20261026-cloud-api-20261027-soporte-20261111-colores-calendario-20261116-sucursales-inicio-crm-20261117" type="module"></script>
+<script src="/js/app.js?v=impar-busqueda-principal-20261019-3-enlaces-20261019-ruta-pn-lid-20261026-cloud-api-20261027-soporte-20261111-colores-calendario-20261116-sucursales-inicio-clasico-20261117" type="module"></script>
 </body>
 </html>
 

@@ -1,11 +1,10 @@
-/* IMPAR · Inicio de sesión con la estructura del CRM: saludo según la hora y botón de tema
+/* IMPAR · Inicio de sesión clásico: año del pie y botón de tema
    (el mismo tema que después usa el CRM). */
 import { S, aplicarTema } from './core.js';
-import { saludoHora } from './clima-animado.js';
 
-export function iniciarInicioCRM() {
-  const saludo = document.querySelector('#l-saludo span');
-  if (saludo) saludo.textContent = saludoHora();
+export function iniciarInicioAcceso() {
+  const anio = document.getElementById('l-anio');
+  if (anio) anio.textContent = String(new Date().getFullYear());
   const tema = document.getElementById('l-tema');
   if (tema) tema.onclick = () => {
     S.tema = S.tema === 'oscuro' ? 'claro' : 'oscuro';
