@@ -201,7 +201,7 @@ export async function eventoPasarela(p, ev = {}) {
 /* ---------- acciones del probador ---------- */
 async function preparar(empresaId, user) {
   const cfg = await configLlamadas(empresaId);
-  if (!cfg.activo || !esProbador(cfg, user)) throw err(403, 'Las llamadas no están habilitadas para tu usuario.');
+  if (!esProbador(cfg, user)) throw err(403, 'La línea telefónica no está habilitada para tu usuario.');
   const p = await pasarelaDe(empresaId);
   if (!p?.activo) throw err(409, 'No hay una pasarela telefónica configurada.');
   if (!conexiones.get(p.id)) throw err(409, 'La pasarela telefónica no está conectada. Revisá que la computadora de la sucursal esté encendida y con internet.');

@@ -78,7 +78,12 @@ r.post('/boton-prueba', enviar(async req => {
 
 /* ---------- Pasarela telefónica (celular + Bluetooth) ---------- */
 r.post('/tel/token', enviar(async req => {
-  const cfg = await soloProbador(req); if (!cfg.activo) throw Object.assign(new Error('Activá primero las llamadas en modo prueba.'), { status: 409 });
+  // La línea telefónica se prueba aparte de las llamadas de WhatsApp: quien genera el token queda como probador.
+  const cfg = await soloProbador(req);
+  if (!(cfg.probadores || []).includes(req.user.id)) {
+    await q(`INSERT INTO llamadas_wa_config_impar(empresa_id,activo,probadores,actualizado) VALUES($1,false,ARRAY[$2]::uuid[],now())
+             ON CONFLICT(empresa_id) DO UPDATE SET probadores=array_append(COALESCE(llamadas_wa_config_impar.probadores,'{}'),$2::uuid),actualizado=now()`, [req.empresaId, req.user.id]);
+  }
   const token = await generarToken(req.empresaId, { nombre: req.body?.nombre, sucursal: req.body?.sucursal });
   auditar(req.empresaId, req.user.usuario, 'pasarela:token', 'Token de la pasarela telefónica generado', req.ip).catch(() => {});
   return { token };

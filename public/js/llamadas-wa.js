@@ -26,6 +26,8 @@ export async function iniciarLlamadas() {
   window.addEventListener('impar:ficha-lista', e => botonFicha(e.detail || {}));
 }
 const habilitado = () => !!(estado?.visible && estado.activo && estado.probador);
+/** La línea telefónica (pasarela) se prueba aparte de las llamadas de WhatsApp. */
+const telHabilitado = () => !!(estado?.visible && estado.probador && estado.pasarela);
 
 function crearBotonCabecera() {
   if ($('#ll-btn')) return;
@@ -39,7 +41,7 @@ function crearBotonCabecera() {
   b.addEventListener('click', abrirPanel);
   pintarBoton();
 }
-function pintarBoton() { $('#ll-btn')?.classList.toggle('activo', habilitado()); }
+function pintarBoton() { $('#ll-btn')?.classList.toggle('activo', habilitado() || (telHabilitado() && pasarelaLista())); }
 
 /* ---------- panel de prueba ---------- */
 const NIVEL = { TIER_50: 50, TIER_250: 250, TIER_1K: 1000, TIER_2K: 2000, TIER_10K: 10000, TIER_100K: 100000, TIER_UNLIMITED: Infinity };
@@ -74,10 +76,10 @@ async function abrirPanel() {
      ${estado.canales?.length > 1 && !estado.activo ? `<label class="ll-campo">Línea para llamadas<select id="ll-canal">${estado.canales.map(c => `<option value="${esc(c.id)}" ${c.id === estado.canal_id ? 'selected' : ''}>${esc(c.nombre || c.phone_number_id)}</option>`).join('')}</select></label>` : ''}
      ${m.error || m.ajustesError ? `<p class="ll-aviso bad">${esc(m.error || m.ajustesError)}</p>` : ''}
      ${nivel !== null && nivel < 2000 ? `<p class="ll-aviso">Meta pide que la línea tenga un límite de al menos 2.000 contactos por día para llamar a clientes. Esta línea tiene ${num.nivel === 'TIER_1K' ? '1.000' : esc(String(nivel))}. Las llamadas que el cliente inicia desde el botón igual se pueden probar.</p>` : ''}
-     <div class="ll-prueba-caja" ${estado.activo ? '' : 'hidden'}>
-       <h3>Probar con tu propio WhatsApp</h3>
+     <div class="ll-prueba-caja">
+       <h3>${estado.activo ? 'Probar con tu propio WhatsApp o teléfono' : 'Probar la línea telefónica'}</h3>
        <label class="ll-campo">Número de prueba (con 595)<input id="ll-num" inputmode="tel" placeholder="595981123456" autocomplete="off"></label>
-       <div class="ll-pasos">
+       <div class="ll-pasos" ${estado.activo ? '' : 'hidden'}>
          <button type="button" class="ll-paso" data-acc="boton"><b>Recibir una llamada</b><small>Te enviamos un botón «Llamar a IMPAR». Al tocarlo, la llamada suena acá.</small></button>
          <button type="button" class="ll-paso" data-acc="permiso"><b>Pedir permiso para llamarte</b><small>WhatsApp exige que el cliente acepte antes de recibir llamadas de la empresa.</small></button>
          <button type="button" class="ll-paso" data-acc="verificar"><b>Ver si ya diste permiso</b><small>Consulta el permiso vigente en Meta.</small></button>
@@ -85,7 +87,7 @@ async function abrirPanel() {
        </div>
        <p class="ll-res" id="ll-res" role="status"></p>
      </div>
-     ${estado.activo ? seccionPasarela() : ''}
+     ${seccionPasarela()}
      <div class="ll-hist"><h3>Últimas llamadas</h3>${hist.length ? `<ul>${hist.map(h => `<li><span class="ll-dir ${h.direccion}">${h.direccion === 'entrante' ? '↙' : '↗'}</span>
        <span><b>${esc(h.cliente || telVisible(h.telefono))}</b><small>${h.medio === 'telefono' ? 'Teléfono' : 'WhatsApp'} · ${esc(new Date(h.creado).toLocaleString('es-PY', { dateStyle: 'short', timeStyle: 'short' }))} · ${esc(etiquetaEstado(h.estado))}${h.duracion ? ' · ' + fmt(h.duracion) : ''}</small></span></li>`).join('')}</ul>` : '<p class="ll-vacio">Todavía no hay llamadas.</p>'}</div>
     </div>
@@ -169,26 +171,25 @@ async function accionPrueba(acc, b) {
 
 /* ---------- botón en la ficha ---------- */
 function botonFicha({ id, tel, cliente }) {
-  if (!habilitado() || !dig(tel)) return;
+  if ((!habilitado() && !telHabilitado()) || !dig(tel)) return;
   const acc = document.querySelector('.ficha-acciones'); if (!acc || acc.querySelector('.ll-ficha')) return;
-  const b = document.createElement('button');
-  b.type = 'button'; b.className = 'btn ghost sm ll-ficha';
-  b.title = 'Llamar por WhatsApp (prueba, solo visible para vos)';
-  b.innerHTML = `${IC.tel}<span class="ficha-acc-t">Llamar</span>`;
-  b.addEventListener('click', () => {
-    const elegido = dig(document.querySelector('#f-telefono-chat')?.value);
-    llamar(elegido.length >= 10 ? elegido : dig(tel), id, cliente);
-  });
-  acc.prepend(b);
-  const t = document.createElement('button');
-  t.type = 'button'; t.className = 'btn ghost sm ll-ficha ll-ficha-tel'; t.hidden = !pasarelaLista();
-  t.title = 'Llamar por la línea telefónica (prueba, solo visible para vos)';
-  t.innerHTML = `${IC.tel}<span class="ficha-acc-t">Teléfono</span>`;
-  t.addEventListener('click', () => {
-    const elegido = dig(document.querySelector('#f-telefono-chat')?.value);
-    llamarTel(elegido.length >= 9 ? elegido : dig(tel), id, cliente);
-  });
-  b.after(t);
+  const elegido = minimo => { const v = dig(document.querySelector('#f-telefono-chat')?.value); return v.length >= minimo ? v : dig(tel); };
+  if (habilitado()) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn ghost sm ll-ficha';
+    b.title = 'Llamar por WhatsApp (prueba, solo visible para vos)';
+    b.innerHTML = `${IC.tel}<span class="ficha-acc-t">Llamar</span>`;
+    b.addEventListener('click', () => llamar(elegido(10), id, cliente));
+    acc.prepend(b);
+  }
+  if (telHabilitado()) {
+    const t = document.createElement('button');
+    t.type = 'button'; t.className = 'btn ghost sm ll-ficha ll-ficha-tel'; t.hidden = !pasarelaLista();
+    t.title = 'Llamar por la línea telefónica (prueba, solo visible para vos)';
+    t.innerHTML = `${IC.tel}<span class="ficha-acc-t">Teléfono</span>`;
+    t.addEventListener('click', () => llamarTel(elegido(9), id, cliente));
+    const wa = acc.querySelector('.ll-ficha'); wa ? wa.after(t) : acc.prepend(t);
+  }
 }
 
 /* ---------- WebRTC ---------- */
@@ -244,7 +245,7 @@ async function llamar(tel, negId, nombre) {
   }
 }
 async function llamarTel(tel, negId, nombre) {
-  if (!habilitado()) { toast('Las llamadas no están activas.', 'bad'); return; }
+  if (!telHabilitado()) { toast('La línea telefónica no está configurada.', 'bad'); return; }
   if (actual) { toast('Ya hay una llamada en curso.', 'bad'); return; }
   if (!pasarelaLista()) { toast('La pasarela telefónica no está lista: revisá la computadora y el celular de la sucursal.', 'bad'); return; }
   actual = { medio: 'telefono', direccion: 'saliente', telefono: tel, nombre, estado: 'preparando' };
@@ -323,7 +324,7 @@ function silenciar() {
 
 /* ---------- eventos del servidor ---------- */
 async function recibirEvento(ev) {
-  if (!habilitado()) return;
+  if (ev.medio === 'telefono' ? !(estado?.visible && estado.probador) : !habilitado()) return;
   if (ev.medio === 'telefono') {
     if (ev.tipo === 'pasarela') { estado.pasarela = { ...(estado.pasarela || {}), ...ev }; refrescarPasarela(); return; }
     if (ev.tipo === 'entrante') {
