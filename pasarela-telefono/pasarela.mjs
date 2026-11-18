@@ -15,7 +15,7 @@ import { PuenteAudio, dispositivosTono, lanzarTono } from './lib/audio.mjs';
 import { PuenteSIP } from './lib/rtp.mjs';
 import { CRM } from './lib/crm.mjs';
 
-const VERSION = '0.2.0';
+const VERSION = '0.2.1';
 const aqui = dirname(fileURLToPath(import.meta.url));
 // Configuración: variables de entorno o el archivo pasarela.env junto al programa.
 const archivo = join(aqui, 'pasarela.env');
@@ -33,7 +33,7 @@ const e = process.env;
 const tel = CENTRAL
   ? new (await import('./lib/sip.mjs')).TelefoniaSIP({ servidor: e.SIP_SERVIDOR, puerto: e.SIP_PUERTO, usuario: e.SIP_USUARIO, clave: e.SIP_CLAVE,
       dominio: e.SIP_DOMINIO, puertoLocal: e.SIP_PUERTO_LOCAL, ipPublica: e.SIP_IP_PUBLICA, rtpDesde: e.RTP_PUERTO_DESDE, rtpHasta: e.RTP_PUERTO_HASTA,
-      prefijoSalida: e.SIP_PREFIJO_SALIDA, prefijoInternacional: e.SIP_PREFIJO_INTERNACIONAL })
+      prefijoSalida: e.SIP_PREFIJO_SALIDA, prefijoInternacional: e.SIP_PREFIJO_INTERNACIONAL, formato: e.SIP_FORMATO_NUMERO })
   : new (await import('./lib/telefonia.mjs')).Telefonia();
 const llamadas = new Map();   // call_id → { ref, direccion, puente, atenderCRM }
 const porRef = new Map();     // ruta D-Bus → call_id
@@ -99,7 +99,7 @@ async function comando(c) {
     if (c.accion === 'llamar') {
       if (marcando || [...llamadas.values()].some(x => x.puente)) throw new Error(CENTRAL ? 'Ya hay una llamada en curso en el interno.' : 'Ya hay una llamada en curso en el celular.');
       llamadas.set(id, { direccion: 'saliente' }); marcando = id;
-      log('Marcando un número pedido por el CRM.');
+      log(CENTRAL ? `Marcando un número pedido por el CRM (formato ${tel.prefijos.formato}${tel.prefijos.prefijoSalida ? ', prefijo de salida' : ''}).` : 'Marcando un número pedido por el CRM.');
       await tel.marcar(String(c.numero || ''));
       setTimeout(() => { if (marcando === id) { marcando = null; enviar({ tipo: 'error', call_id: id, mensaje: CENTRAL ? 'La central no inició la llamada.' : 'El celular no inició la llamada.' }); terminar(id); } }, 15000);
     } else if (c.accion === 'atender' && ll?.ref) { ll.atenderCRM = true; await tel.atender(ll.ref); }

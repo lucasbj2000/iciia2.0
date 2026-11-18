@@ -22,6 +22,12 @@ assert.ok(d.includes('response="6629fae49393a05397450978507c4ef1"'), d);
 assert.equal(numeroCentral('+595981000333'), '0981000333');
 assert.equal(numeroCentral('+5491122334455'), '005491122334455');
 assert.equal(numeroCentral('+595981000333', { prefijoSalida: '9' }), '90981000333');
+assert.equal(numeroCentral('+595981000333', { formato: 'nacional' }), '981000333');
+assert.equal(numeroCentral('+595981000333', { formato: 'internacional' }), '595981000333');
+assert.equal(numeroCentral('+595981000333', { formato: 'mas' }), '+595981000333');
+assert.equal(numeroCentral('+595981000333', { formato: '00' }), '00595981000333');
+assert.equal(numeroCentral('+595981000333', { formato: 'raro' }), '0981000333');
+assert.equal(numeroCentral('802', { formato: 'internacional' }), '802');
 // Mensajes y SDP
 const m = analizar('SIP/2.0 200 OK\r\nv: SIP/2.0/UDP 1.2.3.4:5062;branch=z9hG4bKa;received=5.6.7.8;rport=4000\r\ni: abc\r\nCSeq: 1 REGISTER\r\n\r\n');
 assert.equal(m.codigo, 200); assert.equal(m.h['call-id'][0], 'abc');

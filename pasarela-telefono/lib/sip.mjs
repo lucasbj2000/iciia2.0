@@ -70,10 +70,17 @@ export function leerSDP(texto) {
 }
 
 /** Número que manda el CRM («+595981…») → lo que marca la central. */
-export function numeroCentral(n, { prefijoSalida = '', prefijoInternacional = '00' } = {}) {
+/** Formatos para números de Paraguay: local 0981123456 · nacional 981123456 · internacional 595981123456 · mas +595981123456 · 00 00595981123456 */
+export const FORMATOS = ['local', 'nacional', 'internacional', 'mas', '00'];
+export function numeroCentral(n, { prefijoSalida = '', prefijoInternacional = '00', formato = 'local' } = {}) {
   const s = String(n || '').trim(); const d = s.replace(/\D/g, '');
   let r = d;
-  if (s.startsWith('+')) r = d.startsWith('595') ? '0' + d.slice(3) : prefijoInternacional + d;
+  if (s.startsWith('+')) {
+    if (d.startsWith('595')) {
+      const resto = d.slice(3);
+      r = { nacional: resto, internacional: '595' + resto, mas: '+595' + resto, '00': '00595' + resto }[formato] ?? '0' + resto;
+    } else r = formato === 'mas' ? '+' + d : prefijoInternacional + d;
+  }
   return prefijoSalida + r;
 }
 
@@ -89,7 +96,7 @@ export class TelefoniaSIP extends EventEmitter {
     this.dominio = c.dominio || this.servidor; this.puertoLocal = +(c.puertoLocal || 5062);
     this.ip = c.ipPublica || ipLocal(); this.puertoContacto = this.puertoLocal;
     this.rtpDesde = +(c.rtpDesde || 40000); this.rtpHasta = +(c.rtpHasta || 40100);
-    this.prefijos = { prefijoSalida: c.prefijoSalida || '', prefijoInternacional: c.prefijoInternacional || '00' };
+    this.prefijos = { prefijoSalida: c.prefijoSalida || '', prefijoInternacional: c.prefijoInternacional || '00', formato: FORMATOS.includes(String(c.formato || '').toLowerCase()) ? String(c.formato).toLowerCase() : 'local' };
     this.expira = +(c.expira || 300);
     this.ag = null; // «registrado» (mismo nombre que la telefonía por Bluetooth)
     this.trans = new Map(); this.llamadas = new Map(); this.cseqReg = 0; this.callIdReg = azar(12) + '@impar';

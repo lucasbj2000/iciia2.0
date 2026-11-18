@@ -19,7 +19,7 @@ Tiene dos modos:
 6. **Dejarla funcionando:** `pm2 start /opt/iciia-crm/pasarela-telefono/pasarela.mjs --name pasarela-central --cwd /opt/iciia-crm/pasarela-telefono && pm2 save`
 
 Un interno atiende una llamada a la vez. Los números se marcan en formato local (0981…);
-`SIP_PREFIJO_SALIDA` agrega un prefijo si la central lo pide.
+`SIP_PREFIJO_SALIDA` agrega un prefijo si la central lo pide. `SIP_FORMATO_NUMERO` elige cómo se marcan los celulares de Paraguay (`local` 0981…, `nacional` 981…, `internacional` 595…, `mas` +595…, `00` 00595…); si la central responde 404, probá otro.
 
 ## Modo Bluetooth
 
