@@ -30,6 +30,7 @@ export function normalizarNumero(n) {
   if (d.startsWith('00')) return d.slice(2);
   if (d.startsWith('595')) return d;
   if (d.startsWith('0') && d.length >= 9) return '595' + d.slice(1);
+  if (/^9\d{8}$/.test(d)) return '595' + d; // celular escrito sin 0: 981123456
   return d;
 }
 /** Lo que se le pasa al celular para marcar: internacional con «+» si es de Paraguay u otro país con código. */

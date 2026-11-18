@@ -8,6 +8,8 @@ let pc = null, micro = null, actual = null, cronometro = null, tono = null, sile
 const respuestasPendientes = new Map();
 const ICE = [{ urls: 'stun:stun.l.google.com:19302' }];
 const dig = v => String(v || '').replace(/\D/g, '');
+/** Celular de Paraguay en dígitos con 595: acepta 595981…, 0981… o 981… */
+const numPY = v => { const d = dig(v).replace(/^00/, ''); return /^0\d{9}$/.test(d) ? '595' + d.slice(1) : /^9\d{8}$/.test(d) ? '595' + d : d; };
 const telVisible = t => { const d = dig(t); return d.startsWith('595') ? '+595 ' + d.slice(3, 6) + ' ' + d.slice(6, 9) + ' ' + d.slice(9) : '+' + d; };
 const IC = {
   tel: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
@@ -155,9 +157,9 @@ function refrescarPasarela() {
   document.querySelectorAll('.ll-ficha-tel').forEach(b => { b.hidden = !pasarelaLista(); });
 }
 async function accionPrueba(acc, b) {
-  const tel = dig($('#ll-num')?.value);
+  const tel = numPY($('#ll-num')?.value);
   const res = $('#ll-res');
-  if (tel.length < 10) { res.textContent = 'Escribí tu número con código de país, por ejemplo 595981123456.'; $('#ll-num')?.focus(); return; }
+  if (tel.length < 11 && !(acc === 'llamar-tel' && /^\d{2,6}$/.test(tel))) { res.textContent = 'Escribí el celular completo, por ejemplo 0981123456 o 595981123456 (o un interno para la línea telefónica).'; $('#ll-num')?.focus(); return; }
   b.disabled = true; res.textContent = 'Procesando…';
   try {
     if (acc === 'boton') { await post('/llamadas/boton-prueba', { tel }); res.textContent = 'Listo. Abrí WhatsApp en tu celular y tocá «Llamar a IMPAR». La llamada va a sonar en esta pantalla.'; }
