@@ -116,18 +116,21 @@ function estadoPasarelaTexto() {
   const p = estado?.pasarela;
   if (!p) return { clase: '', titulo: 'Sin configurar', detalle: 'Generá un token e instalá la pasarela en la computadora de la sucursal.' };
   if (!p.conectada) return { clase: '', titulo: 'Desconectada', detalle: p.ultimo_contacto ? 'Último contacto: ' + new Date(p.ultimo_contacto).toLocaleString('es-PY', { dateStyle: 'short', timeStyle: 'short' }) : 'Todavía no se conectó nunca.' };
-  if (!p.celular) return { clase: 'medio', titulo: 'Conectada, sin celular', detalle: 'La computadora está en línea pero no ve ningún celular por Bluetooth.' };
-  return { clase: 'on', titulo: 'Lista para llamar', detalle: `Celular conectado por Bluetooth${p.version ? ' · versión ' + esc(p.version) : ''}` };
+  const central = /^Central /.test(p.nombre_celular || '');
+  if (!p.celular) return central
+    ? { clase: 'medio', titulo: 'Conectada, sin registrar en la central', detalle: 'La pasarela está en línea pero la central no aceptó el interno. Revisá usuario, contraseña y puertos.' }
+    : { clase: 'medio', titulo: 'Conectada, sin celular', detalle: 'La computadora está en línea pero no ve ningún celular por Bluetooth.' };
+  return { clase: 'on', titulo: 'Lista para llamar', detalle: `${central ? esc(p.nombre_celular) : 'Celular conectado por Bluetooth'}${p.version ? ' · versión ' + esc(p.version) : ''}` };
 }
 function seccionPasarela() {
   const e = estadoPasarelaTexto(), p = estado.pasarela;
   return `<div class="ll-pasarela" id="ll-pasarela">
-    <h3>Línea telefónica (pasarela por Bluetooth)</h3>
+    <h3>Línea telefónica (pasarela)</h3>
     <div class="ll-estado ${e.clase}"><span class="ll-luz"></span><div><b>${e.titulo}</b><small>${e.detalle}</small></div>
       <button type="button" class="btn ghost sm" id="ll-token">${p ? 'Cambiar token' : 'Generar token'}</button></div>
     <div id="ll-token-caja" hidden></div>
     ${p ? `<label class="ll-check"><input type="checkbox" id="ll-crear" ${p.crear_negociacion ? 'checked' : ''}> Crear la negociación cuando llama un número nuevo (queda a tu nombre mientras sea una prueba)</label>` : ''}
-    <div class="ll-pasos uno"><button type="button" class="ll-paso llamar tel" data-acc="llamar-tel" ${pasarelaLista() ? '' : 'disabled'}><b>${IC.tel} Llamar por teléfono</b><small>Usa el chip del celular de la sucursal y el número escrito arriba.</small></button></div>
+    <div class="ll-pasos uno"><button type="button" class="ll-paso llamar tel" data-acc="llamar-tel" ${pasarelaLista() ? '' : 'disabled'}><b>${IC.tel} Llamar por teléfono</b><small>Usa la línea de la pasarela (central o celular) y el número escrito arriba.</small></button></div>
   </div>`;
 }
 function conectarPasarela(d) {

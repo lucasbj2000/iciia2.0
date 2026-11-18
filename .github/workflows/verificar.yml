@@ -37,6 +37,8 @@ jobs:
         run: node scripts/test-inicio-acceso-impar.mjs
       - name: Programa de la pasarela telefónica
         run: node scripts/test-pasarela-programa.mjs
+      - name: Pasarela telefónica con central IP (SIP)
+        run: node scripts/test-pasarela-central.mjs
       - name: Pruebas de horarios y aviso de salida
         run: node scripts/test-horarios.mjs
       - name: Pruebas de login y recuperación de interfaz

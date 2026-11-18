@@ -1,5 +1,28 @@
 # Pasarela telefónica IMPAR
 
+Tiene dos modos:
+
+- **Central IP** (`PASARELA_MODO=central`): corre en el servidor del CRM y se registra como un
+  interno de la central de la empresa (por ejemplo, el Grandstream GCC6010W). Ver «Modo central».
+- **Bluetooth** (predeterminado): una computadora de la sucursal emparejada con un celular con chip.
+
+## Modo central (servidor del CRM)
+
+1. **En la central:** el interno (por ejemplo 801) tiene que existir, y las llamadas entrantes que
+   querés atender desde el CRM tienen que sonar en ese interno (ruta entrante o grupo de timbrado).
+   Conviene permitir el puerto SIP solo desde la IP del servidor del CRM.
+2. **Token:** en el CRM, «Llamadas · Prueba» → «Pasarela telefónica» → «Generar token».
+3. **Instalar en el servidor:** `bash /opt/iciia-crm/pasarela-telefono/instalar-central.sh`
+4. **Completar** `pasarela.env`: `PASARELA_TOKEN` y `SIP_CLAVE` (la contraseña del interno).
+5. **Probar:** `cd /opt/iciia-crm/pasarela-telefono && node pasarela.mjs --probar`
+   Tiene que decir «Central: registrada como interno 801» y «CRM: conexión y token correctos».
+6. **Dejarla funcionando:** `pm2 start /opt/iciia-crm/pasarela-telefono/pasarela.mjs --name pasarela-central --cwd /opt/iciia-crm/pasarela-telefono && pm2 save`
+
+Un interno atiende una llamada a la vez. Los números se marcan en formato local (0981…);
+`SIP_PREFIJO_SALIDA` agrega un prefijo si la central lo pide.
+
+## Modo Bluetooth
+
 Conecta un celular con chip de IMPAR al CRM. La computadora de la sucursal se empareja por
 Bluetooth con el celular, como si fuera el manos libres de un auto. Así el CRM puede:
 
