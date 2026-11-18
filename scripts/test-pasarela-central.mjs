@@ -72,6 +72,11 @@ try {
   await t.cortar(ref2); await espera(1800);
   assert.equal((await ctl('/estado')).llamada, null, 'La central recibió el CANCEL');
   assert.ok(ev.some(e => e[0] === 'fin' && e[1].ref === ref2));
+  // Formato «mas»: el número sale con + y la central lo recibe
+  t.prefijos.formato = 'mas';
+  const ref3 = await t.marcar('+595981000555'); await espera(2200);
+  assert.equal((await ctl('/estado')).marcado, '+595981000555');
+  await t.cortar(ref3); await espera(400);
   t.detener();
 } finally { central.kill(); }
 console.log('✔ Pasarela central: G.711, Digest, registro, llamadas entrantes y salientes, cortes y CANCEL.');

@@ -256,7 +256,7 @@ export class TelefoniaSIP extends EventEmitter {
     await this.abrir();
     if (!this.ag) throw new Error('La pasarela no está registrada en la central.');
     const destino = numeroCentral(numero, this.prefijos);
-    if (!/^\d{3,20}$/.test(destino)) throw new Error('Número inválido para la central.');
+    if (!/^\+?\d{3,20}$/.test(destino)) throw new Error('Número inválido para la central.');
     const id = azar(12) + '@impar';
     const ll = { id, direccion: 'saliente', tagLocal: azar(6), cseq: 1, uri: `sip:${destino}@${this.dominio}` };
     ll.desde = `<sip:${this.usuario}@${this.dominio}>;tag=${ll.tagLocal}`; ll.hacia = `<${ll.uri}>`;

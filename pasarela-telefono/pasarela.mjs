@@ -15,7 +15,7 @@ import { PuenteAudio, dispositivosTono, lanzarTono } from './lib/audio.mjs';
 import { PuenteSIP } from './lib/rtp.mjs';
 import { CRM } from './lib/crm.mjs';
 
-const VERSION = '0.2.1';
+const VERSION = '0.2.2';
 const aqui = dirname(fileURLToPath(import.meta.url));
 // Configuración: variables de entorno o el archivo pasarela.env junto al programa.
 const archivo = join(aqui, 'pasarela.env');
