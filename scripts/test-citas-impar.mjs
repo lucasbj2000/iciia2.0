@@ -1,4 +1,5 @@
 /** IMPAR · Respuestas citadas: cliente → CRM y CRM → cliente. Datos ficticios, sin red ni sesión real. */
+import { esBSUID, AVISO_SIN_NUMERO } from '../src/whatsapp-bsuid-impar.mjs';
 import assert from 'node:assert/strict';
 import { contenidoBaileys } from '../src/contenido-whatsapp-impar.mjs';
 import { readFileSync } from 'node:fs';
@@ -75,7 +76,7 @@ const tramo = (src, desde, hasta) => {
   const meta = leer('src/channels/meta.mjs');
   const fuente = tramo(meta, 'export async function enviarWhatsAppAPI(', 'export async function enviarMeta(').replace(/^export /, '');
   const cuerpos = [];
-  const ctx = vm.createContext({ contenidoBaileys, process, JSON, String, Error, WA_API: 'https://graph.test',
+  const ctx = vm.createContext({ contenidoBaileys, process, JSON, String, Error, esBSUID, WA_API: 'https://graph.test',
     resolverToken: () => 'token', urlPublica: u => 'https://crm.test' + u,
     fetch: async (_u, o) => { cuerpos.push(JSON.parse(o.body)); return { ok: true, json: async () => ({ messages: [{ id: 'wamid.X' }] }) }; } });
   vm.runInContext(fuente + ';globalThis.enviar=enviarWhatsAppAPI;', ctx);

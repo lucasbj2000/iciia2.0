@@ -1,4 +1,5 @@
 /** Worker de mensajería: drena inbox y outbox con reintentos y cuarentena. */
+import { esBSUID, AVISO_SIN_NUMERO } from './whatsapp-bsuid-impar.mjs';
 import { q } from './db.mjs';
 import { ingresarMensaje, notificar } from './core.mjs';
 import * as baileys from './channels/baileys.mjs';
@@ -59,7 +60,7 @@ export async function drenarInbox() {
           extId: m.ext_id, remitente, nombre: m.nombre, texto: m.txt,
           mediaUrl: m.media_url, mediaTipo: m.media_tipo, mediaNombre: m.media_nombre,
           archivoId: m.payload?.archivoId || null, ubicacion: m.ubicacion, cita: m.payload?.cita || null, editado: m.payload?.editado || null,
-          especial: m.payload?.especial || null, anuncio: m.payload?.anuncio || null,
+          especial: m.payload?.especial || null, anuncio: m.payload?.anuncio || null, bsuid: m.payload?.bsuid || null,
           ts: m.payload?.ts || m.ts
         });
         // Respuestas a campañas del número verificado: «BAJA» y nota en el Historial.
@@ -139,6 +140,7 @@ export async function drenarOutbox() {
 
       let enviadoWA=null;
       const opcionesEnvio = o.cita ? { cita: o.cita } : {};
+      if (o.tipo === 'whatsapp_qr' && esBSUID(o.destino)) throw new Error(AVISO_SIN_NUMERO);
       if (o.tipo === 'whatsapp_qr') enviadoWA=await baileys.enviar(canal, o.destino, cuerpo, adjunto, opcionesEnvio);
       else if (o.tipo === 'whatsapp_api') enviadoWA=await meta.enviarWhatsAppAPI(canal, o.destino, cuerpo, adjunto, opcionesEnvio);
       else if (o.tipo === 'messenger' || o.tipo === 'instagram') await meta.enviarMeta(canal, o.destino, cuerpo, adjunto);

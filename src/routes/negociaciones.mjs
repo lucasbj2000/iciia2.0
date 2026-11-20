@@ -13,6 +13,7 @@ import { obtenerHistorialContacto, NOTA_REENVIO_SQL } from '../historial-contact
 // Solo administración ve los reenvíos automáticos de WhatsApp (los agentes se asustaban al ver mensajes dobles).
 const esAdmin = req => req.user?.rol === 'admin';
 import { telefonosContacto, normalizarNumero } from '../telefonos-impar.mjs';
+import { esBSUID } from '../whatsapp-bsuid-impar.mjs';
 import { estadoRutaWA, elegirRutaWA } from '../wa-identidades-impar.mjs';
 import { citaParaEnvio } from '../citas-impar.mjs';
 import { rutaDeEnvio } from '../ventana-24h-impar.mjs';
@@ -265,8 +266,10 @@ r.get('/:id/telefonos', requiere(), async(req,res)=>{
     const n=await obtenerNegociacionVisible(req,req.params.id);
     if(!n)return res.status(404).json({error:'Negociación no encontrada.'});
     const telefonos=await telefonosContacto({query:q},req.empresaId,n.contacto_id);
+    const {rows:ex}=await q('SELECT externos FROM contactos WHERE id=$1 AND empresa_id=$2',[n.contacto_id,req.empresaId]);
+    const usuarioWA=!telefonos.length && [ex[0]?.externos?.whatsapp_bsuid,ex[0]?.externos?.whatsapp].some(esBSUID);
     res.set('Cache-Control','no-store').json({
-      telefonos,destino:n.telefono_destino||n.tel||''
+      telefonos,destino:n.telefono_destino||n.tel||'',usuarioWA
     });
   }catch(e){console.error('[negociaciones] teléfonos:',e.message);
     res.status(500).json({error:'No se pudo consultar los teléfonos del cliente.'});}
@@ -548,7 +551,7 @@ async function encolarSalida(req, n, texto, adjunto, cita = null) {
     [req.empresaId, n.canal_id]);
   const canal = canales[0] || null;
   const destino = canal
-    ? (canal.tipo.startsWith('whatsapp') ? (n.telefono_destino || c.tel || c.externos?.whatsapp)
+    ? (canal.tipo.startsWith('whatsapp') ? (n.telefono_destino || c.tel || c.externos?.whatsapp || c.externos?.whatsapp_bsuid)
       : (c.externos?.[canal.tipo === 'messenger' ? 'messenger' : 'instagram'] || ''))
     : '';
   const estado = canal && destino ? 'pendiente' : 'ok';

@@ -392,7 +392,8 @@ async function cargarTelefonosChat(id){
     const nums=r.telefonos||[];
     selector.innerHTML=nums.map(t=>`<option value="${esc(t.numero)}">${esc(t.numero)} · ${esc(t.etiqueta)}</option>`).join('');
     if(!nums.length){
-      selector.innerHTML='<option value="">Sin teléfonos válidos</option>';
+      selector.innerHTML=r.usuarioWA?'<option value="">Usuario de WhatsApp · número oculto</option>':'<option value="">Sin teléfonos válidos</option>';
+      if(r.usuarioWA)selector.title='El cliente usa nombre de usuario de WhatsApp y ocultó su número. Se le responde igual por la línea verificada.';
       selector.disabled=true;return;
     }
     const actualNorm=String(r.destino||'').replace(/\D/g,'').slice(-8);

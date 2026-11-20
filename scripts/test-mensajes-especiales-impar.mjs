@@ -1,5 +1,6 @@
 // IMPAR: todo lo que llega por WhatsApp, Messenger o Instagram se ve completo y en español.
 // Las reacciones y avisos de WhatsApp quedan en la conversación sin pasarla a «Cliente espera respuesta».
+import { esBSUID, AVISO_SIN_NUMERO } from '../src/whatsapp-bsuid-impar.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -53,7 +54,7 @@ async function ingresar(especial, abierta = { id: 'n1', etapa: 'contactado', age
   const consultas = [], avisos = [];
   const contacto = { id: 'k1', nombre: 'Sam C.', tel: '595972294599', externos: { whatsapp: '595972294599' } };
   const q = async (sql, p) => { consultas.push({ sql, p }); return { rows: [], rowCount: 1 }; };
-  const fn = vm.runInNewContext(ingesta + ';ingresarMensaje', { q, Date, JSON, console,
+  const fn = vm.runInNewContext(ingesta + ';ingresarMensaje', { q, Date, JSON, console, esBSUID,
     buscarContacto: async () => contacto, negActivaDeContacto: async () => abierta,
     resolverCitaEntrante: async (_q, _e, c) => ({ ...c, id: 9, txt: 'Para la próxima semana', dir: 'out' }),
     historial: async () => {}, notificar: async (...a) => avisos.push(a), emitir: () => {}, pulsoSala: () => {}, programarBot: () => avisos.push('bot'),

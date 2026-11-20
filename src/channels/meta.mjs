@@ -2,6 +2,7 @@
  * Canales Meta: WhatsApp Cloud API, Facebook Messenger e Instagram Direct.
  * Comparten webhook, verify token y firma HMAC.
  */
+import { esBSUID, remitenteCloud } from '../whatsapp-bsuid-impar.mjs';
 import crypto from 'node:crypto';
 import { contactosDeCloud, textoContactos } from '../contactos-compartidos-impar.mjs';
 import { contenidoCloud, textoAdjuntoFallido, textoAnuncio, textoReaccion, textoAdjuntoMeta } from '../contenido-whatsapp-impar.mjs';
@@ -106,14 +107,16 @@ async function procesarWhatsAppAPI(body) {
       for(const estado of v.statuses || []){ if(estadoDeLlamada(estado))continue; await registrarEstadoCloud(canal,estado); }
       for (const m of v.messages || []) {
         if (esRespuestaPermiso(m)) continue;
-        const perfil = (v.contacts || []).find(c => c.wa_id === m.from);
+        // Clientes con @usuario: Meta puede omitir el número y mandar solo el BSUID.
+        const { remitente, bsuid, nombre } = remitenteCloud(m, v.contacts || []);
+        if (!remitente) { console.warn('[meta] mensaje sin remitente identificable'); continue; }
         const { texto, media, ubicacion, especial, citaExt } = await extraerWhatsApp(m, canal);
         if (!texto && !media && !ubicacion) continue;
         // Una reacción cita el mensaje al que reacciona; un mensaje común, el que el cliente respondió.
         const citado = citaExt || m.context?.id;
-        await guardarInbox(canal, 'whatsapp_api', m.id, m.from, perfil?.profile?.name || '', texto, {
+        await guardarInbox(canal, 'whatsapp_api', m.id, remitente, nombre, texto, {
           mediaUrl: media?.url, mediaTipo: media?.tipo, mediaNombre: media?.nombre, ubicacion,
-          payload: { ts: Number(m.timestamp) * 1000, archivoId: media?.id,
+          payload: { ts: Number(m.timestamp) * 1000, archivoId: media?.id, ...(bsuid ? { bsuid } : {}),
             ...(citado ? { cita: { ext: String(citado).slice(0, 180), txt: '', dir: 'in' } } : {}),
             ...(especial ? { especial } : {}),
             ...(m.referral ? { anuncio: textoAnuncio(m.referral) } : {}) }
@@ -310,6 +313,9 @@ export async function enviarWhatsAppAPI(canal, destino, texto, adjunto, opciones
   const prefijo = canal.config.prefijoPais || process.env.PREFIJO_PAIS || '595';
   let num = String(destino).replace(/\D/g, '');
   if (num.length <= 10 && !num.startsWith(prefijo)) num = prefijo + num.replace(/^0/, '');
+  // Cliente con @usuario sin número: se responde a su BSUID con «recipient» (nunca junto con «to»).
+  const para = esBSUID(destino) ? { recipient: String(destino).trim() } : { to: num };
+  if (!para.recipient && num.length < 8) throw new Error('El contacto no tiene un número de WhatsApp válido.');
 
   // Respuesta citada: solo el primer envío lleva el contexto del mensaje original.
   let contexto = opciones?.cita?.ext ? { context: { message_id: String(opciones.cita.ext) } } : {};
@@ -318,7 +324,7 @@ export async function enviarWhatsAppAPI(canal, destino, texto, adjunto, opciones
     const r = await fetch(`${WA_API}/${phone_number_id}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messaging_product: 'whatsapp', to: num, ...extra, ...cuerpo })
+      body: JSON.stringify({ messaging_product: 'whatsapp', ...para, ...extra, ...cuerpo })
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error?.message || 'error de WhatsApp Cloud API');

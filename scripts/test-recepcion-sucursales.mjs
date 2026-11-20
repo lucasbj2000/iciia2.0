@@ -1,4 +1,5 @@
 /** Datos ficticios: ejecuta el flujo real de recepción sin enviar mensajes. */
+import { esBSUID, AVISO_SIN_NUMERO } from '../src/whatsapp-bsuid-impar.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -168,7 +169,7 @@ async function ingresar({previo=false,responsable=null,concurrente=false,pausado
     if(sql.includes('INSERT INTO negociaciones'))return {rows:[{id:'neg'}]};
     return {rows:[],rowCount:1};
   };
-  const fn=vm.runInNewContext(ingesta+';ingresarMensaje',{q:query,Date,
+  const fn=vm.runInNewContext(ingesta+';ingresarMensaje',{q:query,Date,esBSUID,
     buscarContacto:async()=>previo?contacto:null,negActivaDeContacto:async()=>null,
     crearContacto:async()=>({contacto,creado:!concurrente}),etiquetaAnonima:()=> 'Cliente',
     responsableUltimoCierre:async()=>null,asignarEquitativo:async()=> 'reparto',
@@ -203,7 +204,7 @@ async function enviar({automatico=true,permitido=true,cambios={}}={}){
     if(sql.includes("UPDATE outbox SET estado='cancelado'"))cancelados++;
     return {rows:[]};
   };
-  const fn=vm.runInNewContext(worker+';drenarOutbox',{q:query,emitir:()=>{},console,
+  const fn=vm.runInNewContext(worker+';drenarOutbox',{q:query,emitir:()=>{},console,esBSUID,AVISO_SIN_NUMERO,
     baileys:{enviar:async()=>enviados++},meta:{}});
   await fn();return {enviados,cancelados};
 }

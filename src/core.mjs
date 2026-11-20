@@ -1,3 +1,4 @@
+import { esBSUID } from './whatsapp-bsuid-impar.mjs';
 import { q, tx, telNorm } from './db.mjs';
 import { buscarPorTelefono } from './telefonos-impar.mjs';
 import { emitir } from './realtime.mjs';
@@ -159,7 +160,14 @@ export async function negActivaPorTel(empresa, tel, excluir = null) {
 }
 
 /* ================= CONTACTOS ================= */
-export async function buscarContacto(empresa, { tel, externoTipo, externoId }) {
+export async function buscarContacto(empresa, { tel, externoTipo, externoId, bsuid }) {
+  // Cliente de WhatsApp con @usuario: su BSUID lo identifica aunque no haya número.
+  if (bsuid) {
+    const { rows } = await q(
+      `SELECT * FROM contactos WHERE empresa_id=$1 AND (externos->>'whatsapp_bsuid'=$2 OR externos->>'whatsapp'=$2)
+        ORDER BY (externos->>'whatsapp_bsuid'=$2) DESC LIMIT 1`, [empresa.id, String(bsuid)]);
+    if (rows[0]) return rows[0];
+  }
   if (externoTipo && externoId) {
     const externo = String(externoId);
     const { rows } = await q(
@@ -262,7 +270,7 @@ export async function ingresarMensaje(empresa, datos) {
 async function ingresarMensajeUnico(empresa, {
   canalId, canalSucursal, canalLinea, origen, extId, remitente, nombre, texto,
   mediaUrl, mediaTipo, mediaNombre, archivoId, ubicacion, ts, externoTipo, cita, editado,
-  especial = null, anuncio = null
+  especial = null, anuncio = null, bsuid = null
 }) {
   // Ver src/contenido-whatsapp-impar.mjs: reacciones y avisos de WhatsApp no mueven la negociación.
   if (!['reaccion', 'sistema', 'llamada', 'no_admitido'].includes(especial)) especial = null;
@@ -284,14 +292,16 @@ async function ingresarMensajeUnico(empresa, {
       .catch(e => { console.warn('[enlaces] No se pudo leer el enlace:', e.name); return null; });
     if (leido) { texto = leido.texto; enlace = leido.agente; }
   }
-  const telefonoWhatsApp = origen === 'whatsapp' && !String(remitente || '').includes('@')
+  if (origen !== 'whatsapp' || !esBSUID(bsuid)) bsuid = null;
+  const telefonoWhatsApp = origen === 'whatsapp' && !String(remitente || '').includes('@') && !esBSUID(remitente)
+    && /\d{6,}/.test(String(remitente || ''))
     ? String(remitente)
     : null;
 
   /* --- contacto --- */
   let contacto = await buscarContacto(empresa, {
     tel: telefonoWhatsApp,
-    externoTipo: externoTipo || origen, externoId: remitente
+    externoTipo: externoTipo || origen, externoId: remitente, bsuid
   });
   let reingreso = !!contacto;
   if (!contacto) {
@@ -299,17 +309,26 @@ async function ingresarMensajeUnico(empresa, {
       nombre: nombre || etiquetaAnonima(origen, remitente),
       tel: telefonoWhatsApp || '',
       sucursal: canalSucursal || null, linea: canalLinea || null,
-      externos: { [externoTipo || origen]: String(remitente) }
+      externos: { [externoTipo || origen]: String(remitente), ...(bsuid ? { whatsapp_bsuid: bsuid } : {}) }
     },{devolverCreacion:true});
     contacto=alta.contacto;
     reingreso=!alta.creado;
   } else {
     const ext = contacto.externos || {};
     const key = externoTipo || origen;
+    let cambioExt = false;
     if (!ext[key] || (origen === 'whatsapp' && String(remitente).includes('@') && ext[key] !== String(remitente))) {
-      ext[key] = String(remitente);
-      await q('UPDATE contactos SET externos=$2 WHERE id=$1', [contacto.id, JSON.stringify(ext)]);
+      ext[key] = String(remitente); cambioExt = true;
     }
+    if (bsuid && ext.whatsapp_bsuid !== bsuid) { ext.whatsapp_bsuid = bsuid; cambioExt = true; }
+    // Ficha creada solo con el @usuario: cuando llega el número, queda como teléfono principal.
+    // Si ese número ya es de otra ficha, no se fusiona nada: la conversación sigue en esta con el BSUID.
+    if (telefonoWhatsApp && !String(contacto.tel || '').replace(/\D/g, '')) {
+      const ok = await q('UPDATE contactos SET tel=$2, tel_norm=$3 WHERE id=$1', [contacto.id, telefonoWhatsApp, telNorm(telefonoWhatsApp)])
+        .then(() => true, e => { if (e?.code !== '23505') throw e; return false; });
+      if (ok) { contacto.tel = telefonoWhatsApp; if (esBSUID(ext[key])) { ext[key] = telefonoWhatsApp; cambioExt = true; } }
+    }
+    if (cambioExt) await q('UPDATE contactos SET externos=$2 WHERE id=$1', [contacto.id, JSON.stringify(ext)]);
     if (nombre && /^(WhatsApp|Messenger|Instagram|Contacto) /.test(contacto.nombre)) {
       await q('UPDATE contactos SET nombre=$2 WHERE id=$1', [contacto.id, nombre]);
       contacto.nombre = nombre;
