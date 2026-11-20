@@ -1,6 +1,7 @@
 /** IMPAR · clientes de WhatsApp con @usuario (BSUID): se reconocen y se les responde sin número. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { esBSUID, remitenteCloud } from '../src/whatsapp-bsuid-impar.mjs';
 
 assert.ok(esBSUID('PY.13491208655302741918'));
@@ -21,9 +22,15 @@ assert.equal(r.remitente, '595981000222'); assert.equal(r.bsuid, ''); assert.equ
 assert.equal(remitenteCloud({}, []).remitente, '');
 
 // Envío: al BSUID con «recipient» y sin «to»; al número con «to»
+// Se evalúa la función desde el fuente (esta etapa de CI corre sin dependencias instaladas).
 const enviados = [];
-globalThis.fetch = async (url, o) => { enviados.push(JSON.parse(o.body)); return { ok: true, json: async () => ({ messages: [{ id: 'wamid.X' }] }) }; };
-const { enviarWhatsAppAPI } = await import('../src/channels/meta.mjs');
+const meta = readFileSync(new URL('../src/channels/meta.mjs', import.meta.url), 'utf8');
+const ini = meta.indexOf('export async function enviarWhatsAppAPI('), fin = meta.indexOf('export async function enviarMeta(');
+const ctx = vm.createContext({ esBSUID, process, JSON, String, Error, WA_API: 'https://graph.test', resolverToken: () => 'token',
+  urlPublica: u => 'https://crm.test' + u,
+  fetch: async (_u, o) => { enviados.push(JSON.parse(o.body)); return { ok: true, json: async () => ({ messages: [{ id: 'wamid.X' }] }) }; } });
+vm.runInContext(meta.slice(ini, fin).replace(/^export /, '') + ';globalThis.enviarWhatsAppAPI=enviarWhatsAppAPI;', ctx);
+const { enviarWhatsAppAPI } = ctx;
 const canal = { id: 'c', tipo: 'whatsapp_api', config: { phone_number_id: '123', token: 'tok-prueba' } };
 await enviarWhatsAppAPI(canal, 'PY.13491208655302741918', 'Hola');
 assert.equal(enviados[0].recipient, 'PY.13491208655302741918'); assert.ok(!('to' in enviados[0]));
