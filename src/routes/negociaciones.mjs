@@ -381,6 +381,7 @@ r.post('/:id/mensajes', requiere(), async (req, res) => {
 
   try { await aplicarRutaDeEnvio(req, n); }
   catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); throw e; }
+  { const d = await destinoSalida(req, n); if (d.canal && !d.destino) return res.status(422).json({ error: SIN_DESTINO }); }
   if (emp.flags?.botAutoOff && n.bot_activo) {
     await q('UPDATE negociaciones SET bot_activo=FALSE WHERE id=$1 AND empresa_id=$2', [n.id, req.empresaId]);
     await historial(req.empresaId, n.id, '🤖 Bot desactivado automáticamente: respondió un agente', 'Sistema');
@@ -539,21 +540,30 @@ async function aplicarRutaDeEnvio(req, n) {
     `Pasaron más de 24 h desde el último mensaje del cliente por «${ruta.cambio.de}»: Meta no permite texto libre por la línea verificada, así que las respuestas salen por «${ruta.cambio.a}»`, 'Sistema');
 }
 
-async function encolarSalida(req, n, texto, adjunto, cita = null) {
-  // Punto único de salida: ningún envío del agente evita la regla de 24 h ni sale sin línea asignada.
-  await aplicarRutaDeEnvio(req, n);
-  const { rows: cs } = await q('SELECT * FROM contactos WHERE id=$1 AND empresa_id=$2',
-    [n.contacto_id, req.empresaId]);
-  const c = cs[0];
+const SIN_DESTINO = 'Este cliente no tiene un número ni un usuario de WhatsApp registrado, así que el mensaje no se puede enviar. Cargá su número en la ficha o esperá a que vuelva a escribir.';
+/** Línea y destinatario reales de una respuesta (misma regla que usa el envío). */
+async function destinoSalida(req, n) {
+  const { rows: cs } = await q('SELECT * FROM contactos WHERE id=$1 AND empresa_id=$2', [n.contacto_id, req.empresaId]);
+  const c = cs[0] || {};
   const { rows: canales } = await q(
     `SELECT * FROM canales WHERE empresa_id=$1 AND activo AND ($2::uuid IS NULL OR id=$2)
       ORDER BY (id=$2) DESC, ((config->>'principal_global')='true') DESC, creado ASC LIMIT 1`,
     [req.empresaId, n.canal_id]);
   const canal = canales[0] || null;
+  const valido = v => v && v !== 'undefined' ? String(v) : '';
   const destino = canal
-    ? (canal.tipo.startsWith('whatsapp') ? (n.telefono_destino || c.tel || c.externos?.whatsapp || c.externos?.whatsapp_bsuid)
+    ? (canal.tipo.startsWith('whatsapp') ? (valido(n.telefono_destino) || valido(c.tel) || valido(c.externos?.whatsapp) || valido(c.externos?.whatsapp_bsuid))
       : (c.externos?.[canal.tipo === 'messenger' ? 'messenger' : 'instagram'] || ''))
     : '';
+  return { canal, c, destino };
+}
+
+async function encolarSalida(req, n, texto, adjunto, cita = null) {
+  // Punto único de salida: ningún envío del agente evita la regla de 24 h ni sale sin línea asignada.
+  await aplicarRutaDeEnvio(req, n);
+  const { canal, destino } = await destinoSalida(req, n);
+  // Con línea asignada pero sin a quién enviar: antes quedaba como enviado sin salir nunca.
+  if (canal && !destino) throw Object.assign(new Error(SIN_DESTINO), { status: 422 });
   const estado = canal && destino ? 'pendiente' : 'ok';
 
   const { rows: mensajes } = await q(

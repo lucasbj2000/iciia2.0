@@ -49,3 +49,9 @@ assert.match(worker, /o\.tipo === 'whatsapp_qr' && esBSUID\(o\.destino\)/);
 const mig = readFileSync(new URL('../src/migrations/046_whatsapp_usuario_impar.sql', import.meta.url), 'utf8');
 assert.match(mig, /tel='undefined'/);
 console.log('✓ WhatsApp con @usuario: se reconoce por BSUID, se responde con recipient y no queda «undefined»');
+// Sin número ni usuario: la respuesta se rechaza con aviso, no queda como «enviada» sin salir.
+const rutas = readFileSync(new URL('../src/routes/negociaciones.mjs', import.meta.url), 'utf8');
+assert.match(rutas, /if \(canal && !destino\) throw Object\.assign\(new Error\(SIN_DESTINO\), \{ status: 422 \}\)/);
+assert.match(rutas, /if \(d\.canal && !d\.destino\) return res\.status\(422\)/);
+assert.match(rutas, /v !== 'undefined'/);
+console.log('✓ Respuesta sin destinatario: aviso claro en vez de mensaje que nunca sale');
